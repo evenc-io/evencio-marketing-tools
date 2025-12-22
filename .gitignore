@@ -1,0 +1,21 @@
+node_modules
+.DS_Store
+dist
+dist-ssr
+*.local
+count.txt
+.env
+.nitro
+.tanstack
+.wrangler
+.output
+.vinxi
+todos.json
+
+# Claude Code config (may contain corporate info)
+.claude/
+CLAUDE.md
+
+# Codex config/skills (may contain corporate info)
+.codex/
+AGENTS.md
