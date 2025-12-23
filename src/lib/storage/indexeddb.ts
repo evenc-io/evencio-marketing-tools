@@ -1,4 +1,12 @@
 import { type DBSchema, type IDBPDatabase, openDB } from "idb"
+import type {
+	Asset,
+	AssetCollection,
+	AssetFavorite,
+	AssetStorageRecord,
+	AssetTag,
+	AssetVersion,
+} from "@/types/asset-library"
 import type { Project, StorageMetadata } from "@/types/project"
 import { CURRENT_SCHEMA_VERSION } from "@/types/project"
 import { runMigrations } from "./migrations"
@@ -16,6 +24,48 @@ interface EvencioDBSchema extends DBSchema {
 			updatedAt: string
 			name: string
 		}
+	}
+	assets: {
+		key: string
+		value: Asset
+		indexes: {
+			type: string
+			scope: string
+		}
+	}
+	assetTags: {
+		key: string
+		value: AssetTag
+		indexes: {
+			scope: string
+		}
+	}
+	assetCollections: {
+		key: string
+		value: AssetCollection
+		indexes: {
+			scope: string
+		}
+	}
+	assetFavorites: {
+		key: string
+		value: AssetFavorite
+		indexes: {
+			userId: string
+			assetId: string
+		}
+	}
+	assetVersions: {
+		key: string
+		value: AssetVersion
+		indexes: {
+			assetId: string
+			version: number
+		}
+	}
+	assetStorage: {
+		key: string
+		value: AssetStorageRecord
 	}
 	metadata: {
 		key: string

@@ -29,6 +29,43 @@ export const migrations: Migration[] = [
 			}
 		},
 	},
+	{
+		version: 2,
+		description: "Asset library stores for registry metadata and storage",
+		migrate: (db) => {
+			if (!db.objectStoreNames.contains("assets")) {
+				const assetsStore = db.createObjectStore("assets", { keyPath: "id" })
+				assetsStore.createIndex("type", "type", { unique: false })
+				assetsStore.createIndex("scope", "scope.scope", { unique: false })
+			}
+
+			if (!db.objectStoreNames.contains("assetTags")) {
+				const tagsStore = db.createObjectStore("assetTags", { keyPath: "id" })
+				tagsStore.createIndex("scope", "scope.scope", { unique: false })
+			}
+
+			if (!db.objectStoreNames.contains("assetCollections")) {
+				const collectionsStore = db.createObjectStore("assetCollections", { keyPath: "id" })
+				collectionsStore.createIndex("scope", "scope.scope", { unique: false })
+			}
+
+			if (!db.objectStoreNames.contains("assetFavorites")) {
+				const favoritesStore = db.createObjectStore("assetFavorites", { keyPath: "id" })
+				favoritesStore.createIndex("userId", "userId", { unique: false })
+				favoritesStore.createIndex("assetId", "assetId", { unique: false })
+			}
+
+			if (!db.objectStoreNames.contains("assetVersions")) {
+				const versionsStore = db.createObjectStore("assetVersions", { keyPath: "id" })
+				versionsStore.createIndex("assetId", "assetId", { unique: false })
+				versionsStore.createIndex("version", "version", { unique: false })
+			}
+
+			if (!db.objectStoreNames.contains("assetStorage")) {
+				db.createObjectStore("assetStorage", { keyPath: "storageKey" })
+			}
+		},
+	},
 ]
 
 /**

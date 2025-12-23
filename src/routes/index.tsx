@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, Link } from "@tanstack/react-router"
 import { FolderOpen, Plus } from "lucide-react"
 import { useEffect, useState } from "react"
 import { NewProjectDialog } from "@/components/dashboard/new-project-dialog"
@@ -44,11 +44,16 @@ function DashboardPage() {
 
 			<main className="mx-auto max-w-7xl px-6 pt-24 pb-12">
 				{/* Header */}
-				<div className="mb-8">
-					<h1 className="font-lexend text-3xl font-bold tracking-tight text-neutral-900">
-						Your Projects
-					</h1>
-					<p className="mt-2 text-neutral-500">Create and manage your marketing designs</p>
+				<div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+					<div>
+						<h1 className="font-lexend text-3xl font-bold tracking-tight text-neutral-900">
+							Your Projects
+						</h1>
+						<p className="mt-2 text-neutral-500">Create and manage your marketing designs</p>
+					</div>
+					<Button variant="outline" size="sm" asChild>
+						<Link to="/library">Open Asset Library</Link>
+					</Button>
 				</div>
 
 				{/* Content */}
