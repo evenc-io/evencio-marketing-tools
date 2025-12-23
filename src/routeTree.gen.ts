@@ -9,11 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LibraryRouteImport } from './routes/library'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProjectProjectIdRouteImport } from './routes/project/$projectId'
 import { Route as ProjectProjectIdIndexRouteImport } from './routes/project/$projectId/index'
 import { Route as ProjectProjectIdSlideSlideIdRouteImport } from './routes/project/$projectId/slide/$slideId'
 
+const LibraryRoute = LibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -38,18 +44,21 @@ const ProjectProjectIdSlideSlideIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/library': typeof LibraryRoute
   '/project/$projectId': typeof ProjectProjectIdRouteWithChildren
   '/project/$projectId/': typeof ProjectProjectIdIndexRoute
   '/project/$projectId/slide/$slideId': typeof ProjectProjectIdSlideSlideIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/library': typeof LibraryRoute
   '/project/$projectId': typeof ProjectProjectIdIndexRoute
   '/project/$projectId/slide/$slideId': typeof ProjectProjectIdSlideSlideIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/library': typeof LibraryRoute
   '/project/$projectId': typeof ProjectProjectIdRouteWithChildren
   '/project/$projectId/': typeof ProjectProjectIdIndexRoute
   '/project/$projectId/slide/$slideId': typeof ProjectProjectIdSlideSlideIdRoute
@@ -58,14 +67,20 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/library'
     | '/project/$projectId'
     | '/project/$projectId/'
     | '/project/$projectId/slide/$slideId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/project/$projectId' | '/project/$projectId/slide/$slideId'
+  to:
+    | '/'
+    | '/library'
+    | '/project/$projectId'
+    | '/project/$projectId/slide/$slideId'
   id:
     | '__root__'
     | '/'
+    | '/library'
     | '/project/$projectId'
     | '/project/$projectId/'
     | '/project/$projectId/slide/$slideId'
@@ -73,11 +88,19 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  LibraryRoute: typeof LibraryRoute
   ProjectProjectIdRoute: typeof ProjectProjectIdRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/library': {
+      id: '/library'
+      path: '/library'
+      fullPath: '/library'
+      preLoaderRoute: typeof LibraryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -124,6 +147,7 @@ const ProjectProjectIdRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  LibraryRoute: LibraryRoute,
   ProjectProjectIdRoute: ProjectProjectIdRouteWithChildren,
 }
 export const routeTree = rootRouteImport
