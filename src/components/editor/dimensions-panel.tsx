@@ -19,12 +19,12 @@ const CUSTOM_LABEL = "Custom"
 
 const customDimensionsSchema = z
 	.object({
-		width: z.coerce
+		width: z
 			.number()
 			.int("Width must be a whole number")
 			.min(MIN_DIMENSION_PX, `Min ${MIN_DIMENSION_PX}px`)
 			.max(MAX_DIMENSION_PX, `Max ${MAX_DIMENSION_PX}px`),
-		height: z.coerce
+		height: z
 			.number()
 			.int("Height must be a whole number")
 			.min(MIN_DIMENSION_PX, `Min ${MIN_DIMENSION_PX}px`)
@@ -177,7 +177,7 @@ export function DimensionsPanel() {
 							step={1}
 							inputMode="numeric"
 							className="h-8 text-sm"
-							{...form.register("width")}
+							{...form.register("width", { valueAsNumber: true })}
 						/>
 						{form.formState.errors.width?.message ? (
 							<p className="text-[10px] text-red-500">{form.formState.errors.width.message}</p>
@@ -198,7 +198,7 @@ export function DimensionsPanel() {
 							step={1}
 							inputMode="numeric"
 							className="h-8 text-sm"
-							{...form.register("height")}
+							{...form.register("height", { valueAsNumber: true })}
 						/>
 						{form.formState.errors.height?.message ? (
 							<p className="text-[10px] text-red-500">{form.formState.errors.height.message}</p>

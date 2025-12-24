@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { FolderOpen, Plus } from "lucide-react"
 import { useEffect, useState } from "react"
-import { NewProjectDialog } from "@/components/dashboard/new-project-dialog"
-import { ProjectGrid } from "@/components/dashboard/project-grid"
-import { Navbar } from "@/components/layout/navbar"
-import { Button } from "@/components/ui/button"
-import { EmptyState } from "@/components/ui/empty-state"
-import { useProjectsStore } from "@/stores/projects-store"
+import { NewProjectDialog } from "../components/dashboard/new-project-dialog"
+import { ProjectGrid } from "../components/dashboard/project-grid"
+import { Navbar } from "../components/layout/navbar"
+import { Button } from "../components/ui/button"
+import { EmptyState } from "../components/ui/empty-state"
+import { useProjectsStore } from "../stores/projects-store"
 
 export const Route = createFileRoute("/")({ component: DashboardPage })
 

@@ -27,9 +27,9 @@ import {
 import { deleteSelection, groupSelection } from "@/lib/canvas/selection-actions"
 import { useEditorStore } from "@/stores/editor-store"
 
-export function Toolbar() {
+export function EditorToolbar() {
 	const canvas = useEditorStore((s) => s.canvas)
-	const selectedObject = useEditorStore((s) => s.selectedObject)
+	const selectedObjects = useEditorStore((s) => s.selectedObjects)
 	const inspectMode = useEditorStore((s) => s.inspectMode)
 	const toggleInspectMode = useEditorStore((s) => s.toggleInspectMode)
 	const previewMode = useEditorStore((s) => s.previewMode)
@@ -124,7 +124,7 @@ export function Toolbar() {
 				variant="ghost"
 				size="icon"
 				onClick={bringForward}
-				disabled={!canvas || !selectedObject}
+				disabled={!canvas || selectedObjects.length === 0}
 				className="h-8 w-8"
 				title="Bring Forward"
 			>
@@ -134,7 +134,7 @@ export function Toolbar() {
 				variant="ghost"
 				size="icon"
 				onClick={sendBackward}
-				disabled={!canvas || !selectedObject}
+				disabled={!canvas || selectedObjects.length === 0}
 				className="h-8 w-8"
 				title="Send Backward"
 			>
@@ -159,7 +159,7 @@ export function Toolbar() {
 				variant="ghost"
 				size="icon"
 				onClick={deleteSelected}
-				disabled={!canvas || !selectedObject}
+				disabled={!canvas || selectedObjects.length === 0}
 				className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
 				title="Delete"
 			>

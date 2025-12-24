@@ -161,6 +161,7 @@ export const assetSchema = z.discriminatedUnion("type", [
 		metadata: assetMetadataSchema,
 		version: z.number().int().positive(),
 		file: assetFileRefSchema,
+		hidden: z.boolean().default(false),
 	}),
 	z.object({
 		type: z.literal("svg"),
@@ -169,6 +170,7 @@ export const assetSchema = z.discriminatedUnion("type", [
 		metadata: assetMetadataSchema,
 		version: z.number().int().positive(),
 		file: assetFileRefSchema,
+		hidden: z.boolean().default(false),
 	}),
 	z.object({
 		type: z.literal("snippet"),
@@ -178,5 +180,6 @@ export const assetSchema = z.discriminatedUnion("type", [
 		version: z.number().int().positive(),
 		snippet: snippetAssetDefinitionSchema,
 		defaultProps: snippetPropsSchema,
+		hidden: z.boolean().default(false),
 	}),
 ]) satisfies z.ZodType<Asset>

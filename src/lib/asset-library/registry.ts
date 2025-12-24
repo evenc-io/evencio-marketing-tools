@@ -14,6 +14,9 @@ import type {
 	AssetTagId,
 	AssetVersion,
 	AssetVersionId,
+	EventScopeRef,
+	OrgScopeRef,
+	PersonalScopeRef,
 } from "@/types/asset-library"
 
 export interface AssetStorageAdapter {
@@ -61,20 +64,24 @@ export function createStubAssetRegistry(): AssetRegistry {
 
 	const matchesScope = (left: AssetScopeRef, right: AssetScopeRef) => {
 		if (left.scope !== right.scope) return false
-		if (left.scope === "org") {
-			return left.orgId === right.orgId
+		switch (left.scope) {
+			case "global":
+				return true
+			case "org":
+				return left.orgId === (right as OrgScopeRef).orgId
+			case "event": {
+				const r = right as EventScopeRef
+				return left.orgId === r.orgId && left.eventId === r.eventId
+			}
+			case "personal": {
+				const r = right as PersonalScopeRef
+				return (
+					left.orgId === r.orgId &&
+					left.ownerUserId === r.ownerUserId &&
+					(left.eventId ?? null) === (r.eventId ?? null)
+				)
+			}
 		}
-		if (left.scope === "event") {
-			return left.orgId === right.orgId && left.eventId === right.eventId
-		}
-		if (left.scope === "personal") {
-			return (
-				left.orgId === right.orgId &&
-				left.ownerUserId === right.ownerUserId &&
-				(left.eventId ?? null) === (right.eventId ?? null)
-			)
-		}
-		return true
 	}
 
 	const storage: AssetStorageAdapter = {
@@ -118,7 +125,8 @@ export function createStubAssetRegistry(): AssetRegistry {
 			}
 
 			if (query?.scopeRef) {
-				results = results.filter((asset) => matchesScope(asset.scope, query.scopeRef))
+				const scopeRef = query.scopeRef
+				results = results.filter((asset) => matchesScope(asset.scope, scopeRef))
 			}
 
 			if (query?.tagIds?.length) {

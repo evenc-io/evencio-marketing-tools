@@ -20,3 +20,10 @@
 - Disable time-based animations for export mode
 - Seed any randomness
 - Normalize timezone/locale during render
+
+## Implementation notes
+- Determinism defaults live in `src/lib/asset-library/render-config.ts` (`SNIPPET_RENDER_DETERMINISM`).
+- Snippet SSR + PNG helpers live in `src/lib/asset-library/snippet-renderer.ts`.
+- Render caching is keyed by asset version + props hash in `src/lib/asset-library/snippet-render-cache.ts`.
+- Server-side PNG rendering uses a Nitro route at `server/routes/api/snippets/render.post.ts` with Playwright.
+- Server HTML embeds base64 woff2 fonts (Inter, Lexend Exa, Unbounded) via `server/lib/snippet-fonts.ts`.

@@ -1,22 +1,22 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { Check, Eraser, Image, Plus, Trash2 } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { EditorCanvas } from "@/components/editor/canvas"
-import { CanvasViewport } from "@/components/editor/canvas-viewport"
-import { DimensionsPanel } from "@/components/editor/dimensions-panel"
-import { ExportPanel } from "@/components/editor/export-panel"
-import { LayersPanel } from "@/components/editor/layers-panel"
-import { Toolbar } from "@/components/editor/toolbar"
-import { ZoomControls } from "@/components/editor/zoom-controls"
-import { EditorLayout } from "@/components/layout/editor-layout"
-import { Button } from "@/components/ui/button"
-import { getUserObjects } from "@/lib/artboard"
-import { resetAutosaveState, scheduleAutosave } from "@/lib/storage"
-import { cn } from "@/lib/utils"
-import { useEditorStore } from "@/stores/editor-store"
-import { useProjectsStore } from "@/stores/projects-store"
-import type { CanvasDimensions, ContentType } from "@/types/editor"
-import { POSTER_DIMENSIONS, SOCIAL_DIMENSIONS } from "@/types/editor"
+import { EditorCanvas } from "../../../../components/editor/canvas"
+import { CanvasViewport } from "../../../../components/editor/canvas-viewport"
+import { DimensionsPanel } from "../../../../components/editor/dimensions-panel"
+import { ExportPanel } from "../../../../components/editor/export-panel"
+import { LayersPanel } from "../../../../components/editor/layers-panel"
+import { EditorToolbar } from "../../../../components/editor/toolbar"
+import { ZoomControls } from "../../../../components/editor/zoom-controls"
+import { EditorLayout } from "../../../../components/layout/editor-layout"
+import { Button } from "../../../../components/ui/button"
+import { getUserObjects } from "../../../../lib/artboard"
+import { resetAutosaveState, scheduleAutosave } from "../../../../lib/storage"
+import { cn } from "../../../../lib/utils"
+import { useEditorStore } from "../../../../stores/editor-store"
+import { useProjectsStore } from "../../../../stores/projects-store"
+import type { CanvasDimensions, ContentType } from "../../../../types/editor"
+import { POSTER_DIMENSIONS, SOCIAL_DIMENSIONS } from "../../../../types/editor"
 
 export const Route = createFileRoute("/project/$projectId/slide/$slideId")({
 	component: SlideEditorPage,
@@ -253,7 +253,7 @@ function SlideEditorPage() {
 				</div>
 				<div className="flex items-center justify-between border-t border-neutral-200 bg-white p-2">
 					<div className="w-32" />
-					<Toolbar />
+					<EditorToolbar />
 					<ZoomControls />
 				</div>
 			</div>

@@ -1,18 +1,18 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { Copy, Edit2, Image, MoreHorizontal, Plus, Trash2 } from "lucide-react"
 import { useEffect } from "react"
-import { Button } from "@/components/ui/button"
+import { Button } from "../../../components/ui/button"
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { EmptyState } from "@/components/ui/empty-state"
-import { useProjectsStore } from "@/stores/projects-store"
-import type { CanvasDimensions, ContentType } from "@/types/editor"
-import { SOCIAL_DIMENSIONS } from "@/types/editor"
+} from "../../../components/ui/dropdown-menu"
+import { EmptyState } from "../../../components/ui/empty-state"
+import { useProjectsStore } from "../../../stores/projects-store"
+import type { CanvasDimensions, ContentType } from "../../../types/editor"
+import { SOCIAL_DIMENSIONS } from "../../../types/editor"
 
 export const Route = createFileRoute("/project/$projectId/")({
 	component: ProjectOverviewPage,

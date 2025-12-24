@@ -246,7 +246,10 @@ export const serializeCanvas = (canvas: Canvas): string => {
 		}
 	}
 
-	const json = canvas.toJSON(["width", "height", "layerId", "layerName", "data"])
+	// @ts-expect-error - Fabric.js v6 types don't include legacy toJSON propertiesToInclude signature
+	const json = canvas.toJSON(["width", "height", "layerId", "layerName", "data"]) as {
+		objects: Array<Record<string, unknown>>
+	}
 	const objectMap = new Map<string, FabricObject>()
 	for (const obj of objects) {
 		collectLayerObjects(obj, objectMap)

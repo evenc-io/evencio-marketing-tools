@@ -1,17 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { AlertCircle, BarChart3, Clock, Grid2x2, List, Search, Star, Tag } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
-import { AssetCard } from "@/components/asset-library/asset-card"
-import { AssetDetailsPanel } from "@/components/asset-library/asset-details-panel"
-import { Logo } from "@/components/brand/logo"
-import { Button } from "@/components/ui/button"
-import { EmptyState } from "@/components/ui/empty-state"
-import { Input } from "@/components/ui/input"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { buildAssetSearchIndex, filterAssetSearchIndex } from "@/lib/asset-library/search-index"
-import { cn } from "@/lib/utils"
-import { useAssetLibraryStore } from "@/stores/asset-library-store"
-import type { AssetScope, AssetType } from "@/types/asset-library"
+import { AssetCard } from "../components/asset-library/asset-card"
+import { AssetDeleteDialog } from "../components/asset-library/asset-delete-dialog"
+import { AssetDetailsPanel } from "../components/asset-library/asset-details-panel"
+import { AssetImportDialog } from "../components/asset-library/asset-import-dialog"
+import { Logo } from "../components/brand/logo"
+import { Button } from "../components/ui/button"
+import { EmptyState } from "../components/ui/empty-state"
+import { Input } from "../components/ui/input"
+import { Tabs, TabsList, TabsTrigger } from "../components/ui/tabs"
+import { buildAssetSearchIndex, filterAssetSearchIndex } from "../lib/asset-library/search-index"
+import { cn } from "../lib/utils"
+import { useAssetLibraryStore } from "../stores/asset-library-store"
+import type { Asset, AssetScope, AssetType } from "../types/asset-library"
 
 export const Route = createFileRoute("/library")({
 	component: AssetLibraryPage,
@@ -40,8 +42,13 @@ function AssetLibraryPage() {
 	const favorites = useAssetLibraryStore((state) => state.favorites)
 	const isLoading = useAssetLibraryStore((state) => state.isLoading)
 	const error = useAssetLibraryStore((state) => state.error)
+	const syncLibrary = useAssetLibraryStore((state) => state.syncLibrary)
 	const loadLibrary = useAssetLibraryStore((state) => state.loadLibrary)
 	const toggleFavorite = useAssetLibraryStore((state) => state.toggleFavorite)
+	const promoteAssetScope = useAssetLibraryStore((state) => state.promoteAssetScope)
+	const hideAsset = useAssetLibraryStore((state) => state.hideAsset)
+	const unhideAsset = useAssetLibraryStore((state) => state.unhideAsset)
+	const deleteAsset = useAssetLibraryStore((state) => state.deleteAsset)
 
 	const [searchTerm, setSearchTerm] = useState("")
 	const [typeFilters, setTypeFilters] = useState<AssetType[]>([])
@@ -50,10 +57,13 @@ function AssetLibraryPage() {
 	const [viewMode, setViewMode] = useState<ViewMode>("grid")
 	const [smartView, setSmartView] = useState<SmartView>("all")
 	const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null)
+	const [showHidden, setShowHidden] = useState(false)
+	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+	const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null)
 
 	useEffect(() => {
-		loadLibrary()
-	}, [loadLibrary])
+		loadLibrary(showHidden)
+	}, [loadLibrary, showHidden])
 
 	const tagMap = useMemo(() => new Map(tags.map((tag) => [tag.id, tag])), [tags])
 	const searchEntries = useMemo(() => buildAssetSearchIndex(assets, tags), [assets, tags])
@@ -111,8 +121,8 @@ function AssetLibraryPage() {
 				types: typeFilters,
 				scopes: scopeFilters,
 				tagIds: tagFilters,
-			}),
-		[smartViewEntries, searchTerm, typeFilters, scopeFilters, tagFilters],
+			}).filter((entry) => showHidden || !entry.asset.hidden),
+		[smartViewEntries, searchTerm, typeFilters, scopeFilters, tagFilters, showHidden],
 	)
 
 	const filteredAssets = useMemo(
@@ -163,6 +173,38 @@ function AssetLibraryPage() {
 		setTagFilters([])
 	}
 
+	const handleToggleHideAsset = async (assetId: string, isHidden: boolean) => {
+		if (isHidden) {
+			await unhideAsset(assetId)
+			return
+		}
+		await hideAsset(assetId)
+	}
+
+	const handleUnhideAsset = async (assetId: string) => {
+		await unhideAsset(assetId)
+	}
+
+	const handleDeleteAsset = async () => {
+		if (!assetToDelete) return
+		await deleteAsset(assetToDelete.id)
+		setDeleteDialogOpen(false)
+		setAssetToDelete(null)
+	}
+
+	const handleDeleteDialogOpen = (assetId: string) => {
+		const asset = assets.find((a) => a.id === assetId)
+		if (asset) {
+			setAssetToDelete(asset)
+			setDeleteDialogOpen(true)
+		}
+	}
+
+	const handleDeleteDialogClose = () => {
+		setDeleteDialogOpen(false)
+		setAssetToDelete(null)
+	}
+
 	return (
 		<div className="min-h-screen bg-white">
 			<header className="fixed top-0 left-0 right-0 z-50 h-14 border-b border-neutral-200 bg-white/95 backdrop-blur-sm">
@@ -186,6 +228,7 @@ function AssetLibraryPage() {
 							</p>
 						</div>
 						<div className="flex items-center gap-2">
+							<AssetImportDialog />
 							<span className="text-xs text-neutral-500">{filteredAssets.length} assets</span>
 							<div className="flex items-center gap-1 rounded-full border border-neutral-200 bg-white p-1">
 								<button
@@ -342,6 +385,22 @@ function AssetLibraryPage() {
 									))
 								)}
 							</div>
+
+							<div className="space-y-2">
+								<p className="text-xs uppercase tracking-[0.2em] text-neutral-500">Visibility</p>
+								<label className="flex items-center gap-2 text-sm text-neutral-700">
+									<input
+										type="checkbox"
+										checked={showHidden}
+										onChange={(event) => {
+											setShowHidden(event.target.checked)
+											syncLibrary(event.target.checked)
+										}}
+										className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus-visible:ring-2 focus-visible:ring-neutral-900"
+									/>
+									<span>Show hidden assets</span>
+								</label>
+							</div>
 						</div>
 					</aside>
 
@@ -353,7 +412,12 @@ function AssetLibraryPage() {
 							>
 								<AlertCircle className="mb-2 h-6 w-6 text-red-500" />
 								<p className="text-sm text-neutral-600">Failed to load assets.</p>
-								<Button variant="outline" size="sm" className="mt-3" onClick={loadLibrary}>
+								<Button
+									variant="outline"
+									size="sm"
+									className="mt-3"
+									onClick={() => loadLibrary(showHidden)}
+								>
 									Try again
 								</Button>
 							</div>
@@ -371,7 +435,7 @@ function AssetLibraryPage() {
 								title="No assets yet"
 								description="Upload or register assets to start building your library."
 								action={
-									<Button variant="outline" size="sm" onClick={loadLibrary}>
+									<Button variant="outline" size="sm" onClick={() => loadLibrary(showHidden)}>
 										Refresh library
 									</Button>
 								}
@@ -421,8 +485,11 @@ function AssetLibraryPage() {
 											view={viewMode}
 											isSelected={asset.id === selectedAssetId}
 											isFavorite={favoriteIds.has(asset.id)}
+											isHidden={asset.hidden ?? false}
 											onSelect={setSelectedAssetId}
 											onToggleFavorite={toggleFavorite}
+											onToggleHide={handleToggleHideAsset}
+											onDelete={handleDeleteDialogOpen}
 										/>
 									))}
 								</div>
@@ -434,10 +501,20 @@ function AssetLibraryPage() {
 							asset={selectedAsset}
 							tags={tagMap}
 							isFavorite={selectedAsset ? favoriteIds.has(selectedAsset.id) : false}
+							isHidden={selectedAsset?.hidden ?? false}
 							onToggleFavorite={toggleFavorite}
+							onPromoteScope={promoteAssetScope}
+							onUnhide={handleUnhideAsset}
+							onDelete={handleDeleteDialogOpen}
 						/>
 					</aside>
 				</div>
+				<AssetDeleteDialog
+					asset={assetToDelete}
+					open={deleteDialogOpen}
+					onOpenChange={handleDeleteDialogClose}
+					onDelete={handleDeleteAsset}
+				/>
 			</main>
 		</div>
 	)

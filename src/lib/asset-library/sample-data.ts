@@ -46,7 +46,7 @@ const sampleSnippetPropsSchema = snippetPropsSchemaDefinitionSchema.parse({
 			key: "accent",
 			label: "Accent Color",
 			type: "color",
-			default: "#0044FF",
+			default: "#111111",
 		},
 	],
 })
@@ -103,7 +103,7 @@ export const SAMPLE_ASSETS = [
 		},
 		defaultProps: {
 			headline: "Evencio Launch Night",
-			accent: "#0044FF",
+			accent: "#111111",
 		},
 		metadata: {
 			title: "Launch Hero Snippet",

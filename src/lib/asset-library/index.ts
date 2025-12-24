@@ -19,3 +19,16 @@ export {
 	snippetPropsSchemaDefinitionSchema,
 } from "./schemas"
 export { createAssetLibraryService } from "./service"
+export {
+	clearSnippetRenderCache,
+	getSnippetRenderCache,
+	getSnippetRenderCacheKey,
+	setSnippetRenderCache,
+} from "./snippet-render-cache"
+export {
+	renderSnippetToHtmlDocument,
+	renderSnippetToMarkup,
+	renderSnippetToPng,
+	SnippetRenderError,
+	SnippetValidationError,
+} from "./snippet-renderer"

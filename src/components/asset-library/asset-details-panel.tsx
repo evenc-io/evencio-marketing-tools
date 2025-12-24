@@ -1,6 +1,8 @@
-import { FileCode2, Image, Shapes, Star } from "lucide-react"
+import { Eye, FileCode2, Image, Shapes, Star, Trash2 } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import type { Asset, AssetTag } from "@/types/asset-library"
+import type { Asset, AssetScope, AssetTag } from "@/types/asset-library"
 
 const typeConfig = {
 	image: { label: "Image", icon: Image },
@@ -26,15 +28,46 @@ interface AssetDetailsPanelProps {
 	asset: Asset | null
 	tags: Map<string, AssetTag>
 	isFavorite: boolean
+	isHidden: boolean
 	onToggleFavorite: (assetId: string) => void
+	onPromoteScope: (assetId: string, targetScope: AssetScope) => Promise<Asset | undefined>
+	onUnhide: (assetId: string) => void
+	onDelete: (assetId: string) => void
 }
 
 export function AssetDetailsPanel({
 	asset,
 	tags,
 	isFavorite,
+	isHidden,
 	onToggleFavorite,
+	onPromoteScope,
+	onUnhide,
+	onDelete,
 }: AssetDetailsPanelProps) {
+	const promotionOptions = useMemo(() => {
+		if (!asset) return []
+		if (asset.scope.scope === "personal") {
+			return [
+				{ value: "event" as AssetScope, label: "Event" },
+				{ value: "org" as AssetScope, label: "Organization" },
+			]
+		}
+		if (asset.scope.scope === "event") {
+			return [{ value: "org" as AssetScope, label: "Organization" }]
+		}
+		return []
+	}, [asset])
+	const [promotionTarget, setPromotionTarget] = useState<AssetScope | "">("")
+	const [promotionError, setPromotionError] = useState<string | null>(null)
+	const [isPromoting, setIsPromoting] = useState(false)
+
+	useEffect(() => {
+		setPromotionTarget(promotionOptions[0]?.value ?? "")
+		setPromotionError(null)
+		setIsPromoting(false)
+	}, [promotionOptions])
+
 	if (!asset) {
 		return (
 			<div className="rounded-lg border border-neutral-200 bg-white p-4 text-sm text-neutral-500">
@@ -47,6 +80,19 @@ export function AssetDetailsPanel({
 	const tagLabels = asset.metadata.tags
 		.map((tagId) => tags.get(tagId)?.name)
 		.filter((label): label is string => Boolean(label))
+
+	const handlePromote = async () => {
+		if (!promotionTarget || !asset) return
+		setPromotionError(null)
+		setIsPromoting(true)
+		try {
+			await onPromoteScope(asset.id, promotionTarget)
+		} catch (error) {
+			setPromotionError(error instanceof Error ? error.message : "Failed to promote asset scope")
+		} finally {
+			setIsPromoting(false)
+		}
+	}
 
 	return (
 		<div className="rounded-lg border border-neutral-200 bg-white p-4">
@@ -130,6 +176,75 @@ export function AssetDetailsPanel({
 						</div>
 					)}
 				</div>
+			</div>
+
+			{isHidden && (
+				<div className="mt-4 flex items-center gap-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">
+					<Eye className="h-4 w-4" />
+					<span>This asset is hidden.</span>
+				</div>
+			)}
+
+			{!isHidden && promotionOptions.length > 0 && (
+				<div className="mt-6 border-t border-neutral-200 pt-4">
+					<p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
+						Promote scope
+					</p>
+					<div className="mt-2 flex flex-wrap items-center gap-2">
+						<select
+							value={promotionTarget}
+							onChange={(event) => setPromotionTarget(event.target.value as AssetScope)}
+							className="h-8 min-w-[160px] rounded-md border border-neutral-200 bg-white px-2 text-sm text-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900"
+						>
+							{promotionOptions.map((option) => (
+								<option key={option.value} value={option.value}>
+									{option.label}
+								</option>
+							))}
+						</select>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							disabled={!promotionTarget || isPromoting}
+							onClick={handlePromote}
+						>
+							{isPromoting ? "Promoting..." : "Promote"}
+						</Button>
+					</div>
+					<p className="mt-2 text-xs text-neutral-500">
+						Promotions move assets upward so they can be reused in broader scopes.
+					</p>
+					{promotionError && (
+						<p className="mt-2 text-xs text-red-500" role="alert">
+							{promotionError}
+						</p>
+					)}
+				</div>
+			)}
+
+			<div className="mt-6 flex flex-wrap gap-2">
+				{isHidden && (
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						onClick={() => asset && onUnhide(asset.id)}
+					>
+						Show asset
+					</Button>
+				)}
+				{!isHidden && (
+					<Button
+						type="button"
+						variant="destructive"
+						size="sm"
+						onClick={() => asset && onDelete(asset.id)}
+					>
+						<Trash2 className="h-4 w-4" />
+						Delete asset
+					</Button>
+				)}
 			</div>
 		</div>
 	)

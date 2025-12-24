@@ -1,11 +1,11 @@
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
 import { useEffect, useRef } from "react"
-import { Navbar } from "@/components/layout/navbar"
-import { downloadBlob, exportCanvas, getFilename } from "@/lib/export"
-import { flushAutosave, generateThumbnail } from "@/lib/storage"
-import { useEditorStore } from "@/stores/editor-store"
-import { useProjectsStore } from "@/stores/projects-store"
-import { useViewportStore } from "@/stores/viewport-store"
+import { Navbar } from "../../components/layout/navbar"
+import { downloadBlob, exportCanvas, getFilename } from "../../lib/export"
+import { flushAutosave, generateThumbnail } from "../../lib/storage"
+import { useEditorStore } from "../../stores/editor-store"
+import { useProjectsStore } from "../../stores/projects-store"
+import { useViewportStore } from "../../stores/viewport-store"
 
 export const Route = createFileRoute("/project/$projectId")({
 	component: ProjectLayout,

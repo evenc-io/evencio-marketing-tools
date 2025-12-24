@@ -145,6 +145,7 @@ export interface AssetBase {
 	scope: AssetScopeRef
 	metadata: AssetMetadata
 	version: number
+	hidden: boolean
 }
 
 export interface ImageAsset extends AssetBase {

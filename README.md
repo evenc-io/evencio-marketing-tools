@@ -91,6 +91,16 @@ src/
 | `bun run format` | Format code with Biome |
 | `bun run test` | Run tests |
 
+## Snippet Rendering Fonts
+
+Server-side snippet PNG rendering embeds font data to keep exports deterministic. To refresh the embedded fonts:
+
+```bash
+node scripts/generate-snippet-fonts.mjs
+```
+
+This script updates `server/lib/snippet-fonts.ts` and caches downloaded woff2 files in `server/assets/fonts`.
+
 ## Contributing
 
 We welcome contributions! Please see our [Contributing Guide](.github/CONTRIBUTING.md) for details.

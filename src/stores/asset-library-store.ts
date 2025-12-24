@@ -9,10 +9,19 @@ import {
 } from "@/lib/asset-library"
 import type {
 	Asset,
+	AssetAttribution,
 	AssetCollection,
 	AssetFavorite,
+	AssetLicense,
+	AssetScope,
+	AssetScopeRef,
 	AssetTag,
+	AssetType,
 	AssetVersion,
+	SnippetAssetDefinition,
+	SnippetProps,
+	SnippetPropsSchemaDefinition,
+	SnippetRuntime,
 } from "@/types/asset-library"
 
 const DEMO_ACCESS_CONTEXT = {
@@ -26,6 +35,128 @@ const service = createAssetLibraryService(registry, {
 	accessContext: DEMO_ACCESS_CONTEXT,
 	scopedAccessEnabled: true,
 })
+
+const normalizeUrl = (value?: string | null) => {
+	if (!value) return null
+	const trimmed = value.trim()
+	return trimmed.length > 0 ? trimmed : null
+}
+
+const normalizeAttribution = (input?: AssetAttribution | null): AssetAttribution | null => {
+	if (!input) return null
+	const text = input.text.trim()
+	if (!text) return null
+	return {
+		text,
+		url: normalizeUrl(input.url),
+	}
+}
+
+const slugify = (value: string) =>
+	value
+		.toLowerCase()
+		.trim()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/(^-|-$)/g, "")
+
+const resolveScopeRef = (scope: AssetScope): AssetScopeRef => {
+	if (scope === "org") {
+		if (!DEMO_ACCESS_CONTEXT.orgId) {
+			throw new Error("Organization context is required for org assets")
+		}
+		return { scope: "org", orgId: DEMO_ACCESS_CONTEXT.orgId }
+	}
+	if (scope === "event") {
+		if (!DEMO_ACCESS_CONTEXT.orgId || !DEMO_ACCESS_CONTEXT.eventId) {
+			throw new Error("Event context is required for event assets")
+		}
+		return {
+			scope: "event",
+			orgId: DEMO_ACCESS_CONTEXT.orgId,
+			eventId: DEMO_ACCESS_CONTEXT.eventId,
+		}
+	}
+	if (!DEMO_ACCESS_CONTEXT.orgId || !DEMO_ACCESS_CONTEXT.userId) {
+		throw new Error("User context is required for personal assets")
+	}
+	return {
+		scope: "personal",
+		orgId: DEMO_ACCESS_CONTEXT.orgId,
+		ownerUserId: DEMO_ACCESS_CONTEXT.userId,
+		eventId: DEMO_ACCESS_CONTEXT.eventId ?? null,
+	}
+}
+
+const resolvePromotionScope = (current: AssetScopeRef, target: AssetScope): AssetScopeRef => {
+	if (current.scope === target) return current
+
+	if (current.scope === "personal") {
+		if (target === "event") {
+			const eventId = current.eventId ?? DEMO_ACCESS_CONTEXT.eventId
+			if (!eventId) {
+				throw new Error("Event context is required to promote to event scope")
+			}
+			return { scope: "event", orgId: current.orgId, eventId }
+		}
+		if (target === "org") {
+			return { scope: "org", orgId: current.orgId }
+		}
+	}
+
+	if (current.scope === "event" && target === "org") {
+		return { scope: "org", orgId: current.orgId }
+	}
+
+	throw new Error("Scope promotion is only supported from personal -> event/org or event -> org")
+}
+
+const toAssetStorageObject = async (file: File) => {
+	const buffer = await file.arrayBuffer()
+	const bytes = new Uint8Array(buffer)
+	const inferredType =
+		file.type ||
+		(file.name.toLowerCase().endsWith(".svg") ? "image/svg+xml" : "application/octet-stream")
+	return { bytes, contentType: inferredType }
+}
+
+const ensureTagIds = async (tagNames: string[], scope: AssetScopeRef) => {
+	const cleaned = Array.from(new Set(tagNames.map((tag) => tag.trim()).filter(Boolean)))
+	if (cleaned.length === 0) {
+		throw new Error("At least one tag is required")
+	}
+
+	const existingTags = await service.listTags(scope)
+	const tagIds: string[] = []
+
+	for (const name of cleaned) {
+		const slug = slugify(name)
+		const existing = existingTags.find((tag) => tag.slug === slug)
+		if (existing) {
+			tagIds.push(existing.id)
+			continue
+		}
+		const created = await service.createTag({ name, slug, scope })
+		existingTags.push(created)
+		tagIds.push(created.id)
+	}
+
+	return tagIds
+}
+
+const resolvePromotedTagIds = async (tagIds: string[], targetScope: AssetScopeRef) => {
+	if (tagIds.length === 0) return []
+
+	const tags = await service.listTags()
+	const nameById = new Map(tags.map((tag) => [tag.id, tag.name]))
+	const missing = tagIds.filter((id) => !nameById.has(id))
+	if (missing.length > 0) {
+		throw new Error(`Missing tag metadata for promotion: ${missing.join(", ")}`)
+	}
+
+	const names = tagIds.map((id) => nameById.get(id)).filter((name): name is string => Boolean(name))
+
+	return ensureTagIds(names, targetScope)
+}
 
 async function seedAssetLibraryIfEmpty() {
 	const existingAssets = await registry.metadata.listAssets()
@@ -53,13 +184,21 @@ interface AssetLibraryState {
 	tags: AssetTag[]
 	collections: AssetCollection[]
 	favorites: AssetFavorite[]
+	includeHidden: boolean
 	isLoading: boolean
 	error: string | null
 }
 
 interface AssetLibraryActions {
-	loadLibrary: () => Promise<void>
+	syncLibrary: (includeHidden?: boolean) => Promise<void>
+	loadLibrary: (includeHidden?: boolean) => Promise<void>
 	toggleFavorite: (assetId: string) => Promise<void>
+	createAssetFromUpload: (input: AssetUploadInput) => Promise<Asset>
+	registerSnippetAsset: (input: SnippetRegistrationInput) => Promise<Asset>
+	promoteAssetScope: (assetId: string, targetScope: AssetScope) => Promise<Asset>
+	hideAsset: (assetId: string) => Promise<void>
+	unhideAsset: (assetId: string) => Promise<void>
+	deleteAsset: (assetId: string) => Promise<void>
 	clearError: () => void
 }
 
@@ -68,24 +207,68 @@ const initialState: AssetLibraryState = {
 	tags: [],
 	collections: [],
 	favorites: [],
+	includeHidden: false,
 	isLoading: false,
 	error: null,
+}
+
+interface AssetUploadInput {
+	type: Extract<AssetType, "image" | "svg">
+	file: File
+	scope: AssetScope
+	title: string
+	description?: string | null
+	tagNames: string[]
+	license: AssetLicense
+	attribution?: AssetAttribution | null
+}
+
+interface SnippetRegistrationInput {
+	entry: string
+	runtime: SnippetRuntime
+	propsSchema: SnippetPropsSchemaDefinition
+	defaultProps: SnippetProps
+	scope: AssetScope
+	title: string
+	description?: string | null
+	tagNames: string[]
+	license: AssetLicense
+	attribution?: AssetAttribution | null
 }
 
 export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActions>((set, get) => ({
 	...initialState,
 
-	loadLibrary: async () => {
-		set({ isLoading: true, error: null })
+	syncLibrary: async (includeHidden) => {
+		const resolvedIncludeHidden = includeHidden ?? get().includeHidden
+		const [assets, tags, collections, favorites] = await Promise.all([
+			service.listAssets({ includeHidden: resolvedIncludeHidden }),
+			service.listTags(),
+			service.listCollections(),
+			service.listFavorites(),
+		])
+		set({ assets, tags, collections, favorites, includeHidden: resolvedIncludeHidden })
+	},
+
+	loadLibrary: async (includeHidden) => {
+		const resolvedIncludeHidden = includeHidden ?? get().includeHidden
+		set({ isLoading: true, error: null, includeHidden: resolvedIncludeHidden })
 		try {
 			await seedAssetLibraryIfEmpty()
 			const [assets, tags, collections, favorites] = await Promise.all([
-				service.listAssets(),
+				service.listAssets({ includeHidden: resolvedIncludeHidden }),
 				service.listTags(),
 				service.listCollections(),
 				service.listFavorites(),
 			])
-			set({ assets, tags, collections, favorites, isLoading: false })
+			set({
+				assets,
+				tags,
+				collections,
+				favorites,
+				isLoading: false,
+				includeHidden: resolvedIncludeHidden,
+			})
 		} catch (error) {
 			set({
 				error: error instanceof Error ? error.message : "Failed to load asset library",
@@ -112,5 +295,131 @@ export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActio
 		}
 	},
 
+	createAssetFromUpload: async (input) => {
+		const scopeRef = resolveScopeRef(input.scope)
+		const tagIds = await ensureTagIds(input.tagNames, scopeRef)
+		const metadata = {
+			title: input.title,
+			description: input.description ?? null,
+			tags: tagIds,
+			license: {
+				...input.license,
+				url: normalizeUrl(input.license.url),
+			},
+			attribution: normalizeAttribution(input.attribution),
+		}
+
+		const file = await toAssetStorageObject(input.file)
+		const asset = await service.createAsset(
+			{
+				type: input.type,
+				scope: scopeRef,
+				metadata,
+				file,
+			},
+			"Imported asset",
+		)
+
+		const { syncLibrary } = get()
+		if (syncLibrary) {
+			await syncLibrary()
+		}
+
+		return asset
+	},
+
+	registerSnippetAsset: async (input) => {
+		const scopeRef = resolveScopeRef(input.scope)
+		const tagIds = await ensureTagIds(input.tagNames, scopeRef)
+		const metadata = {
+			title: input.title,
+			description: input.description ?? null,
+			tags: tagIds,
+			license: {
+				...input.license,
+				url: normalizeUrl(input.license.url),
+			},
+			attribution: normalizeAttribution(input.attribution),
+		}
+
+		const snippet: SnippetAssetDefinition = {
+			entry: input.entry,
+			runtime: input.runtime,
+			propsSchema: input.propsSchema,
+		}
+
+		const asset = await service.createAsset(
+			{
+				type: "snippet",
+				scope: scopeRef,
+				metadata,
+				snippet,
+				defaultProps: input.defaultProps,
+			},
+			"Registered snippet",
+		)
+
+		const { syncLibrary } = get()
+		if (syncLibrary) {
+			await syncLibrary()
+		}
+
+		return asset
+	},
+
+	promoteAssetScope: async (assetId, targetScope) => {
+		const { assets, syncLibrary } = get()
+		const existing = assets.find((asset) => asset.id === assetId)
+		if (!existing) {
+			throw new Error("Asset not found")
+		}
+
+		const nextScope = resolvePromotionScope(existing.scope, targetScope)
+		const promotedTagIds = await resolvePromotedTagIds(existing.metadata.tags, nextScope)
+		const updated = await service.updateAsset(assetId, {
+			scope: nextScope,
+			metadata: {
+				tags: promotedTagIds,
+			},
+			changelog: `Promoted to ${targetScope}`,
+		})
+
+		set({
+			assets: assets.map((asset) => (asset.id === assetId ? updated : asset)),
+		})
+
+		if (syncLibrary) {
+			await syncLibrary()
+		}
+
+		return updated
+	},
+
 	clearError: () => set({ error: null }),
+
+	hideAsset: async (assetId) => {
+		await service.hideAsset(assetId)
+		const { syncLibrary } = get()
+		if (syncLibrary) {
+			await syncLibrary()
+		}
+	},
+
+	unhideAsset: async (assetId) => {
+		await service.unhideAsset(assetId)
+		const { syncLibrary } = get()
+		if (syncLibrary) {
+			await syncLibrary()
+		}
+	},
+
+	deleteAsset: async (assetId) => {
+		await service.deleteAsset(assetId)
+		const { syncLibrary, assets } = get()
+		const nextAssets = assets.filter((asset) => asset.id !== assetId)
+		set({ assets: nextAssets })
+		if (syncLibrary) {
+			await syncLibrary()
+		}
+	},
 }))

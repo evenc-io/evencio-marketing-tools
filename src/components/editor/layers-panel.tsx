@@ -53,7 +53,11 @@ export function LayersPanel() {
 	const markCanvasModified = useCallback(
 		(target?: FabricObject) => {
 			if (!canvas) return
-			canvas.fire("object:modified", { target })
+			if (target) {
+				canvas.fire("object:modified", { target })
+			} else {
+				canvas.fire("object:modified")
+			}
 		},
 		[canvas],
 	)

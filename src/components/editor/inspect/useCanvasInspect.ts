@@ -219,8 +219,8 @@ function getObjectInfo(
 
 	return {
 		object,
-		layerId: getLayerId(object),
-		layerName: getLayerName(object),
+		layerId: getLayerId(object) ?? null,
+		layerName: getLayerName(object) ?? null,
 		width: Math.round(designWidth),
 		height: Math.round(designHeight),
 		distanceTop: Math.round(designTop),
@@ -363,7 +363,7 @@ export function useCanvasInspect({
 		}
 
 		const handleMouseMove = (opt: {
-			e: MouseEvent
+			e: MouseEvent | TouchEvent
 			absolutePointer?: { x: number; y: number }
 		}) => {
 			// Use Fabric.js's already-converted pointer coordinates
