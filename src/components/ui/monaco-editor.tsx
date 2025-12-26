@@ -1,6 +1,6 @@
 "use client"
 
-import Editor, { loader } from "@monaco-editor/react"
+import { Editor, loader } from "@monaco-editor/react"
 
 import { cn } from "@/lib/utils"
 
