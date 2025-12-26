@@ -44,32 +44,40 @@ function StoragePage() {
 		async function loadData() {
 			if (!available) return
 
-			const [estimate, projects, privateBrowsing] = await Promise.all([
-				getStorageEstimate(),
-				listProjects(),
-				isPrivateBrowsing(),
-			])
+			try {
+				const [estimate, projects, privateBrowsing] = await Promise.all([
+					getStorageEstimate(),
+					listProjects(),
+					isPrivateBrowsing(),
+				])
 
-			let resolvedEstimate = estimate
-			let status: "ready" | "unavailable" = estimate ? "ready" : "unavailable"
+				let resolvedEstimate = estimate
+				let status: "ready" | "unavailable" = estimate ? "ready" : "unavailable"
 
-			if (estimate && estimate.used === 0 && projects.length > 0) {
-				await new Promise((resolve) => setTimeout(resolve, 150))
-				const retryEstimate = await getStorageEstimate()
-				if (retryEstimate && retryEstimate.used > 0) {
-					resolvedEstimate = retryEstimate
-					status = "ready"
-				} else {
-					resolvedEstimate = null
-					status = "unavailable"
+				if (estimate && estimate.used === 0 && projects.length > 0) {
+					await new Promise((resolve) => setTimeout(resolve, 150))
+					const retryEstimate = await getStorageEstimate()
+					if (retryEstimate && retryEstimate.used > 0) {
+						resolvedEstimate = retryEstimate
+						status = "ready"
+					} else {
+						resolvedEstimate = null
+						status = "unavailable"
+					}
 				}
-			}
 
-			if (!isActive) return
-			setStorage(resolvedEstimate)
-			setStorageStatus(status)
-			setProjectCount(projects.length)
-			setIsPersistenceLimited(privateBrowsing)
+				if (!isActive) return
+				setStorage(resolvedEstimate)
+				setStorageStatus(status)
+				setProjectCount(projects.length)
+				setIsPersistenceLimited(privateBrowsing)
+			} catch {
+				if (!isActive) return
+				setIsStorageAvailable(false)
+				setStorageStatus("unavailable")
+				setProjectCount(0)
+				setIsPersistenceLimited(false)
+			}
 		}
 
 		loadData()
