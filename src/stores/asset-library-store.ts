@@ -195,6 +195,8 @@ interface AssetLibraryActions {
 	toggleFavorite: (assetId: string) => Promise<void>
 	createAssetFromUpload: (input: AssetUploadInput) => Promise<Asset>
 	registerSnippetAsset: (input: SnippetRegistrationInput) => Promise<Asset>
+	registerCustomSnippetAsset: (input: CustomSnippetRegistrationInput) => Promise<Asset>
+	updateSnippetSource: (assetId: string, source: string) => Promise<Asset>
 	promoteAssetScope: (assetId: string, targetScope: AssetScope) => Promise<Asset>
 	hideAsset: (assetId: string) => Promise<void>
 	unhideAsset: (assetId: string) => Promise<void>
@@ -234,6 +236,10 @@ interface SnippetRegistrationInput {
 	tagNames: string[]
 	license: AssetLicense
 	attribution?: AssetAttribution | null
+}
+
+interface CustomSnippetRegistrationInput extends SnippetRegistrationInput {
+	source: string
 }
 
 export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActions>((set, get) => ({
@@ -365,6 +371,75 @@ export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActio
 		}
 
 		return asset
+	},
+
+	registerCustomSnippetAsset: async (input) => {
+		const scopeRef = resolveScopeRef(input.scope)
+		const tagIds = await ensureTagIds(input.tagNames, scopeRef)
+		const metadata = {
+			title: input.title,
+			description: input.description ?? null,
+			tags: tagIds,
+			license: {
+				...input.license,
+				url: normalizeUrl(input.license.url),
+			},
+			attribution: normalizeAttribution(input.attribution),
+		}
+
+		const snippet: SnippetAssetDefinition = {
+			entry: input.entry,
+			runtime: input.runtime,
+			propsSchema: input.propsSchema,
+			source: input.source,
+		}
+
+		const asset = await service.createAsset(
+			{
+				type: "snippet",
+				scope: scopeRef,
+				metadata,
+				snippet,
+				defaultProps: input.defaultProps,
+			},
+			"Created custom snippet",
+		)
+
+		const { syncLibrary } = get()
+		if (syncLibrary) {
+			await syncLibrary()
+		}
+
+		return asset
+	},
+
+	updateSnippetSource: async (assetId, source) => {
+		const { assets, syncLibrary } = get()
+		const existing = assets.find((asset) => asset.id === assetId)
+		if (!existing) {
+			throw new Error("Asset not found")
+		}
+		if (existing.type !== "snippet") {
+			throw new Error("Asset is not a snippet")
+		}
+
+		const updated = await service.updateAsset(assetId, {
+			snippet: {
+				...existing.snippet,
+				source,
+			},
+			changelog: "Updated snippet source",
+		})
+
+		set({
+			assets: assets.map((asset) => (asset.id === assetId ? updated : asset)),
+		})
+
+		if (syncLibrary) {
+			await syncLibrary()
+		}
+
+		return updated
 	},
 
 	promoteAssetScope: async (assetId, targetScope) => {

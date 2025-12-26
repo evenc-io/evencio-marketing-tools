@@ -148,8 +148,9 @@ export const snippetPropsSchema = z.record(
 export const snippetAssetDefinitionSchema = z
 	.object({
 		entry: z.string().min(1),
-		runtime: z.enum(["react", "html"]),
+		runtime: z.literal("react"),
 		propsSchema: snippetPropsSchemaDefinitionSchema,
+		source: z.string().optional(),
 	})
 	.strict() satisfies z.ZodType<SnippetAssetDefinition>
 

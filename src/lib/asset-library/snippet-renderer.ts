@@ -114,12 +114,8 @@ export async function renderSnippetToMarkup(
 
 	const innerHtml = await withNetworkDisabled(async () =>
 		withDeterministicEnv(determinism, () => {
-			if (entry.runtime === "react" && entry.Component) {
+			if (entry.Component) {
 				return renderToStaticMarkup(createElement(entry.Component, resolvedProps))
-			}
-
-			if (entry.runtime === "html" && entry.renderHtml) {
-				return entry.renderHtml(resolvedProps)
 			}
 
 			throw new SnippetRenderError(

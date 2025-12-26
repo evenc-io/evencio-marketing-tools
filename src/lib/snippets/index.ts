@@ -5,7 +5,6 @@ import LaunchHero from "./launch-hero"
 export interface SnippetRegistryEntry {
 	runtime: SnippetRuntime
 	Component?: ComponentType<SnippetProps>
-	renderHtml?: (props: SnippetProps) => string
 }
 
 const registry: Record<string, SnippetRegistryEntry> = {

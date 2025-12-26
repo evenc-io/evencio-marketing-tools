@@ -6,7 +6,7 @@ export type AssetVersionId = string
 
 export type AssetScope = "global" | "org" | "event" | "personal"
 export type AssetType = "image" | "svg" | "snippet"
-export type SnippetRuntime = "react" | "html"
+export type SnippetRuntime = "react"
 
 export interface GlobalScopeRef {
 	scope: "global"
@@ -137,6 +137,8 @@ export interface SnippetAssetDefinition {
 	entry: string
 	runtime: SnippetRuntime
 	propsSchema: SnippetPropsSchemaDefinition
+	/** Single inline source for custom snippets */
+	source?: string
 }
 
 export interface AssetBase {
