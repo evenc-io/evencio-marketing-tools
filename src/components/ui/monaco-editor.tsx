@@ -1,6 +1,8 @@
 "use client"
 
-import { Editor, loader } from "@monaco-editor/react"
+import { Editor, loader, type Monaco } from "@monaco-editor/react"
+import type { editor } from "monaco-editor"
+import { useEffect, useRef } from "react"
 
 import { cn } from "@/lib/utils"
 
@@ -17,6 +19,16 @@ if (typeof window !== "undefined") {
 
 type MonacoLanguage = "typescript" | "javascript" | "json" | "css" | "html"
 
+/** External marker to display in the editor gutter */
+interface MonacoMarker {
+	message: string
+	severity: "error" | "warning" | "info"
+	startLine: number
+	startColumn: number
+	endLine: number
+	endColumn: number
+}
+
 interface MonacoEditorProps {
 	value: string
 	onChange?: (value: string) => void
@@ -25,6 +37,12 @@ interface MonacoEditorProps {
 	height?: string | number
 	className?: string
 	placeholder?: string
+	/** Callback when editor mounts, provides editor instance and monaco namespace */
+	onMount?: (editor: editor.IStandaloneCodeEditor, monaco: Monaco) => void
+	/** External markers to display (e.g., compile errors) */
+	markers?: MonacoMarker[]
+	/** Unique owner ID for markers (default: "external") */
+	markerOwner?: string
 }
 
 function MonacoEditor({
@@ -35,12 +53,71 @@ function MonacoEditor({
 	height = 300,
 	className,
 	placeholder,
+	onMount: onMountProp,
+	markers,
+	markerOwner = "external",
 }: MonacoEditorProps) {
+	const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
+	const monacoRef = useRef<Monaco | null>(null)
+
 	const handleChange = (newValue?: string) => {
 		if (onChange && newValue !== undefined) {
 			onChange(newValue)
 		}
 	}
+
+	const handleMount = (mountedEditor: editor.IStandaloneCodeEditor, monaco: Monaco) => {
+		editorRef.current = mountedEditor
+		monacoRef.current = monaco
+		onMountProp?.(mountedEditor, monaco)
+	}
+
+	// Apply external markers when they change
+	useEffect(() => {
+		const editor = editorRef.current
+		const monaco = monacoRef.current
+		if (!editor || !monaco) return
+
+		const model = editor.getModel()
+		if (!model) return
+
+		if (!markers || markers.length === 0) {
+			// Clear markers
+			monaco.editor.setModelMarkers(model, markerOwner, [])
+			return
+		}
+
+		// Convert our markers to Monaco markers
+		const monacoMarkers: editor.IMarkerData[] = markers.map((m) => ({
+			severity:
+				m.severity === "error"
+					? monaco.MarkerSeverity.Error
+					: m.severity === "warning"
+						? monaco.MarkerSeverity.Warning
+						: monaco.MarkerSeverity.Info,
+			message: m.message,
+			startLineNumber: m.startLine,
+			startColumn: m.startColumn,
+			endLineNumber: m.endLine,
+			endColumn: m.endColumn,
+		}))
+
+		monaco.editor.setModelMarkers(model, markerOwner, monacoMarkers)
+	}, [markers, markerOwner])
+
+	// Clear markers on unmount
+	useEffect(() => {
+		return () => {
+			const editor = editorRef.current
+			const monaco = monacoRef.current
+			if (editor && monaco) {
+				const model = editor.getModel()
+				if (model) {
+					monaco.editor.setModelMarkers(model, markerOwner, [])
+				}
+			}
+		}
+	}, [markerOwner])
 
 	return (
 		<div
@@ -56,6 +133,7 @@ function MonacoEditor({
 				language={language}
 				value={value}
 				onChange={handleChange}
+				onMount={handleMount}
 				options={{
 					readOnly,
 					minimap: { enabled: false },
@@ -118,4 +196,4 @@ function MonacoEditor({
 	)
 }
 
-export { MonacoEditor, type MonacoEditorProps, type MonacoLanguage }
+export { MonacoEditor, type MonacoEditorProps, type MonacoLanguage, type MonacoMarker }

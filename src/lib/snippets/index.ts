@@ -2,6 +2,17 @@ import type { ComponentType } from "react"
 import type { SnippetProps, SnippetRuntime } from "@/types/asset-library"
 import LaunchHero from "./launch-hero"
 
+// Re-export compiler, preview runtime, and hook
+export * from "./compiler"
+export * from "./preview-runtime"
+export { deriveSnippetPropsFromSource } from "./source-derived"
+export {
+	type CompileStatus,
+	type UseSnippetCompilerOptions,
+	type UseSnippetCompilerResult,
+	useSnippetCompiler,
+} from "./useSnippetCompiler"
+
 export interface SnippetRegistryEntry {
 	runtime: SnippetRuntime
 	Component?: ComponentType<SnippetProps>

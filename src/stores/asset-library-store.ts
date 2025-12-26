@@ -7,6 +7,7 @@ import {
 	SAMPLE_COLLECTION,
 	SAMPLE_TAG,
 } from "@/lib/asset-library"
+import { deriveSnippetPropsFromSource } from "@/lib/snippets"
 import type {
 	Asset,
 	AssetAttribution,
@@ -376,6 +377,12 @@ export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActio
 	registerCustomSnippetAsset: async (input) => {
 		const scopeRef = resolveScopeRef(input.scope)
 		const tagIds = await ensureTagIds(input.tagNames, scopeRef)
+		let derived: { propsSchema: SnippetPropsSchemaDefinition; defaultProps: SnippetProps }
+		try {
+			derived = await deriveSnippetPropsFromSource(input.source)
+		} catch {
+			throw new Error("Snippet source must be valid TSX before saving")
+		}
 		const metadata = {
 			title: input.title,
 			description: input.description ?? null,
@@ -390,7 +397,7 @@ export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActio
 		const snippet: SnippetAssetDefinition = {
 			entry: input.entry,
 			runtime: input.runtime,
-			propsSchema: input.propsSchema,
+			propsSchema: derived.propsSchema,
 			source: input.source,
 		}
 
@@ -400,7 +407,7 @@ export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActio
 				scope: scopeRef,
 				metadata,
 				snippet,
-				defaultProps: input.defaultProps,
+				defaultProps: derived.defaultProps,
 			},
 			"Created custom snippet",
 		)
@@ -423,11 +430,20 @@ export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActio
 			throw new Error("Asset is not a snippet")
 		}
 
+		let derived: { propsSchema: SnippetPropsSchemaDefinition; defaultProps: SnippetProps }
+		try {
+			derived = await deriveSnippetPropsFromSource(source)
+		} catch {
+			throw new Error("Snippet source must be valid TSX before saving")
+		}
+
 		const updated = await service.updateAsset(assetId, {
 			snippet: {
 				...existing.snippet,
 				source,
+				propsSchema: derived.propsSchema,
 			},
+			defaultProps: derived.defaultProps,
 			changelog: "Updated snippet source",
 		})
 

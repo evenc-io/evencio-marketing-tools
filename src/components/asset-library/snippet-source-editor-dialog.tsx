@@ -1,4 +1,4 @@
-import { AlertCircle } from "lucide-react"
+import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
@@ -9,6 +9,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog"
 import { MonacoEditor } from "@/components/ui/monaco-editor"
+import { useSnippetCompiler } from "@/lib/snippets"
 import type { SnippetAsset } from "@/types/asset-library"
 
 interface SnippetSyntaxValidationResult {
@@ -68,6 +69,17 @@ export function SnippetSourceEditorDialog({
 	const [isSaving, setIsSaving] = useState(false)
 	const [saveError, setSaveError] = useState<string | null>(null)
 
+	// Compile for Monaco markers (no preview in dialog)
+	const {
+		status: compileStatus,
+		monacoMarkers,
+		errors: compileErrors,
+	} = useSnippetCompiler({
+		source,
+		defaultProps: asset?.defaultProps,
+		debounceMs: 500,
+	})
+
 	// Reset source when dialog opens with new asset
 	const handleOpenChange = (nextOpen: boolean) => {
 		if (nextOpen && asset) {
@@ -107,7 +119,38 @@ export function SnippetSourceEditorDialog({
 				</DialogHeader>
 
 				<div className="min-h-0 flex-1">
-					<MonacoEditor value={source} onChange={setSource} language="typescript" height={400} />
+					<MonacoEditor
+						value={source}
+						onChange={setSource}
+						language="typescript"
+						height={400}
+						markers={monacoMarkers}
+						markerOwner="snippet-compiler"
+					/>
+				</div>
+
+				{/* Compile status */}
+				<div className="flex items-center gap-2 text-sm">
+					{compileStatus === "compiling" && (
+						<>
+							<Loader2 className="h-4 w-4 animate-spin text-neutral-400" />
+							<span className="text-neutral-500">Compiling...</span>
+						</>
+					)}
+					{compileStatus === "success" && (
+						<>
+							<CheckCircle2 className="h-4 w-4 text-green-500" />
+							<span className="text-green-600">Compiled successfully</span>
+						</>
+					)}
+					{compileStatus === "error" && compileErrors.length > 0 && (
+						<>
+							<AlertCircle className="h-4 w-4 text-red-500" />
+							<span className="text-red-600">
+								{compileErrors.length} compile error{compileErrors.length !== 1 ? "s" : ""}
+							</span>
+						</>
+					)}
 				</div>
 
 				{!validation.valid && validation.error && (

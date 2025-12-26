@@ -49,7 +49,7 @@ export function Navbar({
 					{variant === "dashboard" ? (
 						<Logo size="sm" href="/" />
 					) : (
-						<Logo size="xs" showWordmark={false} href="/" />
+						<Logo size="sm" href="/" animateOnHover />
 					)}
 				</div>
 
