@@ -8,6 +8,14 @@ export {
 	scheduleAutosave,
 } from "./autosave"
 export { closeDb, getDb, isIndexedDBAvailable } from "./indexeddb"
+// Settings
+export {
+	clearAllData,
+	formatBytes,
+	getStorageEstimate,
+	isPrivateBrowsing,
+	type StorageEstimate,
+} from "./settings"
 // Storage operations
 export {
 	addSlide,
@@ -23,6 +31,5 @@ export {
 	updateProject,
 	updateSlide,
 } from "./storage-adapter"
-
 // Thumbnail
 export { generateThumbnail, generateThumbnailFromJSON } from "./thumbnail"

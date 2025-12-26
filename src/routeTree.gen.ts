@@ -9,12 +9,21 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as LibraryRouteImport } from './routes/library'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SettingsIndexRouteImport } from './routes/settings/index'
+import { Route as SettingsStorageRouteImport } from './routes/settings/storage'
+import { Route as SettingsIntegrationsRouteImport } from './routes/settings/integrations'
 import { Route as ProjectProjectIdRouteImport } from './routes/project/$projectId'
 import { Route as ProjectProjectIdIndexRouteImport } from './routes/project/$projectId/index'
 import { Route as ProjectProjectIdSlideSlideIdRouteImport } from './routes/project/$projectId/slide/$slideId'
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LibraryRoute = LibraryRouteImport.update({
   id: '/library',
   path: '/library',
@@ -24,6 +33,21 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsIndexRoute = SettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsStorageRoute = SettingsStorageRouteImport.update({
+  id: '/storage',
+  path: '/storage',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsIntegrationsRoute = SettingsIntegrationsRouteImport.update({
+  id: '/integrations',
+  path: '/integrations',
+  getParentRoute: () => SettingsRoute,
 } as any)
 const ProjectProjectIdRoute = ProjectProjectIdRouteImport.update({
   id: '/project/$projectId',
@@ -45,13 +69,20 @@ const ProjectProjectIdSlideSlideIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/library': typeof LibraryRoute
+  '/settings': typeof SettingsRouteWithChildren
   '/project/$projectId': typeof ProjectProjectIdRouteWithChildren
+  '/settings/integrations': typeof SettingsIntegrationsRoute
+  '/settings/storage': typeof SettingsStorageRoute
+  '/settings/': typeof SettingsIndexRoute
   '/project/$projectId/': typeof ProjectProjectIdIndexRoute
   '/project/$projectId/slide/$slideId': typeof ProjectProjectIdSlideSlideIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/library': typeof LibraryRoute
+  '/settings/integrations': typeof SettingsIntegrationsRoute
+  '/settings/storage': typeof SettingsStorageRoute
+  '/settings': typeof SettingsIndexRoute
   '/project/$projectId': typeof ProjectProjectIdIndexRoute
   '/project/$projectId/slide/$slideId': typeof ProjectProjectIdSlideSlideIdRoute
 }
@@ -59,7 +90,11 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/library': typeof LibraryRoute
+  '/settings': typeof SettingsRouteWithChildren
   '/project/$projectId': typeof ProjectProjectIdRouteWithChildren
+  '/settings/integrations': typeof SettingsIntegrationsRoute
+  '/settings/storage': typeof SettingsStorageRoute
+  '/settings/': typeof SettingsIndexRoute
   '/project/$projectId/': typeof ProjectProjectIdIndexRoute
   '/project/$projectId/slide/$slideId': typeof ProjectProjectIdSlideSlideIdRoute
 }
@@ -68,20 +103,31 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/library'
+    | '/settings'
     | '/project/$projectId'
+    | '/settings/integrations'
+    | '/settings/storage'
+    | '/settings/'
     | '/project/$projectId/'
     | '/project/$projectId/slide/$slideId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/library'
+    | '/settings/integrations'
+    | '/settings/storage'
+    | '/settings'
     | '/project/$projectId'
     | '/project/$projectId/slide/$slideId'
   id:
     | '__root__'
     | '/'
     | '/library'
+    | '/settings'
     | '/project/$projectId'
+    | '/settings/integrations'
+    | '/settings/storage'
+    | '/settings/'
     | '/project/$projectId/'
     | '/project/$projectId/slide/$slideId'
   fileRoutesById: FileRoutesById
@@ -89,11 +135,19 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LibraryRoute: typeof LibraryRoute
+  SettingsRoute: typeof SettingsRouteWithChildren
   ProjectProjectIdRoute: typeof ProjectProjectIdRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/library': {
       id: '/library'
       path: '/library'
@@ -107,6 +161,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/settings/': {
+      id: '/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof SettingsIndexRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/storage': {
+      id: '/settings/storage'
+      path: '/storage'
+      fullPath: '/settings/storage'
+      preLoaderRoute: typeof SettingsStorageRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/integrations': {
+      id: '/settings/integrations'
+      path: '/integrations'
+      fullPath: '/settings/integrations'
+      preLoaderRoute: typeof SettingsIntegrationsRouteImport
+      parentRoute: typeof SettingsRoute
     }
     '/project/$projectId': {
       id: '/project/$projectId'
@@ -132,6 +207,22 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface SettingsRouteChildren {
+  SettingsIntegrationsRoute: typeof SettingsIntegrationsRoute
+  SettingsStorageRoute: typeof SettingsStorageRoute
+  SettingsIndexRoute: typeof SettingsIndexRoute
+}
+
+const SettingsRouteChildren: SettingsRouteChildren = {
+  SettingsIntegrationsRoute: SettingsIntegrationsRoute,
+  SettingsStorageRoute: SettingsStorageRoute,
+  SettingsIndexRoute: SettingsIndexRoute,
+}
+
+const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
+  SettingsRouteChildren,
+)
+
 interface ProjectProjectIdRouteChildren {
   ProjectProjectIdIndexRoute: typeof ProjectProjectIdIndexRoute
   ProjectProjectIdSlideSlideIdRoute: typeof ProjectProjectIdSlideSlideIdRoute
@@ -148,6 +239,7 @@ const ProjectProjectIdRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LibraryRoute: LibraryRoute,
+  SettingsRoute: SettingsRouteWithChildren,
   ProjectProjectIdRoute: ProjectProjectIdRouteWithChildren,
 }
 export const routeTree = rootRouteImport

@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router"
 import { Check, ChevronDown, Download, Plus, Save, Settings } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { Logo } from "@/components/brand/logo"
@@ -64,10 +65,17 @@ export function Navbar({
 				{/* Right Section */}
 				<div className="flex items-center gap-2">
 					{variant === "dashboard" ? (
-						<Button onClick={onNewProject} size="sm" className="gap-1.5">
-							<Plus className="h-4 w-4" />
-							<span className="hidden sm:inline">New Project</span>
-						</Button>
+						<>
+							<Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+								<Link to="/settings">
+									<Settings className="h-4 w-4" />
+								</Link>
+							</Button>
+							<Button onClick={onNewProject} size="sm" className="gap-1.5">
+								<Plus className="h-4 w-4" />
+								<span className="hidden sm:inline">New Project</span>
+							</Button>
+						</>
 					) : (
 						<>
 							{/* Save Button */}
@@ -113,8 +121,10 @@ export function Navbar({
 							</DropdownMenu>
 
 							{/* Settings */}
-							<Button variant="ghost" size="icon" className="h-8 w-8">
-								<Settings className="h-4 w-4" />
+							<Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+								<Link to="/settings">
+									<Settings className="h-4 w-4" />
+								</Link>
 							</Button>
 						</>
 					)}
