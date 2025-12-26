@@ -364,10 +364,10 @@ export function useCanvasInspect({
 
 		const handleMouseMove = (opt: {
 			e: MouseEvent | TouchEvent
-			absolutePointer?: { x: number; y: number }
+			scenePoint?: { x: number; y: number }
 		}) => {
 			// Use Fabric.js's already-converted pointer coordinates
-			const pointer = opt.absolutePointer || canvas.getScenePoint(opt.e)
+			const pointer = opt.scenePoint || canvas.getScenePoint(opt.e)
 			if (!pointer) {
 				setHoveredInfo(null)
 				return

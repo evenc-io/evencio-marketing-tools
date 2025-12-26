@@ -113,7 +113,8 @@ export const groupSelection = (canvas: Canvas) => {
 		return
 	}
 
-	const newGroup = new Group(flattenedSelection)
+	// Fabric 7 defaults to center origin; we need left/top for consistent positioning
+	const newGroup = new Group(flattenedSelection, { originX: "left", originY: "top" })
 	canvas.insertAt(insertIndex, newGroup)
 	canvas.setActiveObject(newGroup)
 	canvas.renderAll()

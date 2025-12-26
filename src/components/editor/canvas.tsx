@@ -53,6 +53,11 @@ export function EditorCanvas({ className }: EditorCanvasProps) {
 		const canvasWidth = width + CANVAS_PADDING * 2
 		const canvasHeight = height + CANVAS_PADDING * 2
 
+		// Fabric.js 7 requires explicit HTML canvas element dimensions before initialization
+		// to ensure the backstore (actual pixel buffer) matches the logical dimensions
+		canvasRef.current.width = canvasWidth
+		canvasRef.current.height = canvasHeight
+
 		// Create canvas with transparent background (grid shows through)
 		const canvas = new FabricCanvas(canvasRef.current, {
 			width: canvasWidth,
@@ -62,6 +67,7 @@ export function EditorCanvas({ className }: EditorCanvasProps) {
 		})
 
 		// Add artboard rect (the white document area)
+		// Fabric 7 defaults to center origin; we need left/top for consistent positioning
 		const artboard = new Rect({
 			left: CANVAS_PADDING,
 			top: CANVAS_PADDING,
@@ -71,6 +77,8 @@ export function EditorCanvas({ className }: EditorCanvasProps) {
 			selectable: false,
 			evented: false,
 			excludeFromExport: false,
+			originX: "left",
+			originY: "top",
 			// Mark as artboard so we can identify it later
 			data: { isArtboard: true },
 		})
@@ -186,6 +194,7 @@ export function EditorCanvas({ className }: EditorCanvasProps) {
 		const canvasHeight = dimensions.height + CANVAS_PADDING * 2
 
 		if (canvas.getWidth() !== canvasWidth || canvas.getHeight() !== canvasHeight) {
+			// Fabric.js 7: setDimensions updates both CSS and backstore dimensions
 			canvas.setDimensions({ width: canvasWidth, height: canvasHeight })
 		}
 

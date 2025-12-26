@@ -140,6 +140,7 @@ export async function generateThumbnailFromJSON(
 		await tempCanvas.loadFromJSON(parsed)
 
 		// Add artboard behind objects for consistent white background
+		// Fabric 7 defaults to center origin; we need left/top for consistent positioning
 		const artboard = new Rect({
 			left: CANVAS_PADDING,
 			top: CANVAS_PADDING,
@@ -149,6 +150,8 @@ export async function generateThumbnailFromJSON(
 			selectable: false,
 			evented: false,
 			excludeFromExport: false,
+			originX: "left",
+			originY: "top",
 			data: { isArtboard: true },
 		})
 		tempCanvas.add(artboard)

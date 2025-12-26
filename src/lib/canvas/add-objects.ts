@@ -19,12 +19,15 @@ function getDefaultPosition() {
 
 export function addTextToCanvas(canvas: Canvas): void {
 	const { left, top } = getDefaultPosition()
+	// Fabric 7 defaults to center origin; we need left/top for consistent positioning
 	const text = new IText("Edit this text", {
 		left,
 		top,
 		fontSize: DEFAULT_FONT_SIZE,
 		fontFamily: DEFAULT_FONT_FAMILY,
 		fill: DEFAULT_TEXT_COLOR,
+		originX: "left",
+		originY: "top",
 	})
 
 	canvas.add(text)
@@ -34,6 +37,7 @@ export function addTextToCanvas(canvas: Canvas): void {
 
 export function addRectToCanvas(canvas: Canvas): void {
 	const { left, top } = getDefaultPosition()
+	// Fabric 7 defaults to center origin; we need left/top for consistent positioning
 	const rect = new Rect({
 		left,
 		top,
@@ -42,6 +46,8 @@ export function addRectToCanvas(canvas: Canvas): void {
 		fill: DEFAULT_FILL,
 		stroke: DEFAULT_STROKE,
 		strokeWidth: DEFAULT_STROKE_WIDTH,
+		originX: "left",
+		originY: "top",
 	})
 
 	canvas.add(rect)
@@ -51,6 +57,7 @@ export function addRectToCanvas(canvas: Canvas): void {
 
 export function addCircleToCanvas(canvas: Canvas): void {
 	const { left, top } = getDefaultPosition()
+	// Fabric 7 defaults to center origin; we need left/top for consistent positioning
 	const circle = new Circle({
 		left,
 		top,
@@ -58,6 +65,8 @@ export function addCircleToCanvas(canvas: Canvas): void {
 		fill: DEFAULT_FILL,
 		stroke: DEFAULT_STROKE,
 		strokeWidth: DEFAULT_STROKE_WIDTH,
+		originX: "left",
+		originY: "top",
 	})
 
 	canvas.add(circle)
@@ -67,6 +76,7 @@ export function addCircleToCanvas(canvas: Canvas): void {
 
 export function addTriangleToCanvas(canvas: Canvas): void {
 	const { left, top } = getDefaultPosition()
+	// Fabric 7 defaults to center origin; we need left/top for consistent positioning
 	const triangle = new Triangle({
 		left,
 		top,
@@ -75,6 +85,8 @@ export function addTriangleToCanvas(canvas: Canvas): void {
 		fill: DEFAULT_FILL,
 		stroke: DEFAULT_STROKE,
 		strokeWidth: DEFAULT_STROKE_WIDTH,
+		originX: "left",
+		originY: "top",
 	})
 
 	canvas.add(triangle)

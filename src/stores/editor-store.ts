@@ -277,6 +277,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
 			}
 
 			// Add fresh artboard
+			// Fabric 7 defaults to center origin; we need left/top for consistent positioning
 			const artboard = new Rect({
 				left: CANVAS_PADDING,
 				top: CANVAS_PADDING,
@@ -286,6 +287,8 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
 				selectable: false,
 				evented: false,
 				excludeFromExport: false,
+				originX: "left",
+				originY: "top",
 				data: { isArtboard: true },
 			})
 			canvas.add(artboard)
