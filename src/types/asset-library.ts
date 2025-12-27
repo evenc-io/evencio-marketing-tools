@@ -133,12 +133,18 @@ export interface SnippetPropsSchemaDefinition {
 
 export type SnippetProps = Record<string, unknown>
 
+export interface SnippetViewport {
+	width: number
+	height: number
+}
+
 export interface SnippetAssetDefinition {
 	entry: string
 	runtime: SnippetRuntime
 	propsSchema: SnippetPropsSchemaDefinition
 	/** Single inline source for custom snippets */
 	source?: string
+	viewport?: SnippetViewport
 }
 
 export interface AssetBase {

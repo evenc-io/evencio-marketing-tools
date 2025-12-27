@@ -31,13 +31,9 @@ export interface PreviewMessage {
  * Minimal CSS reset and container styles for the preview iframe.
  */
 const PREVIEW_STYLES = `
-* {
+html, body {
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
-}
-
-html, body {
   width: 100%;
   height: 100%;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -99,12 +95,14 @@ export function generatePreviewSrcdoc(
 	compiledCode: string,
 	props: Record<string, unknown>,
 	dimensions: PreviewDimensions,
+	tailwindCss?: string,
 ): string {
 	const nonce =
 		typeof crypto !== "undefined" && "randomUUID" in crypto
 			? crypto.randomUUID()
 			: Math.random().toString(36).slice(2)
 	const propsJson = JSON.stringify(props)
+	const escapedTailwindCss = tailwindCss?.replace(/<\/style/gi, "<\\/style")
 
 	// Escape script content to prevent XSS via props
 	const escapedCode = compiledCode.replace(/<\/script/gi, "<\\/script")
@@ -118,6 +116,7 @@ export function generatePreviewSrcdoc(
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; connect-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:;">
   <title>Snippet Preview</title>
   <style>${PREVIEW_STYLES}</style>
+  ${escapedTailwindCss ? `<style>${escapedTailwindCss}</style>` : ""}
 </head>
 <body>
   <div id="root">

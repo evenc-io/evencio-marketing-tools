@@ -12,6 +12,9 @@ const config = defineConfig({
 	server: {
 		port: 3000,
 	},
+	build: {
+		chunkSizeWarningLimit: 700,
+	},
 	resolve: {
 		alias: {
 			"@/": `${path.resolve(__dirname, "src")}/`,

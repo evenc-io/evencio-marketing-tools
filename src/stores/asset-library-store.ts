@@ -8,6 +8,7 @@ import {
 	SAMPLE_TAG,
 } from "@/lib/asset-library"
 import { deriveSnippetPropsFromSource } from "@/lib/snippets"
+import { getSnippetViewportError, SNIPPET_SOURCE_MAX_CHARS } from "@/lib/snippets/constraints"
 import type {
 	Asset,
 	AssetAttribution,
@@ -23,6 +24,7 @@ import type {
 	SnippetProps,
 	SnippetPropsSchemaDefinition,
 	SnippetRuntime,
+	SnippetViewport,
 } from "@/types/asset-library"
 
 const DEMO_ACCESS_CONTEXT = {
@@ -231,6 +233,7 @@ interface SnippetRegistrationInput {
 	runtime: SnippetRuntime
 	propsSchema: SnippetPropsSchemaDefinition
 	defaultProps: SnippetProps
+	viewport?: SnippetViewport
 	scope: AssetScope
 	title: string
 	description?: string | null
@@ -336,6 +339,12 @@ export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActio
 	},
 
 	registerSnippetAsset: async (input) => {
+		if (input.viewport) {
+			const viewportError = getSnippetViewportError(input.viewport)
+			if (viewportError) {
+				throw new Error(`Snippet resolution invalid: ${viewportError}`)
+			}
+		}
 		const scopeRef = resolveScopeRef(input.scope)
 		const tagIds = await ensureTagIds(input.tagNames, scopeRef)
 		const metadata = {
@@ -353,6 +362,7 @@ export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActio
 			entry: input.entry,
 			runtime: input.runtime,
 			propsSchema: input.propsSchema,
+			viewport: input.viewport,
 		}
 
 		const asset = await service.createAsset(
@@ -375,6 +385,15 @@ export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActio
 	},
 
 	registerCustomSnippetAsset: async (input) => {
+		if (input.source.length > SNIPPET_SOURCE_MAX_CHARS) {
+			throw new Error(`Snippet source is too large (limit ${SNIPPET_SOURCE_MAX_CHARS} characters).`)
+		}
+		if (input.viewport) {
+			const viewportError = getSnippetViewportError(input.viewport)
+			if (viewportError) {
+				throw new Error(`Snippet resolution invalid: ${viewportError}`)
+			}
+		}
 		const scopeRef = resolveScopeRef(input.scope)
 		const tagIds = await ensureTagIds(input.tagNames, scopeRef)
 		let derived: { propsSchema: SnippetPropsSchemaDefinition; defaultProps: SnippetProps }
@@ -399,6 +418,7 @@ export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActio
 			runtime: input.runtime,
 			propsSchema: derived.propsSchema,
 			source: input.source,
+			viewport: input.viewport,
 		}
 
 		const asset = await service.createAsset(

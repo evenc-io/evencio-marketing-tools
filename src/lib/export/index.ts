@@ -1,5 +1,4 @@
 import type { Canvas, TMat2D } from "fabric"
-import { jsPDF } from "jspdf"
 import { CANVAS_PADDING, DEFAULT_BLEED_PX, DEFAULT_DPI } from "@/lib/constants/canvas"
 import type { CanvasDimensions, ExportOptions } from "@/types/editor"
 
@@ -114,6 +113,7 @@ async function exportToPdf(
 	scale: number,
 ): Promise<Blob> {
 	const { width, height } = dimensions
+	const { jsPDF } = await import("jspdf")
 
 	// Determine orientation
 	const orientation = width > height ? "landscape" : "portrait"

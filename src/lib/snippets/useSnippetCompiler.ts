@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { MonacoMarker } from "@/components/ui/monaco-editor"
 import { type CompileError, compileSnippet } from "./compiler"
+import { SNIPPET_SOURCE_MAX_CHARS } from "./constraints"
 import { analyzeSnippetSource, securityIssuesToCompileErrors } from "./source-security"
 
 export type CompileStatus = "idle" | "compiling" | "success" | "error"
@@ -20,6 +21,8 @@ export interface UseSnippetCompilerOptions {
 	debounceMs?: number
 	/** Whether to auto-compile on source changes (default: true) */
 	autoCompile?: boolean
+	/** Whether to generate Tailwind CSS for previews (default: false) */
+	enableTailwindCss?: boolean
 }
 
 export interface UseSnippetCompilerResult {
@@ -37,6 +40,8 @@ export interface UseSnippetCompilerResult {
 	parsedProps: Record<string, unknown>
 	/** Props parsing error (if defaultProps is invalid JSON) */
 	propsError: string | null
+	/** Tailwind CSS output for the current source (if enabled) */
+	tailwindCss: string | null
 	/** Manually trigger compilation */
 	compile: () => Promise<void>
 }
@@ -54,6 +59,13 @@ function toMonacoMarker(error: CompileError): MonacoMarker {
 		endColumn: (error.endColumn ?? error.column + 1) + 1,
 	}
 }
+
+const buildLimitError = (message: string): CompileError => ({
+	message,
+	line: 1,
+	column: 0,
+	severity: "error",
+})
 
 /**
  * Parse props from string or return object as-is.
@@ -107,11 +119,13 @@ export function useSnippetCompiler({
 	defaultProps,
 	debounceMs = 500,
 	autoCompile = true,
+	enableTailwindCss = false,
 }: UseSnippetCompilerOptions): UseSnippetCompilerResult {
 	const [status, setStatus] = useState<CompileStatus>("idle")
 	const [compiledCode, setCompiledCode] = useState<string | null>(null)
 	const [errors, setErrors] = useState<CompileError[]>([])
 	const [warnings, setWarnings] = useState<CompileError[]>([])
+	const [tailwindCss, setTailwindCss] = useState<string | null>(null)
 
 	// Parse props
 	const { parsed: parsedProps, error: propsError } = useMemo(
@@ -124,67 +138,120 @@ export function useSnippetCompiler({
 	const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
 	// Core compile function
-	const doCompile = useCallback(async (sourceToCompile: string, version: number) => {
-		// Skip empty source
-		if (!sourceToCompile.trim()) {
-			setStatus("idle")
-			setCompiledCode(null)
-			setErrors([])
-			setWarnings([])
-			return
-		}
-
-		setStatus("compiling")
-
-		try {
-			const [result, securityIssues] = await Promise.all([
-				compileSnippet(sourceToCompile),
-				analyzeSnippetSource(sourceToCompile),
-			])
-
-			const securityErrors = securityIssuesToCompileErrors(securityIssues)
-
-			// Check if this is still the latest version
-			if (version !== sourceVersionRef.current) {
-				return // Stale result, ignore
-			}
-
-			if (securityErrors.length > 0) {
-				setStatus("error")
+	const doCompile = useCallback(
+		async (sourceToCompile: string, version: number) => {
+			// Skip empty source
+			if (!sourceToCompile.trim()) {
+				setStatus("idle")
 				setCompiledCode(null)
-				setErrors([...securityErrors, ...result.errors])
-				setWarnings(result.warnings)
-				return
-			}
-
-			if (result.success && result.code) {
-				setStatus("success")
-				setCompiledCode(result.code)
 				setErrors([])
-				setWarnings(result.warnings)
-			} else {
-				setStatus("error")
-				// Keep last successful code for preview (shows last working version)
-				setErrors(result.errors)
-				setWarnings(result.warnings)
-			}
-		} catch (err) {
-			// Check if this is still the latest version
-			if (version !== sourceVersionRef.current) {
+				setWarnings([])
+				setTailwindCss(null)
 				return
 			}
 
-			setStatus("error")
-			setErrors([
-				{
-					message: err instanceof Error ? err.message : "Compilation failed",
-					line: 1,
-					column: 0,
-					severity: "error",
-				},
-			])
-		}
-	}, [])
+			if (sourceToCompile.length > SNIPPET_SOURCE_MAX_CHARS) {
+				setStatus("error")
+				setErrors([
+					buildLimitError(
+						`Snippet source is too large (limit ${SNIPPET_SOURCE_MAX_CHARS} characters).`,
+					),
+				])
+				setWarnings([])
+				setTailwindCss(null)
+				return
+			}
+
+			setStatus("compiling")
+
+			try {
+				const [result, securityIssues] = await Promise.all([
+					compileSnippet(sourceToCompile),
+					analyzeSnippetSource(sourceToCompile),
+				])
+
+				const securityErrors = securityIssuesToCompileErrors(securityIssues)
+
+				// Check if this is still the latest version
+				if (version !== sourceVersionRef.current) {
+					return // Stale result, ignore
+				}
+
+				if (securityErrors.length > 0) {
+					setStatus("error")
+					setCompiledCode(null)
+					setErrors([...securityErrors, ...result.errors])
+					setWarnings(result.warnings)
+					setTailwindCss(null)
+					return
+				}
+
+				if (result.success && result.code) {
+					let nextTailwindCss: string | null = null
+					let tailwindError: CompileError | null = null
+
+					if (enableTailwindCss) {
+						try {
+							const { buildSnippetTailwindCss } = await import("./tailwind")
+							nextTailwindCss = await buildSnippetTailwindCss(sourceToCompile)
+						} catch (err) {
+							tailwindError = buildLimitError(
+								err instanceof Error ? err.message : "Failed to generate Tailwind CSS",
+							)
+						}
+					}
+
+					if (tailwindError) {
+						if (version !== sourceVersionRef.current) {
+							return
+						}
+						setStatus("error")
+						setErrors([...result.errors, tailwindError])
+						setWarnings(result.warnings)
+						setTailwindCss(null)
+						return
+					}
+
+					if (version !== sourceVersionRef.current) {
+						return
+					}
+
+					setStatus("success")
+					setCompiledCode(result.code)
+					setErrors([])
+					setWarnings(result.warnings)
+					if (enableTailwindCss) {
+						setTailwindCss(nextTailwindCss)
+					} else {
+						setTailwindCss(null)
+					}
+				} else {
+					setStatus("error")
+					// Keep last successful code for preview (shows last working version)
+					setErrors(result.errors)
+					setWarnings(result.warnings)
+					setTailwindCss(null)
+				}
+			} catch (err) {
+				// Check if this is still the latest version
+				if (version !== sourceVersionRef.current) {
+					return
+				}
+
+				setStatus("error")
+				setErrors([
+					{
+						message: err instanceof Error ? err.message : "Compilation failed",
+						line: 1,
+						column: 0,
+						severity: "error",
+					},
+				])
+				setTailwindCss(null)
+			}
+		},
+		[enableTailwindCss],
+	)
 
 	// Manual compile function
 	const compile = useCallback(async () => {
@@ -216,6 +283,11 @@ export function useSnippetCompiler({
 		}
 	}, [source, debounceMs, autoCompile, doCompile])
 
+	useEffect(() => {
+		if (enableTailwindCss) return
+		setTailwindCss((prev) => (prev === null ? prev : null))
+	}, [enableTailwindCss])
+
 	// Convert errors to Monaco markers
 	const monacoMarkers = useMemo(() => {
 		const allIssues = [...errors, ...warnings]
@@ -230,6 +302,7 @@ export function useSnippetCompiler({
 		monacoMarkers,
 		parsedProps,
 		propsError,
+		tailwindCss,
 		compile,
 	}
 }

@@ -8,7 +8,7 @@
 
 import { AlertCircle, Loader2 } from "lucide-react"
 import type { ReactNode } from "react"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
 	DEFAULT_PREVIEW_DIMENSIONS,
 	generatePreviewSrcdoc,
@@ -21,6 +21,8 @@ export interface SnippetPreviewProps {
 	compiledCode: string | null
 	/** Props to pass to the snippet component */
 	props: Record<string, unknown>
+	/** Tailwind CSS (optional) for styling the preview */
+	tailwindCss?: string | null
 	/** Dimensions for the snippet viewport */
 	dimensions?: PreviewDimensions
 	/** Called when the preview successfully renders */
@@ -38,6 +40,7 @@ export type PreviewStatus = "idle" | "loading" | "success" | "error"
 export function SnippetPreview({
 	compiledCode,
 	props,
+	tailwindCss,
 	dimensions = DEFAULT_PREVIEW_DIMENSIONS,
 	onRenderSuccess,
 	onRenderError,
@@ -45,8 +48,10 @@ export function SnippetPreview({
 	headerActions,
 }: SnippetPreviewProps) {
 	const iframeRef = useRef<HTMLIFrameElement>(null)
+	const containerRef = useRef<HTMLDivElement>(null)
 	const [status, setStatus] = useState<PreviewStatus>("idle")
 	const [error, setError] = useState<string | null>(null)
+	const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
 
 	// Handle messages from the iframe
 	const handleMessage = useCallback(
@@ -98,17 +103,48 @@ export function SnippetPreview({
 		setError(null)
 
 		// Generate new srcdoc
-		const srcdoc = generatePreviewSrcdoc(compiledCode, props, dimensions)
+		const srcdoc = generatePreviewSrcdoc(compiledCode, props, dimensions, tailwindCss ?? undefined)
 
 		// Update iframe
 		if (iframeRef.current) {
 			iframeRef.current.srcdoc = srcdoc
 		}
-	}, [compiledCode, props, dimensions])
+	}, [compiledCode, props, dimensions, tailwindCss])
 
-	const containerStyle = {
-		aspectRatio: `${dimensions.width} / ${dimensions.height}`,
-	}
+	useEffect(() => {
+		const element = containerRef.current
+		if (!element) return
+
+		const updateSize = () => {
+			const rect = element.getBoundingClientRect()
+			setContainerSize((prev) =>
+				prev.width === rect.width && prev.height === rect.height
+					? prev
+					: { width: rect.width, height: rect.height },
+			)
+		}
+
+		updateSize()
+		if (typeof ResizeObserver === "undefined") {
+			return
+		}
+		const observer = new ResizeObserver(updateSize)
+		observer.observe(element)
+		return () => observer.disconnect()
+	}, [])
+
+	const scale = useMemo(() => {
+		const availableWidth = containerSize.width
+		const availableHeight = containerSize.height
+		if (!availableWidth || !availableHeight) return 1
+		const widthRatio = availableWidth / dimensions.width
+		const heightRatio = availableHeight / dimensions.height
+		const nextScale = Math.min(widthRatio, heightRatio)
+		return Math.min(1, Math.max(0.01, nextScale))
+	}, [containerSize.height, containerSize.width, dimensions.height, dimensions.width])
+
+	const scaledWidth = Math.max(0, Math.round(dimensions.width * scale))
+	const scaledHeight = Math.max(0, Math.round(dimensions.height * scale))
 
 	return (
 		<div className={`relative flex flex-col ${className ?? ""}`}>
@@ -125,37 +161,58 @@ export function SnippetPreview({
 
 			{/* Preview container */}
 			<div className="relative flex-1 overflow-auto bg-neutral-100 p-4">
-				<div className="mx-auto h-full w-full max-w-full" style={containerStyle}>
-					{/* Status overlays */}
-					{status === "idle" && !compiledCode && (
-						<div className="flex h-full items-center justify-center rounded-md border-2 border-dashed border-neutral-300 bg-white">
-							<p className="text-sm text-neutral-400">Write code to see preview</p>
-						</div>
-					)}
+				<div ref={containerRef} className="relative flex h-full w-full items-center justify-center">
+					<div
+						className="relative overflow-hidden rounded-md border border-neutral-200 bg-white"
+						style={{
+							width: scaledWidth || "100%",
+							height: scaledHeight || "100%",
+						}}
+					>
+						{/* Status overlays */}
+						{status === "idle" && !compiledCode && (
+							<div className="flex h-full w-full items-center justify-center rounded-md border-2 border-dashed border-neutral-300 bg-white">
+								<p className="text-sm text-neutral-400">Write code to see preview</p>
+							</div>
+						)}
 
-					{status === "loading" && (
-						<div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80">
-							<Loader2 className="h-6 w-6 animate-spin text-neutral-400" />
-						</div>
-					)}
+						{status === "loading" && (
+							<div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80">
+								<Loader2 className="h-6 w-6 animate-spin text-neutral-400" />
+							</div>
+						)}
 
-					{status === "error" && error && (
-						<div className="absolute bottom-2 left-2 right-2 z-20 flex items-start gap-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 shadow-lg">
-							<AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-							<span className="line-clamp-2">{error}</span>
-						</div>
-					)}
+						{status === "error" && error && (
+							<div className="absolute bottom-2 left-2 right-2 z-20 flex items-start gap-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 shadow-lg">
+								<AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+								<span className="line-clamp-2">{error}</span>
+							</div>
+						)}
 
-					{/* Sandboxed iframe */}
-					{compiledCode && (
-						<iframe
-							ref={iframeRef}
-							title="Snippet Preview"
-							sandbox="allow-scripts"
-							className="h-full w-full rounded-md border border-neutral-200 bg-white"
-							style={{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }}
-						/>
-					)}
+						{/* Sandboxed iframe */}
+						{compiledCode && (
+							<div
+								style={{
+									width: dimensions.width,
+									height: dimensions.height,
+									transform: `scale(${scale})`,
+									transformOrigin: "top left",
+								}}
+							>
+								<iframe
+									ref={iframeRef}
+									title="Snippet Preview"
+									sandbox="allow-scripts"
+									className="block"
+									style={{
+										width: dimensions.width,
+										height: dimensions.height,
+										border: "none",
+									}}
+								/>
+							</div>
+						)}
+					</div>
 				</div>
 			</div>
 		</div>

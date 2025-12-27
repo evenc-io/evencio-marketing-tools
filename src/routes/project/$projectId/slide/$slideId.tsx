@@ -1,15 +1,13 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { Check, Eraser, Image, Plus, Trash2 } from "lucide-react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { EditorCanvas } from "../../../../components/editor/canvas"
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { CanvasViewport } from "../../../../components/editor/canvas-viewport"
 import { DimensionsPanel } from "../../../../components/editor/dimensions-panel"
-import { ExportPanel } from "../../../../components/editor/export-panel"
-import { LayersPanel } from "../../../../components/editor/layers-panel"
 import { EditorToolbar } from "../../../../components/editor/toolbar"
 import { ZoomControls } from "../../../../components/editor/zoom-controls"
 import { EditorLayout } from "../../../../components/layout/editor-layout"
 import { Button } from "../../../../components/ui/button"
+import { ClientOnly } from "../../../../components/ui/client-only"
 import { getUserObjects } from "../../../../lib/artboard"
 import { resetAutosaveState, scheduleAutosave } from "../../../../lib/storage"
 import { cn } from "../../../../lib/utils"
@@ -21,6 +19,72 @@ import { POSTER_DIMENSIONS, SOCIAL_DIMENSIONS } from "../../../../types/editor"
 export const Route = createFileRoute("/project/$projectId/slide/$slideId")({
 	component: SlideEditorPage,
 })
+
+const LazyEditorCanvas = lazy(() =>
+	import("../../../../components/editor/canvas").then((mod) => ({ default: mod.EditorCanvas })),
+)
+const LazyLayersPanel = lazy(() =>
+	import("../../../../components/editor/layers-panel").then((mod) => ({
+		default: mod.LayersPanel,
+	})),
+)
+const LazyExportPanel = lazy(() =>
+	import("../../../../components/editor/export-panel").then((mod) => ({
+		default: mod.ExportPanel,
+	})),
+)
+
+const EditorCanvasSkeleton = () => (
+	<div className="relative h-full w-full overflow-hidden bg-neutral-50">
+		<div
+			className="absolute inset-0"
+			style={{
+				backgroundImage:
+					"linear-gradient(#f3f4f6 1px, transparent 1px), linear-gradient(90deg, #f3f4f6 1px, transparent 1px)",
+				backgroundSize: "24px 24px",
+				backgroundPosition: "center center",
+			}}
+		/>
+		<div className="absolute inset-0 flex items-center justify-center">
+			<div className="flex flex-col items-center gap-2 rounded border border-neutral-200 bg-white px-6 py-4 text-[10px] uppercase tracking-[0.24em] text-neutral-400">
+				<span className="h-2 w-24 animate-pulse rounded-sm bg-neutral-200" />
+				<span>Loading editor</span>
+			</div>
+		</div>
+	</div>
+)
+
+const LayersPanelSkeleton = () => (
+	<div className="space-y-4 p-4">
+		<div className="h-3 w-24 animate-pulse rounded-sm bg-neutral-200" />
+		<div className="space-y-2">
+			<div className="h-10 w-full animate-pulse rounded border border-neutral-200 bg-white" />
+			<div className="h-10 w-full animate-pulse rounded border border-neutral-200 bg-white" />
+			<div className="h-10 w-5/6 animate-pulse rounded border border-neutral-200 bg-white" />
+		</div>
+	</div>
+)
+
+const ExportPanelSkeleton = () => (
+	<div className="space-y-4">
+		<div className="space-y-2">
+			<div className="h-3 w-28 animate-pulse rounded-sm bg-neutral-200" />
+			<div className="grid grid-cols-3 gap-2">
+				<div className="h-8 animate-pulse rounded border border-neutral-200 bg-white" />
+				<div className="h-8 animate-pulse rounded border border-neutral-200 bg-white" />
+				<div className="h-8 animate-pulse rounded border border-neutral-200 bg-white" />
+			</div>
+		</div>
+		<div className="space-y-2">
+			<div className="h-3 w-20 animate-pulse rounded-sm bg-neutral-200" />
+			<div className="grid grid-cols-3 gap-2">
+				<div className="h-8 animate-pulse rounded border border-neutral-200 bg-white" />
+				<div className="h-8 animate-pulse rounded border border-neutral-200 bg-white" />
+				<div className="h-8 animate-pulse rounded border border-neutral-200 bg-white" />
+			</div>
+		</div>
+	</div>
+)
 
 function SlideEditorPage() {
 	const { projectId, slideId } = Route.useParams()
@@ -34,6 +98,8 @@ function SlideEditorPage() {
 	const canvas = useEditorStore((s) => s.canvas)
 	const dimensions = useEditorStore((s) => s.dimensions)
 	const setProjectContext = useEditorStore((s) => s.setProjectContext)
+	const editorProjectId = useEditorStore((s) => s.projectId)
+	const editorSlideId = useEditorStore((s) => s.slideId)
 	const getCanvasJSON = useEditorStore((s) => s.getCanvasJSON)
 	const loadSlideToCanvas = useEditorStore((s) => s.loadSlideToCanvas)
 	const setDimensions = useEditorStore((s) => s.setDimensions)
@@ -60,11 +126,17 @@ function SlideEditorPage() {
 		}
 	}, [projectId, slideId, setProjectContext])
 
+	useEffect(() => {
+		if (editorProjectId === projectId && editorSlideId === slideId) return
+		setProjectContext(projectId, slideId)
+	}, [editorProjectId, editorSlideId, projectId, slideId, setProjectContext])
+
 	// Load slide content into canvas
 	useEffect(() => {
 		isSlideHydratedRef.current = false
 		if (
 			!canvas ||
+			!editorProjectId ||
 			!currentSlideId ||
 			currentSlideWidth === null ||
 			currentSlideHeight === null ||
@@ -114,6 +186,7 @@ function SlideEditorPage() {
 		}
 	}, [
 		canvas,
+		editorProjectId,
 		currentSlideContentType,
 		currentSlideFabricJSON,
 		currentSlideHeight,
@@ -228,7 +301,13 @@ function SlideEditorPage() {
 			{
 				id: "layers",
 				label: "Layers",
-				content: <LayersPanel />,
+				content: (
+					<ClientOnly fallback={<LayersPanelSkeleton />}>
+						<Suspense fallback={<LayersPanelSkeleton />}>
+							<LazyLayersPanel />
+						</Suspense>
+					</ClientOnly>
+				),
 			},
 		],
 		[currentProject?.slides, slideId, handleSlideClick, handleAddSlide, handleDeleteSlide],
@@ -248,7 +327,11 @@ function SlideEditorPage() {
 			<div className="relative flex h-full flex-col">
 				<div className="flex-1 overflow-hidden" data-viewport-container>
 					<CanvasViewport>
-						<EditorCanvas />
+						<ClientOnly fallback={<EditorCanvasSkeleton />}>
+							<Suspense fallback={<EditorCanvasSkeleton />}>
+								<LazyEditorCanvas />
+							</Suspense>
+						</ClientOnly>
 					</CanvasViewport>
 				</div>
 				<div className="flex items-center justify-between border-t border-neutral-200 bg-white p-2">
@@ -492,7 +575,11 @@ function PropertiesPanel() {
 				<h3 className="mb-3 font-mono text-[10px] uppercase tracking-widest text-neutral-400">
 					Export
 				</h3>
-				<ExportPanel />
+				<ClientOnly fallback={<ExportPanelSkeleton />}>
+					<Suspense fallback={<ExportPanelSkeleton />}>
+						<LazyExportPanel />
+					</Suspense>
+				</ClientOnly>
 			</div>
 		</div>
 	)
