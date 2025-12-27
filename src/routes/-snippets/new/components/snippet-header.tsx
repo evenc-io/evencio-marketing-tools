@@ -4,12 +4,27 @@ import { Logo } from "@/components/brand/logo"
 import { Button } from "@/components/ui/button"
 
 interface SnippetHeaderProps {
-	canCreateSnippet: boolean
-	isCreating: boolean
-	onCreate: () => void
+	canSubmit: boolean
+	isSubmitting: boolean
+	isEditing?: boolean
+	onSubmit: () => void
 }
 
-export function SnippetHeader({ canCreateSnippet, isCreating, onCreate }: SnippetHeaderProps) {
+export function SnippetHeader({
+	canSubmit,
+	isSubmitting,
+	isEditing = false,
+	onSubmit,
+}: SnippetHeaderProps) {
+	const primaryLabel = isEditing
+		? isSubmitting
+			? "Saving..."
+			: "Save changes"
+		: isSubmitting
+			? "Creating..."
+			: "Create snippet"
+	const secondaryLabel = isEditing ? "Back to library" : "Cancel"
+
 	return (
 		<header className="h-12 shrink-0 border-b border-neutral-200 bg-white">
 			<div className="flex h-full items-center justify-between px-4">
@@ -26,10 +41,10 @@ export function SnippetHeader({ canCreateSnippet, isCreating, onCreate }: Snippe
 				</div>
 				<div className="flex items-center gap-2">
 					<Button variant="outline" size="sm" asChild>
-						<Link to="/library">Cancel</Link>
+						<Link to="/library">{secondaryLabel}</Link>
 					</Button>
-					<Button size="sm" disabled={!canCreateSnippet} onClick={onCreate}>
-						{isCreating ? "Creating..." : "Create snippet"}
+					<Button size="sm" disabled={!canSubmit} onClick={onSubmit}>
+						{primaryLabel}
 					</Button>
 				</div>
 			</div>

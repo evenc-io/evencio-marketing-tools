@@ -21,9 +21,9 @@ import {
 	type MouseEvent,
 	type Ref,
 	type RefObject,
-	type WheelEvent,
 	Suspense,
 	useCallback,
+	type WheelEvent,
 } from "react"
 import type { UseFormReturn } from "react-hook-form"
 import { Button } from "@/components/ui/button"
@@ -101,13 +101,11 @@ function SnippetEditorTab({
 	})
 	const Icon = file.icon
 	const style = {
-		transform: CSS.Transform.toString(
-			transform ? { ...transform, scaleX: 1, scaleY: 1 } : null,
-		),
+		transform: CSS.Transform.toString(transform ? { ...transform, scaleX: 1, scaleY: 1 } : null),
 		transition,
 	}
 
-	const handleMiddleClick = (event: MouseEvent<HTMLDivElement>) => {
+	const handleMiddleClick = (event: MouseEvent<HTMLButtonElement>) => {
 		if (event.button !== 1) return
 		event.preventDefault()
 		event.stopPropagation()
@@ -119,15 +117,17 @@ function SnippetEditorTab({
 		<div
 			ref={setNodeRef}
 			style={style}
-			onMouseDown={handleMiddleClick}
 			className={cn(
 				"flex items-center gap-1 rounded-t-md border border-transparent px-1",
-				isActive ? "border-neutral-200 bg-white text-neutral-900" : "text-neutral-500 hover:text-neutral-700",
+				isActive
+					? "border-neutral-200 bg-white text-neutral-900"
+					: "text-neutral-500 hover:text-neutral-700",
 				isDragging && "opacity-60",
 			)}
 		>
 			<button
 				type="button"
+				onMouseDown={handleMiddleClick}
 				onClick={() => onSelectFile(file.id)}
 				className="flex cursor-grab touch-none items-center gap-1.5 px-1 py-1 text-[11px] font-medium"
 				{...attributes}
@@ -337,63 +337,63 @@ export function SnippetEditorPanel({
 					editorCollapsed ? "pointer-events-none opacity-0" : "opacity-100",
 				)}
 			>
-			<div className="flex h-9 shrink-0 items-center border-b border-neutral-200 bg-neutral-50">
-				<div
-					className="scrollbar-hidden flex h-full w-full items-center overflow-x-auto overflow-y-hidden"
-					onWheel={handleTabBarWheel}
-				>
-					<div className="flex min-w-full w-max items-center gap-2 px-2">
-						<DndContext
-							sensors={sensors}
-							collisionDetection={closestCenter}
-							onDragEnd={handleTabDragEnd}
-						>
-							<SortableContext items={openFiles} strategy={horizontalListSortingStrategy}>
-								<div className="flex items-center gap-1">
-									{openFiles.map((fileId) => {
-										const file = editorFilesById.get(fileId)
-										if (!file) return null
-										const isActive = activeFile === file.id
-										const isOnlyTab = openFiles.length <= 1
-										return (
-											<SnippetEditorTab
-												key={file.id}
-												file={file}
-												isActive={isActive}
-												isOnlyTab={isOnlyTab}
-												onSelectFile={onSelectFile}
-												onCloseFileTab={onCloseFileTab}
-											/>
-										)
-									})}
+				<div className="flex h-9 shrink-0 items-center border-b border-neutral-200 bg-neutral-50">
+					<div
+						className="scrollbar-hidden flex h-full w-full items-center overflow-x-auto overflow-y-hidden"
+						onWheel={handleTabBarWheel}
+					>
+						<div className="flex min-w-full w-max items-center gap-2 px-2">
+							<DndContext
+								sensors={sensors}
+								collisionDetection={closestCenter}
+								onDragEnd={handleTabDragEnd}
+							>
+								<SortableContext items={openFiles} strategy={horizontalListSortingStrategy}>
+									<div className="flex items-center gap-1">
+										{openFiles.map((fileId) => {
+											const file = editorFilesById.get(fileId)
+											if (!file) return null
+											const isActive = activeFile === file.id
+											const isOnlyTab = openFiles.length <= 1
+											return (
+												<SnippetEditorTab
+													key={file.id}
+													file={file}
+													isActive={isActive}
+													isOnlyTab={isOnlyTab}
+													onSelectFile={onSelectFile}
+													onCloseFileTab={onCloseFileTab}
+												/>
+											)
+										})}
+									</div>
+								</SortableContext>
+							</DndContext>
+							{isSourceEditorActive && (
+								<div className="ml-auto flex items-center gap-2">
+									<Button
+										type="button"
+										variant="ghost"
+										size="sm"
+										className="h-7 text-xs"
+										onClick={() => fileInputRef.current?.click()}
+										disabled={activeFile !== "source"}
+									>
+										<Upload className="mr-1 h-3 w-3" />
+										Upload
+									</Button>
+									<input
+										ref={fileInputRef}
+										type="file"
+										accept=".jsx,.tsx,.js,.ts"
+										className="hidden"
+										onChange={onSourceUpload}
+									/>
 								</div>
-							</SortableContext>
-						</DndContext>
-						{isSourceEditorActive && (
-							<div className="ml-auto flex items-center gap-2">
-								<Button
-									type="button"
-									variant="ghost"
-									size="sm"
-									className="h-7 text-xs"
-									onClick={() => fileInputRef.current?.click()}
-									disabled={activeFile !== "source"}
-								>
-									<Upload className="mr-1 h-3 w-3" />
-									Upload
-								</Button>
-								<input
-									ref={fileInputRef}
-									type="file"
-									accept=".jsx,.tsx,.js,.ts"
-									className="hidden"
-									onChange={onSourceUpload}
-								/>
-							</div>
-						)}
+							)}
+						</div>
 					</div>
 				</div>
-			</div>
 
 				<div className="flex-1 overflow-hidden">
 					{isSourceEditorActive && (

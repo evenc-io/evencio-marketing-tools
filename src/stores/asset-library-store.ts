@@ -207,6 +207,7 @@ interface AssetLibraryActions {
 	createAssetFromUpload: (input: AssetUploadInput) => Promise<Asset>
 	registerSnippetAsset: (input: SnippetRegistrationInput) => Promise<Asset>
 	registerCustomSnippetAsset: (input: CustomSnippetRegistrationInput) => Promise<Asset>
+	updateCustomSnippetAsset: (assetId: string, input: CustomSnippetUpdateInput) => Promise<Asset>
 	updateSnippetSource: (assetId: string, source: string) => Promise<Asset>
 	promoteAssetScope: (assetId: string, targetScope: AssetScope) => Promise<Asset>
 	hideAsset: (assetId: string) => Promise<void>
@@ -253,6 +254,18 @@ interface SnippetRegistrationInput {
 
 interface CustomSnippetRegistrationInput extends SnippetRegistrationInput {
 	source: string
+}
+
+interface CustomSnippetUpdateInput {
+	source: string
+	scope: AssetScope
+	title: string
+	description?: string | null
+	tagNames: string[]
+	license: AssetLicense
+	attribution?: AssetAttribution | null
+	viewport?: SnippetViewport
+	entryExport?: string
 }
 
 export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActions>((set, get) => ({
@@ -475,6 +488,109 @@ export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActio
 		}
 
 		return asset
+	},
+
+	updateCustomSnippetAsset: async (assetId, input) => {
+		const { assets, syncLibrary } = get()
+		const existing = assets.find((asset) => asset.id === assetId)
+		if (!existing) {
+			throw new Error("Asset not found")
+		}
+		if (existing.type !== "snippet") {
+			throw new Error("Asset is not a snippet")
+		}
+		if (!existing.snippet.source) {
+			throw new Error("Snippet is not editable")
+		}
+		if (input.source.length > SNIPPET_SOURCE_MAX_CHARS) {
+			throw new Error(`Snippet source is too large (limit ${SNIPPET_SOURCE_MAX_CHARS} characters).`)
+		}
+		if (input.viewport) {
+			const viewportError = getSnippetViewportError(input.viewport)
+			if (viewportError) {
+				throw new Error(`Snippet resolution invalid: ${viewportError}`)
+			}
+		}
+		const currentScope = existing.scope.scope
+		const targetScope = input.scope
+		if (currentScope !== targetScope) {
+			const order: AssetScope[] = ["personal", "event", "org"]
+			const currentIndex = order.indexOf(currentScope)
+			const targetIndex = order.indexOf(targetScope)
+			if (currentIndex !== -1 && targetIndex !== -1 && targetIndex < currentIndex) {
+				throw new Error("Scope demotion is not supported for existing snippets.")
+			}
+		}
+
+		const nextScopeRef =
+			targetScope === currentScope
+				? existing.scope
+				: resolvePromotionScope(existing.scope, targetScope)
+		const tagIds = await ensureTagIds(input.tagNames, nextScopeRef)
+
+		const componentExports = await listSnippetComponentExports(input.source)
+		if (componentExports.length === 0) {
+			throw new Error("Snippet must export at least one component.")
+		}
+		if (componentExports.length > SNIPPET_COMPONENT_LIMITS.hard) {
+			throw new Error(
+				`Snippet exports too many components (limit ${SNIPPET_COMPONENT_LIMITS.hard}).`,
+			)
+		}
+
+		const preferredEntry =
+			input.entryExport ?? existing.snippet.entryExport ?? DEFAULT_SNIPPET_EXPORT
+		const hasPreferred =
+			preferredEntry === DEFAULT_SNIPPET_EXPORT
+				? componentExports.some((component) => component.isDefault)
+				: componentExports.some((component) => component.exportName === preferredEntry)
+		const fallbackEntry =
+			componentExports.find((component) => component.isDefault)?.exportName ??
+			componentExports[0]?.exportName ??
+			DEFAULT_SNIPPET_EXPORT
+		const entryExport = hasPreferred ? preferredEntry : fallbackEntry
+
+		let derived: { propsSchema: SnippetPropsSchemaDefinition; defaultProps: SnippetProps }
+		try {
+			derived = await deriveSnippetPropsFromSource(input.source, entryExport)
+		} catch {
+			throw new Error("Snippet source must be valid TSX before saving")
+		}
+
+		const metadata = {
+			title: input.title,
+			description: input.description ?? null,
+			tags: tagIds,
+			license: {
+				...input.license,
+				url: normalizeUrl(input.license.url),
+			},
+			attribution: normalizeAttribution(input.attribution),
+		}
+
+		const updated = await service.updateAsset(assetId, {
+			scope: nextScopeRef,
+			metadata,
+			snippet: {
+				...existing.snippet,
+				source: input.source,
+				propsSchema: derived.propsSchema,
+				viewport: input.viewport ?? existing.snippet.viewport,
+				entryExport: entryExport === DEFAULT_SNIPPET_EXPORT ? undefined : entryExport,
+			},
+			defaultProps: derived.defaultProps,
+			changelog: "Updated snippet",
+		})
+
+		set({
+			assets: assets.map((asset) => (asset.id === assetId ? updated : asset)),
+		})
+
+		if (syncLibrary) {
+			await syncLibrary()
+		}
+
+		return updated
 	},
 
 	updateSnippetSource: async (assetId, source) => {

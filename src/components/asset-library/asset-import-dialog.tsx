@@ -440,7 +440,7 @@ export function AssetImportDialog() {
 					{SNIPPET_TEMPLATE_OPTIONS.map((template) => (
 						<Link
 							key={template.id}
-							to="/snippets/new"
+							to="/snippets/editor"
 							search={{ template: template.id }}
 							onClick={() => handleOpenChange(false)}
 							className="flex flex-col gap-1 rounded-md border border-neutral-200 bg-white px-3 py-2 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50"

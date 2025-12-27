@@ -13,7 +13,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as LibraryRouteImport } from './routes/library'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
-import { Route as SnippetsNewRouteImport } from './routes/snippets.new'
+import { Route as SnippetsEditorRouteImport } from './routes/snippets.editor'
 import { Route as SettingsStorageRouteImport } from './routes/settings/storage'
 import { Route as SettingsIntegrationsRouteImport } from './routes/settings/integrations'
 import { Route as ProjectProjectIdRouteImport } from './routes/project/$projectId'
@@ -40,9 +40,9 @@ const SettingsIndexRoute = SettingsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => SettingsRoute,
 } as any)
-const SnippetsNewRoute = SnippetsNewRouteImport.update({
-  id: '/snippets/new',
-  path: '/snippets/new',
+const SnippetsEditorRoute = SnippetsEditorRouteImport.update({
+  id: '/snippets/editor',
+  path: '/snippets/editor',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsStorageRoute = SettingsStorageRouteImport.update({
@@ -79,7 +79,7 @@ export interface FileRoutesByFullPath {
   '/project/$projectId': typeof ProjectProjectIdRouteWithChildren
   '/settings/integrations': typeof SettingsIntegrationsRoute
   '/settings/storage': typeof SettingsStorageRoute
-  '/snippets/new': typeof SnippetsNewRoute
+  '/snippets/editor': typeof SnippetsEditorRoute
   '/settings/': typeof SettingsIndexRoute
   '/project/$projectId/': typeof ProjectProjectIdIndexRoute
   '/project/$projectId/slide/$slideId': typeof ProjectProjectIdSlideSlideIdRoute
@@ -89,7 +89,7 @@ export interface FileRoutesByTo {
   '/library': typeof LibraryRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
   '/settings/storage': typeof SettingsStorageRoute
-  '/snippets/new': typeof SnippetsNewRoute
+  '/snippets/editor': typeof SnippetsEditorRoute
   '/settings': typeof SettingsIndexRoute
   '/project/$projectId': typeof ProjectProjectIdIndexRoute
   '/project/$projectId/slide/$slideId': typeof ProjectProjectIdSlideSlideIdRoute
@@ -102,7 +102,7 @@ export interface FileRoutesById {
   '/project/$projectId': typeof ProjectProjectIdRouteWithChildren
   '/settings/integrations': typeof SettingsIntegrationsRoute
   '/settings/storage': typeof SettingsStorageRoute
-  '/snippets/new': typeof SnippetsNewRoute
+  '/snippets/editor': typeof SnippetsEditorRoute
   '/settings/': typeof SettingsIndexRoute
   '/project/$projectId/': typeof ProjectProjectIdIndexRoute
   '/project/$projectId/slide/$slideId': typeof ProjectProjectIdSlideSlideIdRoute
@@ -116,7 +116,7 @@ export interface FileRouteTypes {
     | '/project/$projectId'
     | '/settings/integrations'
     | '/settings/storage'
-    | '/snippets/new'
+    | '/snippets/editor'
     | '/settings/'
     | '/project/$projectId/'
     | '/project/$projectId/slide/$slideId'
@@ -126,7 +126,7 @@ export interface FileRouteTypes {
     | '/library'
     | '/settings/integrations'
     | '/settings/storage'
-    | '/snippets/new'
+    | '/snippets/editor'
     | '/settings'
     | '/project/$projectId'
     | '/project/$projectId/slide/$slideId'
@@ -138,7 +138,7 @@ export interface FileRouteTypes {
     | '/project/$projectId'
     | '/settings/integrations'
     | '/settings/storage'
-    | '/snippets/new'
+    | '/snippets/editor'
     | '/settings/'
     | '/project/$projectId/'
     | '/project/$projectId/slide/$slideId'
@@ -149,7 +149,7 @@ export interface RootRouteChildren {
   LibraryRoute: typeof LibraryRoute
   SettingsRoute: typeof SettingsRouteWithChildren
   ProjectProjectIdRoute: typeof ProjectProjectIdRouteWithChildren
-  SnippetsNewRoute: typeof SnippetsNewRoute
+  SnippetsEditorRoute: typeof SnippetsEditorRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -182,11 +182,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsIndexRouteImport
       parentRoute: typeof SettingsRoute
     }
-    '/snippets/new': {
-      id: '/snippets/new'
-      path: '/snippets/new'
-      fullPath: '/snippets/new'
-      preLoaderRoute: typeof SnippetsNewRouteImport
+    '/snippets/editor': {
+      id: '/snippets/editor'
+      path: '/snippets/editor'
+      fullPath: '/snippets/editor'
+      preLoaderRoute: typeof SnippetsEditorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings/storage': {
@@ -261,7 +261,7 @@ const rootRouteChildren: RootRouteChildren = {
   LibraryRoute: LibraryRoute,
   SettingsRoute: SettingsRouteWithChildren,
   ProjectProjectIdRoute: ProjectProjectIdRouteWithChildren,
-  SnippetsNewRoute: SnippetsNewRoute,
+  SnippetsEditorRoute: SnippetsEditorRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

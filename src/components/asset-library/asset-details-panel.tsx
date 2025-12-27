@@ -1,7 +1,6 @@
 import { Eye, FileCode2, Image, Pencil, Shapes, Star, Trash2 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { MonacoEditor } from "@/components/ui/monaco-editor"
 import { cn } from "@/lib/utils"
 import type { Asset, AssetScope, AssetTag } from "@/types/asset-library"
 
@@ -203,16 +202,6 @@ export function AssetDetailsPanel({
 								</Button>
 							)}
 						</div>
-					</div>
-
-					<div className="mt-2 overflow-hidden rounded-md border border-neutral-200">
-						<MonacoEditor
-							value={asset.snippet.source}
-							readOnly
-							height={200}
-							language="typescript"
-							path={`snippet-${asset.id}.tsx`}
-						/>
 					</div>
 				</div>
 			)}

@@ -45,7 +45,10 @@ const getCollapsedBasis = (explorerCollapsed: boolean) => (explorerCollapsed ? 0
 const getBounds = (containerWidth: number, explorerCollapsed: boolean) => {
 	const explorerWidth = explorerCollapsed ? 0 : EXPLORER_WIDTH
 	const minEditor = MIN_EDITOR_CONTENT + explorerWidth
-	const maxEditor = Math.min(containerWidth, Math.max(minEditor, containerWidth - MIN_PREVIEW_WIDTH))
+	const maxEditor = Math.min(
+		containerWidth,
+		Math.max(minEditor, containerWidth - MIN_PREVIEW_WIDTH),
+	)
 	return {
 		minEditor: Math.max(0, Math.min(minEditor, maxEditor)),
 		maxEditor: Math.max(0, maxEditor),
@@ -53,8 +56,8 @@ const getBounds = (containerWidth: number, explorerCollapsed: boolean) => {
 }
 
 interface UseSnippetSplitViewOptions {
-	containerRef: RefObject<HTMLDivElement>
-	editorRef: RefObject<HTMLDivElement>
+	containerRef: RefObject<HTMLDivElement | null>
+	editorRef: RefObject<HTMLDivElement | null>
 	editorCollapsed: boolean
 	explorerCollapsed: boolean
 }
@@ -146,7 +149,7 @@ export function useSnippetSplitView({
 	useEffect(() => () => cleanupRef.current?.(), [])
 
 	const onResizeStart = useCallback(
-		(event: ReactPointerEvent<HTMLDivElement>) => {
+		(event: ReactPointerEvent<HTMLButtonElement>) => {
 			if (editorCollapsed || isDraggingRef.current || event.button !== 0) return
 			const container = containerRef.current
 			if (!container) return
@@ -171,21 +174,13 @@ export function useSnippetSplitView({
 
 			const handlePointerMove = (moveEvent: PointerEvent) => {
 				if (moveEvent.pointerId !== pointerId) return
-				const nextBasis = clamp(
-					moveEvent.clientX - rect.left,
-					bounds.minEditor,
-					bounds.maxEditor,
-				)
+				const nextBasis = clamp(moveEvent.clientX - rect.left, bounds.minEditor, bounds.maxEditor)
 				scheduleBasis(nextBasis)
 			}
 
 			const handlePointerUp = (upEvent: PointerEvent) => {
 				if (upEvent.pointerId !== pointerId) return
-				const computed = clamp(
-					upEvent.clientX - rect.left,
-					bounds.minEditor,
-					bounds.maxEditor,
-				)
+				const computed = clamp(upEvent.clientX - rect.left, bounds.minEditor, bounds.maxEditor)
 				const finalBasis = lastBasisRef.current ?? computed
 				if (rafRef.current !== null) {
 					window.cancelAnimationFrame(rafRef.current)
