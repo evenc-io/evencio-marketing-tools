@@ -41,6 +41,7 @@ export function AssetCard({
 		.map((tagId) => tags.get(tagId)?.name)
 		.filter((label): label is string => Boolean(label))
 		.slice(0, 2)
+	const isGrid = view === "grid"
 
 	return (
 		<button
@@ -48,13 +49,18 @@ export function AssetCard({
 			onClick={() => onSelect(asset.id)}
 			data-selected={isSelected}
 			className={cn(
-				"group relative w-full rounded-lg border p-3 text-left transition-colors",
-				isHidden
-					? "border-amber-200 bg-amber-50/50"
-					: "border-neutral-200 bg-white hover:border-neutral-300",
-				"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900",
-				"data-[selected=true]:border-neutral-900 data-[selected=true]:ring-1 data-[selected=true]:ring-neutral-900/20",
-				view === "list" ? "flex items-center gap-4" : "flex flex-col gap-3",
+				"group relative w-full text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900",
+				"data-[selected=true]:ring-1 data-[selected=true]:ring-neutral-900/20",
+				isGrid
+					? cn(
+							"flex flex-col gap-3 bg-white p-4",
+							isHidden ? "bg-amber-50/70" : "hover:bg-neutral-50",
+						)
+					: cn(
+							"flex items-center gap-4 rounded-md border border-neutral-200 bg-white p-3",
+							isHidden ? "border-amber-200 bg-amber-50/60" : "hover:border-neutral-300",
+							"data-[selected=true]:border-neutral-900",
+						),
 			)}
 		>
 			{/* Controls row */}
@@ -97,7 +103,7 @@ export function AssetCard({
 								className={cn(
 									"rounded-full px-1.5 py-0.5 text-[9px] font-medium",
 									asset.snippet.source
-										? "border border-blue-200 bg-blue-50 text-blue-600"
+										? "border border-neutral-200 bg-neutral-50 text-neutral-700"
 										: "border border-neutral-200 bg-neutral-50 text-neutral-500",
 								)}
 							>

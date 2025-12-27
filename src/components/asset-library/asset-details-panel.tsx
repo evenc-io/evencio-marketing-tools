@@ -72,7 +72,7 @@ export function AssetDetailsPanel({
 
 	if (!asset) {
 		return (
-			<div className="rounded-lg border border-neutral-200 bg-white p-4 text-sm text-neutral-500">
+			<div className="text-sm text-neutral-500">
 				Select an asset to view metadata and licensing details.
 			</div>
 		)
@@ -97,13 +97,10 @@ export function AssetDetailsPanel({
 	}
 
 	return (
-		<div className="rounded-lg border border-neutral-200 bg-white p-4">
+		<div className="space-y-4">
 			<div className="flex items-start justify-between gap-3">
 				<div>
-					<p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
-						Asset Details
-					</p>
-					<h2 className="mt-2 text-lg font-semibold text-neutral-900">{asset.metadata.title}</h2>
+					<h2 className="text-lg font-semibold text-neutral-900">{asset.metadata.title}</h2>
 					{asset.metadata.description && (
 						<p className="mt-1 text-sm text-neutral-500">{asset.metadata.description}</p>
 					)}
@@ -138,7 +135,9 @@ export function AssetDetailsPanel({
 
 			<div className="mt-4 space-y-4 text-sm text-neutral-700">
 				<div>
-					<p className="text-xs uppercase tracking-[0.2em] text-neutral-500">Tags</p>
+					<p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
+						Tags
+					</p>
 					{tagLabels.length > 0 ? (
 						<div className="mt-2 flex flex-wrap gap-1">
 							{tagLabels.map((label) => (
@@ -157,15 +156,21 @@ export function AssetDetailsPanel({
 
 				<div className="grid gap-3">
 					<div>
-						<p className="text-xs uppercase tracking-[0.2em] text-neutral-500">Version</p>
+						<p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
+							Version
+						</p>
 						<p className="mt-1 text-sm text-neutral-800">v{asset.version}</p>
 					</div>
 					<div>
-						<p className="text-xs uppercase tracking-[0.2em] text-neutral-500">Updated</p>
+						<p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
+							Updated
+						</p>
 						<p className="mt-1 text-sm text-neutral-800">{formatDate(asset.metadata.updatedAt)}</p>
 					</div>
 					<div>
-						<p className="text-xs uppercase tracking-[0.2em] text-neutral-500">License</p>
+						<p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
+							License
+						</p>
 						<p className="mt-1 text-sm text-neutral-800">{asset.metadata.license.name}</p>
 						{asset.metadata.license.attributionRequired && (
 							<p className="mt-1 text-xs text-neutral-500">Attribution required</p>
@@ -173,7 +178,9 @@ export function AssetDetailsPanel({
 					</div>
 					{asset.metadata.attribution && (
 						<div>
-							<p className="text-xs uppercase tracking-[0.2em] text-neutral-500">Attribution</p>
+							<p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
+								Attribution
+							</p>
 							<p className="mt-1 text-sm text-neutral-800">{asset.metadata.attribution.text}</p>
 						</div>
 					)}
@@ -183,11 +190,11 @@ export function AssetDetailsPanel({
 			{asset.type === "snippet" && asset.snippet.source && (
 				<div className="mt-4 border-t border-neutral-200 pt-4">
 					<div className="flex items-center justify-between">
-						<p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
+						<p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
 							Source Code
 						</p>
 						<div className="flex items-center gap-2">
-							<span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-600">
+							<span className="rounded-full border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-[10px] font-medium text-neutral-700">
 								Custom
 							</span>
 							{onEditSource && (
@@ -222,7 +229,7 @@ export function AssetDetailsPanel({
 
 			{!isHidden && promotionOptions.length > 0 && (
 				<div className="mt-6 border-t border-neutral-200 pt-4">
-					<p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
+					<p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
 						Promote scope
 					</p>
 					<div className="mt-2 flex flex-wrap items-center gap-2">
