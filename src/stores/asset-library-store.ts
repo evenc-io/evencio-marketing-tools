@@ -511,11 +511,21 @@ export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActio
 				throw new Error(`Snippet resolution invalid: ${viewportError}`)
 			}
 		}
+		const currentScope = existing.scope.scope
+		const targetScope = input.scope
+		if (currentScope !== targetScope) {
+			const order: AssetScope[] = ["personal", "event", "org"]
+			const currentIndex = order.indexOf(currentScope)
+			const targetIndex = order.indexOf(targetScope)
+			if (currentIndex !== -1 && targetIndex !== -1 && targetIndex < currentIndex) {
+				throw new Error("Scope demotion is not supported for existing snippets.")
+			}
+		}
 
 		const nextScopeRef =
-			input.scope === existing.scope.scope
+			targetScope === currentScope
 				? existing.scope
-				: resolvePromotionScope(existing.scope, input.scope)
+				: resolvePromotionScope(existing.scope, targetScope)
 		const tagIds = await ensureTagIds(input.tagNames, nextScopeRef)
 
 		const componentExports = await listSnippetComponentExports(input.source)
