@@ -11,8 +11,14 @@ import { Input } from "@/components/ui/input"
 import { CollapsibleSection } from "@/routes/-snippets/new/components/collapsible-section"
 import { scopeOptions } from "@/routes/-snippets/new/constants"
 import type { CustomSnippetValues } from "@/routes/-snippets/new/schema"
+import type { AssetScope } from "@/types/asset-library"
 
-export function MetadataFields({ tagHints }: { tagHints: string[] }) {
+interface MetadataFieldsProps {
+	tagHints: string[]
+	disabledScopes?: AssetScope[]
+}
+
+export function MetadataFields({ tagHints, disabledScopes = [] }: MetadataFieldsProps) {
 	const form = useFormContext<CustomSnippetValues>()
 	const attributionRequired = form.watch("attributionRequired")
 	const tagHintText = tagHints.length > 0 ? `Existing: ${tagHints.slice(0, 3).join(", ")}` : null
@@ -80,7 +86,11 @@ export function MetadataFields({ tagHints }: { tagHints: string[] }) {
 									className="h-8 w-full rounded-md border border-neutral-200 bg-white px-2 text-sm text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900"
 								>
 									{scopeOptions.map((option) => (
-										<option key={option.value} value={option.value}>
+										<option
+											key={option.value}
+											value={option.value}
+											disabled={disabledScopes.includes(option.value)}
+										>
 											{option.label}
 										</option>
 									))}

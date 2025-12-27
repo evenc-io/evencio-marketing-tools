@@ -81,7 +81,7 @@ import {
 	toComponentFileId,
 } from "@/routes/-snippets/new/snippet-file-utils"
 import { useAssetLibraryStore } from "@/stores/asset-library-store"
-import type { SnippetAsset } from "@/types/asset-library"
+import type { AssetScope, SnippetAsset } from "@/types/asset-library"
 
 export const Route = createFileRoute("/snippets/editor")({
 	validateSearch: z.object({
@@ -202,6 +202,13 @@ function NewSnippetPage() {
 			) ?? null
 		)
 	}, [assets, editAssetId])
+	const disabledScopes = useMemo<AssetScope[]>(() => {
+		if (!isEditing || !editAsset) return []
+		const order: AssetScope[] = ["personal", "event", "org"]
+		const currentIndex = order.indexOf(editAsset.scope.scope)
+		if (currentIndex <= 0) return []
+		return order.slice(0, currentIndex)
+	}, [editAsset, isEditing])
 	const editTagNames = useMemo(() => {
 		if (!editAsset) return ""
 		return editAsset.metadata.tags.map((tagId) => tagNameById.get(tagId) ?? tagId).join(", ")
@@ -1028,6 +1035,7 @@ export const ${name} = ({ title = "New snippet" }) => {
 					<SnippetDetailsPanel
 						collapsed={detailsCollapsed}
 						tagHints={tagHints}
+						disabledScopes={disabledScopes}
 						selectedTemplateId={selectedTemplateId}
 						onSelectTemplate={setSelectedTemplateId}
 						onApplyTemplate={() => applySnippetTemplate(selectedTemplateId)}
