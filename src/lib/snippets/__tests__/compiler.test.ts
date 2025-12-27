@@ -76,6 +76,17 @@ export default function Card({ title, children }) {
 			expect(result.success).toBe(true)
 			expect(result.code).toBeDefined()
 		})
+
+		it("compiles when a named export is selected", async () => {
+			const source = `
+export const Badge = ({ label = "New" }) => <span>{label}</span>
+`
+			const result = await compileSnippet(source, "Badge")
+
+			expect(result.success).toBe(true)
+			expect(result.code).toBeDefined()
+			expect(result.code).toContain("__SNIPPET_COMPONENT__")
+		})
 	})
 
 	describe("compilation errors", () => {

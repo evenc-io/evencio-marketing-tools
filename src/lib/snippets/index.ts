@@ -5,7 +5,17 @@ import LaunchHero from "./launch-hero"
 // Re-export compiler, preview runtime, and hook
 export * from "./compiler"
 export * from "./preview-runtime"
-export { deriveSnippetPropsFromSource } from "./source-derived"
+export {
+	DEFAULT_SNIPPET_EXPORT,
+	deriveSnippetPropsFromAllExports,
+	deriveSnippetPropsFromSource,
+	getSnippetComponentSourceMap,
+	listSnippetComponentExports,
+	removeSnippetComponentExport,
+	type SnippetComponentExport,
+	type SnippetComponentSourceMap,
+} from "./source-derived"
+export * from "./source-files"
 export {
 	type CompileStatus,
 	type UseSnippetCompilerOptions,

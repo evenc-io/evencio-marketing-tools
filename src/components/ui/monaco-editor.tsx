@@ -2,11 +2,43 @@
 
 import { Editor, loader, type Monaco } from "@monaco-editor/react"
 import type { editor } from "monaco-editor"
-import { useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import { cn } from "@/lib/utils"
 
 const MONACO_CDN_VERSION = "0.55.1"
+let didAddReactTypes = false
+
+const REACT_TYPE_DEFS = `
+declare namespace JSX {
+  interface Element {}
+  interface ElementClass {
+    render: unknown;
+  }
+  interface ElementAttributesProperty {
+    props: {};
+  }
+  interface IntrinsicElements {
+    [elemName: string]: any;
+  }
+}
+
+declare module "react" {
+  export const Fragment: unique symbol;
+}
+
+declare module "react/jsx-runtime" {
+  export const jsx: (...args: any[]) => any;
+  export const jsxs: (...args: any[]) => any;
+  export const Fragment: any;
+}
+
+declare module "react/jsx-dev-runtime" {
+  export const jsx: (...args: any[]) => any;
+  export const jsxs: (...args: any[]) => any;
+  export const Fragment: any;
+}
+`.trim()
 
 // Configure Monaco to use CDN-hosted assets for the editor worker/runtime.
 if (typeof window !== "undefined") {
@@ -37,6 +69,10 @@ interface MonacoEditorProps {
 	height?: string | number
 	className?: string
 	placeholder?: string
+	path?: string
+	extraLibs?: Array<{ content: string; filePath: string }>
+	definitionMap?: Record<string, string>
+	onDefinitionSelect?: (symbol: string, target: string) => void
 	/** Callback when editor mounts, provides editor instance and monaco namespace */
 	onMount?: (editor: editor.IStandaloneCodeEditor, monaco: Monaco) => void
 	/** External markers to display (e.g., compile errors) */
@@ -53,22 +89,87 @@ function MonacoEditor({
 	height = 300,
 	className,
 	placeholder,
+	path,
+	extraLibs,
+	definitionMap,
+	onDefinitionSelect,
 	onMount: onMountProp,
 	markers,
 	markerOwner = "external",
 }: MonacoEditorProps) {
 	const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
 	const monacoRef = useRef<Monaco | null>(null)
+	const lastValueRef = useRef(value)
+	const [modelValue, setModelValue] = useState(value)
+	const pendingValueRef = useRef<string | null>(null)
+	const isFocusedRef = useRef(false)
+	const [monacoReady, setMonacoReady] = useState(false)
+	const editorDisposablesRef = useRef<Array<{ dispose: () => void }>>([])
+	const definitionMapRef = useRef<Record<string, string>>({})
+	const definitionSelectRef = useRef<((symbol: string, target: string) => void) | undefined>(
+		undefined,
+	)
+	const extraLibsRef = useRef(
+		new Map<
+			string,
+			{
+				content: string
+				dispose: () => void
+			}
+		>(),
+	)
 
 	const handleChange = (newValue?: string) => {
 		if (onChange && newValue !== undefined) {
+			lastValueRef.current = newValue
 			onChange(newValue)
 		}
 	}
 
+	const clearEditorDisposables = useCallback(() => {
+		for (const disposable of editorDisposablesRef.current) {
+			disposable.dispose()
+		}
+		editorDisposablesRef.current = []
+	}, [])
+
 	const handleMount = (mountedEditor: editor.IStandaloneCodeEditor, monaco: Monaco) => {
 		editorRef.current = mountedEditor
 		monacoRef.current = monaco
+		setMonacoReady(true)
+		clearEditorDisposables()
+		editorDisposablesRef.current = [
+			mountedEditor.onMouseDown((mouseEvent) => {
+				const map = definitionMapRef.current
+				const handler = definitionSelectRef.current
+				if (!handler) return
+				if (!mouseEvent.event.leftButton) return
+				if (!mouseEvent.event.metaKey && !mouseEvent.event.ctrlKey) return
+				const position = mouseEvent.target.position
+				if (!position) return
+				const model = mountedEditor.getModel()
+				if (!model) return
+				const word = model.getWordAtPosition(position)
+				if (!word) return
+				const target = map[word.word]
+				if (!target) return
+				mouseEvent.event.preventDefault()
+				mouseEvent.event.stopPropagation()
+				handler(word.word, target)
+			}),
+			mountedEditor.onDidFocusEditorText(() => {
+				isFocusedRef.current = true
+			}),
+			mountedEditor.onDidBlurEditorText(() => {
+				isFocusedRef.current = false
+				const pending = pendingValueRef.current
+				if (pending !== null && pending !== lastValueRef.current) {
+					pendingValueRef.current = null
+					lastValueRef.current = pending
+					setModelValue(pending)
+				}
+			}),
+		]
 		onMountProp?.(mountedEditor, monaco)
 	}
 
@@ -105,6 +206,64 @@ function MonacoEditor({
 		monaco.editor.setModelMarkers(model, markerOwner, monacoMarkers)
 	}, [markers, markerOwner])
 
+	useEffect(() => {
+		if (value === lastValueRef.current) return
+		const editor = editorRef.current
+		if (editor?.hasTextFocus()) {
+			pendingValueRef.current = value
+			return
+		}
+		lastValueRef.current = value
+		pendingValueRef.current = null
+		setModelValue(value)
+	}, [value])
+
+	useEffect(() => {
+		const monaco = monacoRef.current
+		if (!monaco || !monacoReady) return
+		const nextLibs = extraLibs ?? []
+		const existing = extraLibsRef.current
+		const nextPaths = new Set(nextLibs.map((lib) => lib.filePath))
+
+		for (const [filePath, entry] of existing.entries()) {
+			if (!nextPaths.has(filePath)) {
+				entry.dispose()
+				existing.delete(filePath)
+			}
+		}
+
+		for (const lib of nextLibs) {
+			const current = existing.get(lib.filePath)
+			if (current && current.content === lib.content) {
+				continue
+			}
+			current?.dispose()
+			const disposable = monaco.languages.typescript.typescriptDefaults.addExtraLib(
+				lib.content,
+				lib.filePath,
+			)
+			existing.set(lib.filePath, { content: lib.content, dispose: disposable.dispose })
+		}
+	}, [extraLibs, monacoReady])
+
+	useEffect(() => {
+		definitionMapRef.current = definitionMap ?? {}
+	}, [definitionMap])
+
+	useEffect(() => {
+		definitionSelectRef.current = onDefinitionSelect
+	}, [onDefinitionSelect])
+
+	useEffect(() => {
+		return () => {
+			clearEditorDisposables()
+			for (const entry of extraLibsRef.current.values()) {
+				entry.dispose()
+			}
+			extraLibsRef.current.clear()
+		}
+	}, [clearEditorDisposables])
+
 	// Clear markers on unmount
 	useEffect(() => {
 		return () => {
@@ -131,7 +290,9 @@ function MonacoEditor({
 			<Editor
 				height={height}
 				language={language}
-				value={value}
+				defaultLanguage={language}
+				value={modelValue}
+				path={path}
 				onChange={handleChange}
 				onMount={handleMount}
 				options={{
@@ -166,10 +327,22 @@ function MonacoEditor({
 				theme="vs"
 				beforeMount={(monaco) => {
 					// Configure TypeScript/JavaScript for JSX support
+					if (!didAddReactTypes) {
+						didAddReactTypes = true
+						monaco.languages.typescript.typescriptDefaults.addExtraLib(
+							REACT_TYPE_DEFS,
+							"file:///node_modules/@types/react/index.d.ts",
+						)
+						monaco.languages.typescript.javascriptDefaults.addExtraLib(
+							REACT_TYPE_DEFS,
+							"file:///node_modules/@types/react/index.d.ts",
+						)
+					}
 					monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
 						target: monaco.languages.typescript.ScriptTarget.ESNext,
 						module: monaco.languages.typescript.ModuleKind.ESNext,
 						jsx: monaco.languages.typescript.JsxEmit.ReactJSX,
+						jsxImportSource: "react",
 						moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
 						allowNonTsExtensions: true,
 						allowJs: true,

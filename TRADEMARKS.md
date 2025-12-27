@@ -1,27 +1,29 @@
-# Evencio Trademark Policy
+# Trademarks and branding
 
-Evencio Marketing Tools is open source under the MIT License, but the **Evencio** name, logo, and related brand assets are **trademarks** of Evencio and are **not** licensed for use without permission. Evencio is the property of Yan Malinovskiy.
+“Evencio” and related names/logos are trademarks of the project owners.
 
-## Why This Matters
-Trademark rules prevent confusion in the market. They protect users from mistaking a third-party fork or service for the official Evencio experience.
+The code license (FSL-1.1-MIT) **does not** grant rights to use our trademarks, trade names, service marks, or product names beyond attribution/origin.
 
-## What Is Covered
-- The **Evencio** name and wordmark
-- The Evencio logo and logo variations
-- Brand assets, including official iconography and lockups
+## What you MAY do
 
-## What Is Allowed (Without Permission)
-- **Truthful, descriptive references** (e.g., “compatible with Evencio Marketing Tools”)
-- **Source attribution** (e.g., “forked from Evencio Marketing Tools”) without implying endorsement
+- Refer to the project name in text to identify the origin (e.g. “forked from …”, “based on …”)
+- Keep default branding for **local development** and **internal evaluation**
+- Include **minimal textual attribution** in documentation (no endorsement implied)
 
-## What Is Not Allowed (Without Permission)
-- Using the Evencio name, logo, or brand assets in product names, domains, or marketing
-- Presenting a fork or service in a way that implies official Evencio sponsorship or endorsement
-- Rebranding your service as “Evencio” or “Evencio Marketing Tools”
+## What you MUST do for public forks / public deployments
 
-## How to Request Permission
-If you want to use Evencio trademarks or brand assets, contact Yan Malinovskiy at yanmalinovskiy@evenc.io and describe the intended use.
+If you publish or distribute a fork publicly (including hosting it for others), you must:
+- Remove/replace Evencio branding (names, logos, product naming) from the UI and marketing materials
+- Use your own project/company branding
+- Avoid any wording that suggests official endorsement or affiliation
 
-## Notes
-- This policy **does not** change the MIT License for the code.
-- Trademark permission is separate from code usage rights.
+## What you MUST NOT do
+
+- Use “Evencio” as your product/service name
+- Use Evencio logos as your primary branding
+- Present your fork as an official Evencio offering
+
+## Note on temporary demos
+
+If you’re only “getting it running” (e.g., early test deployments), default branding may still be visible.  
+For any public production use, rebranding is required.

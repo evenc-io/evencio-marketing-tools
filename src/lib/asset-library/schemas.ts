@@ -160,6 +160,7 @@ export const snippetAssetDefinitionSchema = z
 		propsSchema: snippetPropsSchemaDefinitionSchema,
 		source: z.string().optional(),
 		viewport: snippetViewportSchema.optional(),
+		entryExport: z.string().min(1).optional(),
 	})
 	.strict() satisfies z.ZodType<SnippetAssetDefinition>
 

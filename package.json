@@ -1,8 +1,8 @@
 {
 	"name": "evencio-marketing-tools",
 	"private": false,
-	"description": "Open-source marketing tool for event organizers - create social media images, posters, and promotional materials",
-	"license": "MIT",
+	"description": "Source-available marketing tool for event organizers - create social media images, posters, and promotional materials",
+	"license": "FSL-1.1-MIT",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/evenc-io/evencio-marketing-tools.git"
@@ -26,7 +26,8 @@
 		"test": "bun test",
 		"lint": "biome check . && tsc --noEmit",
 		"lint:fix": "biome check --fix .",
-		"format": "biome format --write ."
+		"format": "biome format --write .",
+		"third-party-notices": "node scripts/generate-third-party-notices.mjs"
 	},
 	"dependencies": {
 		"@babel/parser": "^7.26.2",

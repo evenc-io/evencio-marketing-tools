@@ -1,4 +1,5 @@
 import type { CompileError } from "./compiler"
+import { expandSnippetSource } from "./source-files"
 
 let parserPromise: Promise<typeof import("@babel/parser")> | null = null
 
@@ -145,8 +146,9 @@ export const analyzeSnippetSource = async (source: string): Promise<SourceSecuri
 	const issues: SourceSecurityIssue[] = []
 
 	try {
+		const normalizedSource = expandSnippetSource(source)
 		const parser = await loadParser()
-		const ast = parser.parse(source, {
+		const ast = parser.parse(normalizedSource, {
 			sourceType: "module",
 			plugins: ["typescript", "jsx"],
 		})

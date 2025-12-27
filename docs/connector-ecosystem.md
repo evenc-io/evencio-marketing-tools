@@ -1,16 +1,16 @@
-# OSS + Connector Ecosystem Strategy
+# Source-available + Connector Ecosystem Strategy
 
 ## Goal
-Open-source the editor while keeping Evencio the best hosted experience. Let other event/ticketing SaaS platforms build connectors, without diluting the Evencio brand.
+Make the editor source-available (Fair Source) while keeping Evencio the best hosted experience. Let other event/ticketing SaaS platforms build connectors, without diluting the Evencio brand.
 
 ## Why This Matters
-A permissive OSS core grows adoption and trust, but trademark control preserves identity and user trust. The connector ecosystem expands usage while keeping Evencio the default, high-quality option.
+A source-available core grows adoption and trust, but trademark control preserves identity and user trust. The connector ecosystem expands usage while keeping Evencio the default, high-quality option.
 
 ## Licensing & Brand Control
-- **Code license:** MIT (max adoption)
+- **Code license:** FSL-1.1-MIT (Fair Source; MIT after 2 years per version)
 - **Brand control:** Evencio name/logo governed by `TRADEMARKS.md`
 
-## OSS Scope (Public)
+## Source-available Scope (Public)
 - Editor UI and core scene/timeline model
 - JSON schema + export utilities
 - Connector SDK and reference connector(s)

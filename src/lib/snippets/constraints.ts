@@ -1,8 +1,13 @@
 import type { SnippetViewport } from "@/types/asset-library"
 
-export const SNIPPET_SOURCE_MAX_CHARS = 20_000
+export const SNIPPET_SOURCE_MAX_CHARS = 30_000
 export const SNIPPET_TAILWIND_MAX_CANDIDATES = 800
 export const SNIPPET_TAILWIND_MAX_CSS_CHARS = 150_000
+
+export const SNIPPET_COMPONENT_LIMITS = {
+	soft: 6,
+	hard: 10,
+}
 
 export const SNIPPET_DIMENSION_LIMITS = {
 	min: 100,

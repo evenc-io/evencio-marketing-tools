@@ -1,8 +1,7 @@
 # Evencio Marketing Tools
 
-> Open-source marketing tool for event organizers - create social media images, posters, and promotional materials.
+> Source-available marketing tool for event organizers - create social media images, posters, and promotional materials.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Built with Bun](https://img.shields.io/badge/Built%20with-Bun-black)](https://bun.sh)
 [![TanStack Start](https://img.shields.io/badge/TanStack-Start-blue)](https://tanstack.com/start)
 
@@ -103,11 +102,7 @@ This script updates `server/lib/snippet-fonts.ts` and caches downloaded woff2 fi
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](.github/CONTRIBUTING.md) for details.
-
-## Trademark
-
-Evencio name and logos are trademarks of Evencio and are **not** licensed for use without permission. See [TRADEMARKS.md](TRADEMARKS.md).
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
 ## Ecosystem
 
@@ -119,4 +114,29 @@ Yan Malinovskiy — yanmalinovskiy@evenc.io
 
 ## License
 
-[MIT](LICENSE) - Yan Malinovskiy 2025
+This project is **source-available (Fair Source)** under **FSL-1.1-MIT**. See [`LICENSE.md`](./LICENSE.md).
+
+Third-party dependencies and their licenses are listed in [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md). Regenerate with `bun run third-party-notices`.
+
+### TL;DR (plain-language summary)
+
+**Allowed (Permitted Purpose):**
+- Use, modify, and run locally / self-host for **internal use and evaluation**
+- Use for **non-commercial education** and **non-commercial research**
+- Use as an **agency / consultant** to deliver professional services for a client who is using the Software under these terms
+
+**Not allowed (Competing Use) without a commercial license:**
+- **Offering** this editor/SDK/template system **to third parties** as part of a **commercial product or service**
+- Shipping a hosted/SaaS editor, “asset builder”, or similar functionality that makes the Software available to your users/customers
+- Embedding it into commercial **platforms/marketplaces/resellers** where customers can access the functionality as part of the platform’s offering
+
+If you’re unsure whether your use is “Competing Use”, see [`COMMERCIAL.md`](./COMMERCIAL.md).
+
+### 2-year rolling conversion to MIT (per commit/version)
+
+FSL applies per **version** of the software that is made available. In a git repository, treat each pushed commit as a version made available at the time it was first published.  
+**Two years after a given commit was first made available, that commit is additionally available under the MIT License.** Newer commits remain under FSL until they reach the 2-year mark.
+
+### Trademarks / branding
+
+The license does **not** grant rights to Evencio trademarks or logos beyond attribution/origin. Public forks must rebrand before publishing. See [`TRADEMARKS.md`](./TRADEMARKS.md).

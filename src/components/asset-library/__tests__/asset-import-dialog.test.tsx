@@ -15,9 +15,32 @@ mock.module("@/stores/asset-library-store", () => ({
 }))
 
 // Mock TanStack Router Link component
+const buildHref = (to: string, search?: Record<string, unknown>) => {
+	if (!search || Object.keys(search).length === 0) return to
+	const params = new URLSearchParams()
+	for (const [key, value] of Object.entries(search)) {
+		if (value === undefined || value === null) continue
+		params.set(key, String(value))
+	}
+	const query = params.toString()
+	return query ? `${to}?${query}` : to
+}
+
 mock.module("@tanstack/react-router", () => ({
-	Link: ({ children, to, className }: { children: ReactNode; to: string; className?: string }) => (
-		<a href={to} className={className}>
+	Link: ({
+		children,
+		to,
+		search,
+		className,
+		onClick,
+	}: {
+		children: ReactNode
+		to: string
+		search?: Record<string, unknown>
+		className?: string
+		onClick?: () => void
+	}) => (
+		<a href={buildHref(to, search)} className={className} onClick={onClick}>
 			{children}
 		</a>
 	),
@@ -55,7 +78,7 @@ describe("AssetImportDialog", () => {
 		expect(createAssetFromUpload).not.toHaveBeenCalled()
 	})
 
-	it("shows link to custom snippet page", async () => {
+	it("shows template links for custom snippets", async () => {
 		render(<AssetImportDialog />)
 
 		fireEvent.click(screen.getByRole("button", { name: /add asset/i }))
@@ -64,6 +87,11 @@ describe("AssetImportDialog", () => {
 		})
 
 		expect(screen.getByText(/create a custom snippet/i)).toBeInTheDocument()
-		expect(screen.getByRole("link", { name: /new snippet/i })).toBeInTheDocument()
+		const singleLink = screen.getByRole("link", { name: /single component/i })
+		const multiLink = screen.getByRole("link", { name: /multi-component/i })
+		expect(singleLink).toBeInTheDocument()
+		expect(multiLink).toBeInTheDocument()
+		expect(singleLink.getAttribute("href")).toContain("template=single")
+		expect(multiLink.getAttribute("href")).toContain("template=multi")
 	})
 })
