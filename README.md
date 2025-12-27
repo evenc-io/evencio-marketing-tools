@@ -114,7 +114,7 @@ Yan Malinovskiy — yanmalinovskiy@evenc.io
 
 ## License
 
-This project is **source-available (Fair Source)** under **FSL-1.1-MIT**. See [`LICENSE.md`](./LICENSE.md).
+This project is **source-available (Fair Source)** under **FSL-1.1-MIT**. See [`LICENSE`](./LICENSE).
 
 Third-party dependencies and their licenses are listed in [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md). Regenerate with `bun run third-party-notices`.
 
