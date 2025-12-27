@@ -38,6 +38,7 @@ import { SnippetExamplesPanel } from "@/routes/-snippets/new/components/examples
 import { SnippetImportsPanel } from "@/routes/-snippets/new/components/imports-panel"
 import { PanelRail } from "@/routes/-snippets/new/components/panel-rail"
 import { SnippetPreviewHeaderActions } from "@/routes/-snippets/new/components/preview-header-actions"
+import { SnippetSplitViewResizer } from "@/routes/-snippets/new/components/split-view-resizer"
 import { SnippetFileOverlays } from "@/routes/-snippets/new/components/snippet-file-overlays"
 import { SnippetHeader } from "@/routes/-snippets/new/components/snippet-header"
 import { SnippetScreenGuard } from "@/routes/-snippets/new/components/snippet-screen-guard"
@@ -53,6 +54,7 @@ import { useDerivedSnippetProps } from "@/routes/-snippets/new/hooks/use-derived
 import { useSnippetComponentExports } from "@/routes/-snippets/new/hooks/use-snippet-component-exports"
 import { useSnippetFilters } from "@/routes/-snippets/new/hooks/use-snippet-filters"
 import { useSnippetPanels } from "@/routes/-snippets/new/hooks/use-snippet-panels"
+import { useSnippetSplitView } from "@/routes/-snippets/new/hooks/use-snippet-split-view"
 import {
 	type CustomSnippetValues,
 	customSnippetSchema,
@@ -133,6 +135,8 @@ function NewSnippetPage() {
 	const [isExamplePreviewActive, setIsExamplePreviewActive] = useState(false)
 	const { exampleFilters, importsFilters, handleExampleFilterClick, handleImportsFilterClick } =
 		useSnippetFilters()
+	const splitContainerRef = useRef<HTMLDivElement>(null)
+	const editorPanelRef = useRef<HTMLDivElement>(null)
 	const previewContainerRef = useRef<HTMLDivElement>(null)
 	const [isPreviewVisible, setIsPreviewVisible] = useState(true)
 	const screenGate = useScreenGuard()
@@ -856,6 +860,12 @@ export const ${name} = ({ title = "New snippet" }) => {
 			onToggleDefaults={() => setUseComponentDefaults((prev) => !prev)}
 		/>
 	)
+	const { onResizeStart } = useSnippetSplitView({
+		containerRef: splitContainerRef,
+		editorRef: editorPanelRef,
+		editorCollapsed,
+		explorerCollapsed,
+	})
 
 	if (screenGate.status !== "supported") {
 		return <SnippetScreenGuard gate={screenGate} />
@@ -926,8 +936,9 @@ export const ${name} = ({ title = "New snippet" }) => {
 					<SnippetImportsPanel open={importsOpen} filters={importsFilters} />
 
 					{/* Center - Editor and Preview split */}
-					<section className="flex flex-1 overflow-hidden">
+					<section ref={splitContainerRef} className="flex flex-1 overflow-hidden">
 						<SnippetEditorPanel
+							containerRef={editorPanelRef}
 							editorCollapsed={editorCollapsed}
 							explorerCollapsed={explorerCollapsed}
 							openFiles={openFiles}
@@ -967,13 +978,15 @@ export const ${name} = ({ title = "New snippet" }) => {
 							compileErrors={compileErrors}
 						/>
 
-						{/* Preview panel - 40% width */}
+						<SnippetSplitViewResizer
+							isHidden={editorCollapsed}
+							onPointerDown={onResizeStart}
+						/>
+
+						{/* Preview panel - fills remaining width */}
 						<div
 							ref={previewContainerRef}
-							className={cn(
-								"flex flex-col overflow-hidden transition-all duration-200",
-								editorCollapsed ? "flex-1" : "w-[40%]",
-							)}
+							className="flex min-w-0 flex-1 flex-col overflow-hidden"
 						>
 							<SnippetPreview
 								compiledCode={previewCompiledCode}

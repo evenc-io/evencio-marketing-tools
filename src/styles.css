@@ -21,6 +21,15 @@ body {
   font-family: "Unbounded", sans-serif;
 }
 
+.scrollbar-hidden {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco,
     Consolas, "Courier New", monospace;
@@ -144,4 +153,3 @@ code {
     @apply bg-background text-foreground;
   }
 }
-
