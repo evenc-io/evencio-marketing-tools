@@ -311,6 +311,13 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
 			canvas.sendObjectToBack(artboard)
 
 			canvas.renderAll()
+			if (typeof requestAnimationFrame !== "undefined") {
+				requestAnimationFrame(() => {
+					if (get().canvas === canvasRef) {
+						canvas.renderAll()
+					}
+				})
+			}
 			// Increment layer version to update layers panel after loading
 			set((state) => ({ isDirty: false, layerVersion: state.layerVersion + 1 }))
 		} catch (error) {

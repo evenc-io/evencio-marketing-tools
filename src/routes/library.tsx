@@ -5,6 +5,7 @@ import { AssetCard } from "../components/asset-library/asset-card"
 import { AssetDeleteDialog } from "../components/asset-library/asset-delete-dialog"
 import { AssetDetailsPanel } from "../components/asset-library/asset-details-panel"
 import { AssetImportDialog } from "../components/asset-library/asset-import-dialog"
+import { SnippetSourceEditorDialog } from "../components/asset-library/snippet-source-editor-dialog"
 import { Logo } from "../components/brand/logo"
 import { Button } from "../components/ui/button"
 import { EmptyState } from "../components/ui/empty-state"
@@ -13,7 +14,7 @@ import { Tabs, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { buildAssetSearchIndex, filterAssetSearchIndex } from "../lib/asset-library/search-index"
 import { cn } from "../lib/utils"
 import { useAssetLibraryStore } from "../stores/asset-library-store"
-import type { Asset, AssetScope, AssetType } from "../types/asset-library"
+import type { Asset, AssetScope, AssetType, SnippetAsset } from "../types/asset-library"
 
 export const Route = createFileRoute("/library")({
 	component: AssetLibraryPage,
@@ -49,6 +50,7 @@ function AssetLibraryPage() {
 	const hideAsset = useAssetLibraryStore((state) => state.hideAsset)
 	const unhideAsset = useAssetLibraryStore((state) => state.unhideAsset)
 	const deleteAsset = useAssetLibraryStore((state) => state.deleteAsset)
+	const updateSnippetSource = useAssetLibraryStore((state) => state.updateSnippetSource)
 
 	const [searchTerm, setSearchTerm] = useState("")
 	const [typeFilters, setTypeFilters] = useState<AssetType[]>([])
@@ -60,6 +62,8 @@ function AssetLibraryPage() {
 	const [showHidden, setShowHidden] = useState(false)
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 	const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null)
+	const [snippetEditorOpen, setSnippetEditorOpen] = useState(false)
+	const [snippetEditorAssetId, setSnippetEditorAssetId] = useState<string | null>(null)
 
 	useEffect(() => {
 		loadLibrary(showHidden)
@@ -134,6 +138,14 @@ function AssetLibraryPage() {
 		() => filteredAssets.find((asset) => asset.id === selectedAssetId) ?? null,
 		[filteredAssets, selectedAssetId],
 	)
+	const snippetEditorAsset = useMemo(
+		() =>
+			assets.find(
+				(asset): asset is SnippetAsset =>
+					asset.id === snippetEditorAssetId && asset.type === "snippet",
+			) ?? null,
+		[assets, snippetEditorAssetId],
+	)
 
 	useEffect(() => {
 		if (filteredAssets.length === 0) {
@@ -203,6 +215,11 @@ function AssetLibraryPage() {
 	const handleDeleteDialogClose = () => {
 		setDeleteDialogOpen(false)
 		setAssetToDelete(null)
+	}
+
+	const handleEditSnippetSource = (assetId: string) => {
+		setSnippetEditorAssetId(assetId)
+		setSnippetEditorOpen(true)
 	}
 
 	return (
@@ -506,6 +523,7 @@ function AssetLibraryPage() {
 							onPromoteScope={promoteAssetScope}
 							onUnhide={handleUnhideAsset}
 							onDelete={handleDeleteDialogOpen}
+							onEditSource={handleEditSnippetSource}
 						/>
 					</aside>
 				</div>
@@ -514,6 +532,20 @@ function AssetLibraryPage() {
 					open={deleteDialogOpen}
 					onOpenChange={handleDeleteDialogClose}
 					onDelete={handleDeleteAsset}
+				/>
+				<SnippetSourceEditorDialog
+					asset={snippetEditorAsset}
+					open={snippetEditorOpen}
+					onOpenChange={(open) => {
+						setSnippetEditorOpen(open)
+						if (!open) {
+							setSnippetEditorAssetId(null)
+						}
+					}}
+					onSave={async (source) => {
+						if (!snippetEditorAsset) return
+						await updateSnippetSource(snippetEditorAsset.id, source)
+					}}
 				/>
 			</main>
 		</div>

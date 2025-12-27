@@ -90,7 +90,21 @@ export function AssetCard({
 			<div className={cn("flex-1 space-y-1", view === "list" ? "" : "")}>
 				<div>
 					<p className="text-sm font-medium text-neutral-900">{asset.metadata.title}</p>
-					<p className="text-xs text-neutral-500">{typeConfig[asset.type].label}</p>
+					<div className="flex items-center gap-1.5">
+						<p className="text-xs text-neutral-500">{typeConfig[asset.type].label}</p>
+						{asset.type === "snippet" && (
+							<span
+								className={cn(
+									"rounded-full px-1.5 py-0.5 text-[9px] font-medium",
+									asset.snippet.source
+										? "border border-blue-200 bg-blue-50 text-blue-600"
+										: "border border-neutral-200 bg-neutral-50 text-neutral-500",
+								)}
+							>
+								{asset.snippet.source ? "Custom" : "Registry"}
+							</span>
+						)}
+					</div>
 				</div>
 
 				{asset.metadata.description && view === "grid" && (

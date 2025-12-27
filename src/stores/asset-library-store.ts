@@ -7,6 +7,16 @@ import {
 	SAMPLE_COLLECTION,
 	SAMPLE_TAG,
 } from "@/lib/asset-library"
+import {
+	DEFAULT_SNIPPET_EXPORT,
+	deriveSnippetPropsFromSource,
+	listSnippetComponentExports,
+} from "@/lib/snippets"
+import {
+	getSnippetViewportError,
+	SNIPPET_COMPONENT_LIMITS,
+	SNIPPET_SOURCE_MAX_CHARS,
+} from "@/lib/snippets/constraints"
 import type {
 	Asset,
 	AssetAttribution,
@@ -22,6 +32,7 @@ import type {
 	SnippetProps,
 	SnippetPropsSchemaDefinition,
 	SnippetRuntime,
+	SnippetViewport,
 } from "@/types/asset-library"
 
 const DEMO_ACCESS_CONTEXT = {
@@ -195,6 +206,8 @@ interface AssetLibraryActions {
 	toggleFavorite: (assetId: string) => Promise<void>
 	createAssetFromUpload: (input: AssetUploadInput) => Promise<Asset>
 	registerSnippetAsset: (input: SnippetRegistrationInput) => Promise<Asset>
+	registerCustomSnippetAsset: (input: CustomSnippetRegistrationInput) => Promise<Asset>
+	updateSnippetSource: (assetId: string, source: string) => Promise<Asset>
 	promoteAssetScope: (assetId: string, targetScope: AssetScope) => Promise<Asset>
 	hideAsset: (assetId: string) => Promise<void>
 	unhideAsset: (assetId: string) => Promise<void>
@@ -228,12 +241,18 @@ interface SnippetRegistrationInput {
 	runtime: SnippetRuntime
 	propsSchema: SnippetPropsSchemaDefinition
 	defaultProps: SnippetProps
+	viewport?: SnippetViewport
+	entryExport?: string
 	scope: AssetScope
 	title: string
 	description?: string | null
 	tagNames: string[]
 	license: AssetLicense
 	attribution?: AssetAttribution | null
+}
+
+interface CustomSnippetRegistrationInput extends SnippetRegistrationInput {
+	source: string
 }
 
 export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActions>((set, get) => ({
@@ -329,6 +348,12 @@ export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActio
 	},
 
 	registerSnippetAsset: async (input) => {
+		if (input.viewport) {
+			const viewportError = getSnippetViewportError(input.viewport)
+			if (viewportError) {
+				throw new Error(`Snippet resolution invalid: ${viewportError}`)
+			}
+		}
 		const scopeRef = resolveScopeRef(input.scope)
 		const tagIds = await ensureTagIds(input.tagNames, scopeRef)
 		const metadata = {
@@ -346,6 +371,8 @@ export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActio
 			entry: input.entry,
 			runtime: input.runtime,
 			propsSchema: input.propsSchema,
+			entryExport: input.entryExport,
+			viewport: input.viewport,
 		}
 
 		const asset = await service.createAsset(
@@ -365,6 +392,152 @@ export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActio
 		}
 
 		return asset
+	},
+
+	registerCustomSnippetAsset: async (input) => {
+		if (input.source.length > SNIPPET_SOURCE_MAX_CHARS) {
+			throw new Error(`Snippet source is too large (limit ${SNIPPET_SOURCE_MAX_CHARS} characters).`)
+		}
+		if (input.viewport) {
+			const viewportError = getSnippetViewportError(input.viewport)
+			if (viewportError) {
+				throw new Error(`Snippet resolution invalid: ${viewportError}`)
+			}
+		}
+		const scopeRef = resolveScopeRef(input.scope)
+		const tagIds = await ensureTagIds(input.tagNames, scopeRef)
+		let derived: { propsSchema: SnippetPropsSchemaDefinition; defaultProps: SnippetProps }
+		const entryExport = input.entryExport ?? DEFAULT_SNIPPET_EXPORT
+		let componentExports: Awaited<ReturnType<typeof listSnippetComponentExports>> = []
+		try {
+			componentExports = await listSnippetComponentExports(input.source)
+			if (componentExports.length === 0) {
+				throw new Error("Snippet must export at least one component.")
+			}
+			if (componentExports.length > SNIPPET_COMPONENT_LIMITS.hard) {
+				throw new Error(
+					`Snippet exports too many components (limit ${SNIPPET_COMPONENT_LIMITS.hard}).`,
+				)
+			}
+			const hasEntry =
+				entryExport === DEFAULT_SNIPPET_EXPORT
+					? componentExports.some((component) => component.isDefault)
+					: componentExports.some((component) => component.exportName === entryExport)
+			if (!hasEntry) {
+				throw new Error(
+					entryExport === DEFAULT_SNIPPET_EXPORT
+						? "Snippet must include a default export or select a named component."
+						: `Snippet entry "${entryExport}" was not found.`,
+				)
+			}
+
+			derived = await deriveSnippetPropsFromSource(input.source, entryExport)
+		} catch (error) {
+			if (error instanceof Error) {
+				throw error
+			}
+			throw new Error("Snippet source must be valid TSX before saving")
+		}
+		const metadata = {
+			title: input.title,
+			description: input.description ?? null,
+			tags: tagIds,
+			license: {
+				...input.license,
+				url: normalizeUrl(input.license.url),
+			},
+			attribution: normalizeAttribution(input.attribution),
+		}
+
+		const snippet: SnippetAssetDefinition = {
+			entry: input.entry,
+			runtime: input.runtime,
+			propsSchema: derived.propsSchema,
+			source: input.source,
+			viewport: input.viewport,
+			entryExport: entryExport === DEFAULT_SNIPPET_EXPORT ? undefined : entryExport,
+		}
+
+		const asset = await service.createAsset(
+			{
+				type: "snippet",
+				scope: scopeRef,
+				metadata,
+				snippet,
+				defaultProps: derived.defaultProps,
+			},
+			"Created custom snippet",
+		)
+
+		const { syncLibrary } = get()
+		if (syncLibrary) {
+			await syncLibrary()
+		}
+
+		return asset
+	},
+
+	updateSnippetSource: async (assetId, source) => {
+		const { assets, syncLibrary } = get()
+		const existing = assets.find((asset) => asset.id === assetId)
+		if (!existing) {
+			throw new Error("Asset not found")
+		}
+		if (existing.type !== "snippet") {
+			throw new Error("Asset is not a snippet")
+		}
+		if (source.length > SNIPPET_SOURCE_MAX_CHARS) {
+			throw new Error(`Snippet source is too large (limit ${SNIPPET_SOURCE_MAX_CHARS} characters).`)
+		}
+
+		const componentExports = await listSnippetComponentExports(source)
+		if (componentExports.length === 0) {
+			throw new Error("Snippet must export at least one component.")
+		}
+		if (componentExports.length > SNIPPET_COMPONENT_LIMITS.hard) {
+			throw new Error(
+				`Snippet exports too many components (limit ${SNIPPET_COMPONENT_LIMITS.hard}).`,
+			)
+		}
+
+		const preferredEntry = existing.snippet.entryExport ?? DEFAULT_SNIPPET_EXPORT
+		const hasPreferred =
+			preferredEntry === DEFAULT_SNIPPET_EXPORT
+				? componentExports.some((component) => component.isDefault)
+				: componentExports.some((component) => component.exportName === preferredEntry)
+		const fallbackEntry =
+			componentExports.find((component) => component.isDefault)?.exportName ??
+			componentExports[0]?.exportName ??
+			DEFAULT_SNIPPET_EXPORT
+		const entryExport = hasPreferred ? preferredEntry : fallbackEntry
+
+		let derived: { propsSchema: SnippetPropsSchemaDefinition; defaultProps: SnippetProps }
+		try {
+			derived = await deriveSnippetPropsFromSource(source, entryExport)
+		} catch {
+			throw new Error("Snippet source must be valid TSX before saving")
+		}
+
+		const updated = await service.updateAsset(assetId, {
+			snippet: {
+				...existing.snippet,
+				source,
+				propsSchema: derived.propsSchema,
+				entryExport: entryExport === DEFAULT_SNIPPET_EXPORT ? undefined : entryExport,
+			},
+			defaultProps: derived.defaultProps,
+			changelog: "Updated snippet source",
+		})
+
+		set({
+			assets: assets.map((asset) => (asset.id === assetId ? updated : asset)),
+		})
+
+		if (syncLibrary) {
+			await syncLibrary()
+		}
+
+		return updated
 	},
 
 	promoteAssetScope: async (assetId, targetScope) => {

@@ -57,6 +57,12 @@ export default defineEventHandler(async (event) => {
 	}
 
 	const asset = parsed.data.asset as SnippetAsset
+	if (asset.snippet.source) {
+		throw createError({
+			statusCode: 422,
+			statusMessage: "Custom snippet rendering is not supported yet",
+		})
+	}
 	const incomingProps = parsed.data.props ?? {}
 	const resolvedProps = resolveSnippetProps(
 		asset.snippet.propsSchema,

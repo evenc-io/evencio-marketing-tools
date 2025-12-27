@@ -14,6 +14,7 @@ import type {
 	SnippetPropDefinition,
 	SnippetProps,
 	SnippetPropsSchemaDefinition,
+	SnippetViewport,
 } from "@/types/asset-library"
 
 export const assetScopeRefSchema = z.discriminatedUnion("scope", [
@@ -145,11 +146,21 @@ export const snippetPropsSchema = z.record(
 	z.unknown(),
 ) satisfies z.ZodType<SnippetProps>
 
+export const snippetViewportSchema = z
+	.object({
+		width: z.number().int().positive(),
+		height: z.number().int().positive(),
+	})
+	.strict() satisfies z.ZodType<SnippetViewport>
+
 export const snippetAssetDefinitionSchema = z
 	.object({
 		entry: z.string().min(1),
-		runtime: z.enum(["react", "html"]),
+		runtime: z.literal("react"),
 		propsSchema: snippetPropsSchemaDefinitionSchema,
+		source: z.string().optional(),
+		viewport: snippetViewportSchema.optional(),
+		entryExport: z.string().min(1).optional(),
 	})
 	.strict() satisfies z.ZodType<SnippetAssetDefinition>
 

@@ -84,6 +84,10 @@ Content types (social images, posters, etc.) are modular. To add a new type:
 
 Open an issue or reach out to the maintainers. Contact: Yan Malinovskiy — yanmalinovskiy@evenc.io.
 
+## License
+
+By submitting a contribution (issue, PR, patch, etc.), you agree that your contribution is licensed under the same license as this repository (**FSL-1.1-MIT**, see `LICENSE.md`).
+
 ## Trademark Use
 
 Evencio name and logos are trademarks of Evencio and are not licensed for use without permission. See `TRADEMARKS.md` for details.

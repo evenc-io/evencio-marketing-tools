@@ -1,6 +1,7 @@
-import { Eye, FileCode2, Image, Shapes, Star, Trash2 } from "lucide-react"
+import { Eye, FileCode2, Image, Pencil, Shapes, Star, Trash2 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { MonacoEditor } from "@/components/ui/monaco-editor"
 import { cn } from "@/lib/utils"
 import type { Asset, AssetScope, AssetTag } from "@/types/asset-library"
 
@@ -33,6 +34,7 @@ interface AssetDetailsPanelProps {
 	onPromoteScope: (assetId: string, targetScope: AssetScope) => Promise<Asset | undefined>
 	onUnhide: (assetId: string) => void
 	onDelete: (assetId: string) => void
+	onEditSource?: (assetId: string) => void
 }
 
 export function AssetDetailsPanel({
@@ -44,6 +46,7 @@ export function AssetDetailsPanel({
 	onPromoteScope,
 	onUnhide,
 	onDelete,
+	onEditSource,
 }: AssetDetailsPanelProps) {
 	const promotionOptions = useMemo(() => {
 		if (!asset) return []
@@ -177,6 +180,49 @@ export function AssetDetailsPanel({
 					)}
 				</div>
 			</div>
+
+			{asset.type === "snippet" && asset.snippet.source && (
+				<div className="mt-4 border-t border-neutral-200 pt-4">
+					<div className="flex items-center justify-between">
+						<p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
+							Source Code
+						</p>
+						<div className="flex items-center gap-2">
+							<span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-600">
+								Custom
+							</span>
+							{onEditSource && (
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									onClick={() => onEditSource(asset.id)}
+								>
+									<Pencil className="mr-1 h-3 w-3" />
+									Edit
+								</Button>
+							)}
+						</div>
+					</div>
+
+					<div className="mt-2 overflow-hidden rounded-md border border-neutral-200">
+						<MonacoEditor
+							value={asset.snippet.source}
+							readOnly
+							height={200}
+							language="typescript"
+							path={`snippet-${asset.id}.tsx`}
+						/>
+					</div>
+				</div>
+			)}
+
+			{asset.type === "snippet" && !asset.snippet.source && (
+				<div className="mt-4 flex items-center gap-2 rounded-md bg-neutral-50 px-3 py-2 text-sm text-neutral-600">
+					<FileCode2 className="h-4 w-4" />
+					<span>Registry snippet (pre-registered)</span>
+				</div>
+			)}
 
 			{isHidden && (
 				<div className="mt-4 flex items-center gap-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">
