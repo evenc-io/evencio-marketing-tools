@@ -478,6 +478,10 @@ function NewSnippetPage() {
 		setActiveFile(fileId)
 	}, [])
 
+	const handleReorderOpenFiles = useCallback((fileIds: SnippetEditorFileId[]) => {
+		setOpenFiles(fileIds)
+	}, [])
+
 	const closeFileTab = useCallback(
 		(fileId: SnippetEditorFileId) => {
 			setOpenFiles((prev) => {
@@ -942,6 +946,7 @@ export const ${name} = ({ title = "New snippet" }) => {
 							overHardComponentLimit={overHardComponentLimit}
 							onSelectFile={selectFile}
 							onCloseFileTab={closeFileTab}
+							onReorderOpenFiles={handleReorderOpenFiles}
 							onFileContextMenu={handleFileContextMenu}
 							onAddComponent={handleAddComponent}
 							fileInputRef={fileInputRef}

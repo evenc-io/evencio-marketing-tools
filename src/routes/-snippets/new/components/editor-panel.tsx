@@ -1,3 +1,20 @@
+import {
+	closestCenter,
+	DndContext,
+	type DragEndEvent,
+	KeyboardSensor,
+	PointerSensor,
+	useSensor,
+	useSensors,
+} from "@dnd-kit/core"
+import {
+	arrayMove,
+	horizontalListSortingStrategy,
+	SortableContext,
+	sortableKeyboardCoordinates,
+	useSortable,
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 import { AlertCircle, CheckCircle2, Loader2, Plus, Upload, X } from "lucide-react"
 import { type ChangeEvent, type MouseEvent, type RefObject, Suspense } from "react"
 import type { UseFormReturn } from "react-hook-form"
@@ -34,6 +51,7 @@ interface SnippetEditorPanelProps {
 	overHardComponentLimit: boolean
 	onSelectFile: (fileId: SnippetEditorFileId) => void
 	onCloseFileTab: (fileId: SnippetEditorFileId) => void
+	onReorderOpenFiles: (fileIds: SnippetEditorFileId[]) => void
 	onFileContextMenu: (event: MouseEvent<HTMLButtonElement>, fileId: SnippetEditorFileId) => void
 	onAddComponent: () => void
 	fileInputRef: RefObject<HTMLInputElement | null>
@@ -52,6 +70,77 @@ interface SnippetEditorPanelProps {
 	derivedDuplicateKeys: string[]
 	compileStatus: CompileStatus
 	compileErrors: CompileError[]
+}
+
+interface SnippetEditorTabProps {
+	file: SnippetEditorFile
+	isActive: boolean
+	isOnlyTab: boolean
+	onSelectFile: (fileId: SnippetEditorFileId) => void
+	onCloseFileTab: (fileId: SnippetEditorFileId) => void
+}
+
+function SnippetEditorTab({
+	file,
+	isActive,
+	isOnlyTab,
+	onSelectFile,
+	onCloseFileTab,
+}: SnippetEditorTabProps) {
+	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+		id: file.id,
+	})
+	const Icon = file.icon
+	const style = {
+		transform: CSS.Transform.toString(
+			transform ? { ...transform, scaleX: 1, scaleY: 1 } : null,
+		),
+		transition,
+	}
+
+	const handleMiddleClick = (event: MouseEvent<HTMLDivElement>) => {
+		if (event.button !== 1) return
+		event.preventDefault()
+		event.stopPropagation()
+		if (isOnlyTab) return
+		onCloseFileTab(file.id)
+	}
+
+	return (
+		<div
+			ref={setNodeRef}
+			style={style}
+			onMouseDown={handleMiddleClick}
+			className={cn(
+				"flex items-center gap-1 rounded-t-md border border-transparent px-1",
+				isActive ? "border-neutral-200 bg-white text-neutral-900" : "text-neutral-500 hover:text-neutral-700",
+				isDragging && "opacity-60",
+			)}
+		>
+			<button
+				type="button"
+				onClick={() => onSelectFile(file.id)}
+				className="flex cursor-grab touch-none items-center gap-1.5 px-1 py-1 text-[11px] font-medium"
+				{...attributes}
+				{...listeners}
+			>
+				<Icon className="h-3 w-3 text-neutral-400" />
+				{file.label}
+			</button>
+			<button
+				type="button"
+				onClick={() => onCloseFileTab(file.id)}
+				disabled={isOnlyTab}
+				aria-label={`Close ${file.label} tab`}
+				className={cn(
+					"rounded-sm p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600",
+					isOnlyTab && "pointer-events-none opacity-30",
+				)}
+			>
+				<X className="h-3 w-3" />
+			</button>
+		</div>
+	)
 }
 
 export function SnippetEditorPanel({
@@ -73,6 +162,7 @@ export function SnippetEditorPanel({
 	overHardComponentLimit,
 	onSelectFile,
 	onCloseFileTab,
+	onReorderOpenFiles,
 	onFileContextMenu,
 	onAddComponent,
 	fileInputRef,
@@ -92,6 +182,28 @@ export function SnippetEditorPanel({
 	compileStatus,
 	compileErrors,
 }: SnippetEditorPanelProps) {
+	const sensors = useSensors(
+		useSensor(PointerSensor, {
+			activationConstraint: {
+				distance: 5,
+			},
+		}),
+		useSensor(KeyboardSensor, {
+			coordinateGetter: sortableKeyboardCoordinates,
+		}),
+	)
+
+	const handleTabDragEnd = ({ active, over }: DragEndEvent) => {
+		if (!over || active.id === over.id) return
+		const activeId = active.id as SnippetEditorFileId
+		const overId = over.id as SnippetEditorFileId
+		const oldIndex = openFiles.indexOf(activeId)
+		const newIndex = openFiles.indexOf(overId)
+		if (oldIndex === -1 || newIndex === -1) return
+		const nextOrder = arrayMove(openFiles, oldIndex, newIndex)
+		onReorderOpenFiles(nextOrder)
+	}
+
 	return (
 		<div
 			className={cn(
@@ -200,47 +312,32 @@ export function SnippetEditorPanel({
 				)}
 			>
 				<div className="flex h-9 shrink-0 items-center justify-between border-b border-neutral-200 bg-neutral-50 px-2">
-					<div className="flex items-center gap-1">
-						{openFiles.map((fileId) => {
-							const file = editorFilesById.get(fileId)
-							if (!file) return null
-							const Icon = file.icon
-							const isActive = activeFile === file.id
-							const isOnlyTab = openFiles.length <= 1
-							return (
-								<div
-									key={file.id}
-									className={cn(
-										"flex items-center gap-1 rounded-t-md border border-transparent px-1",
-										isActive
-											? "border-neutral-200 bg-white text-neutral-900"
-											: "text-neutral-500 hover:text-neutral-700",
-									)}
-								>
-									<button
-										type="button"
-										onClick={() => onSelectFile(file.id)}
-										className="flex items-center gap-1.5 px-1 py-1 text-[11px] font-medium"
-									>
-										<Icon className="h-3 w-3 text-neutral-400" />
-										{file.label}
-									</button>
-									<button
-										type="button"
-										onClick={() => onCloseFileTab(file.id)}
-										disabled={isOnlyTab}
-										aria-label={`Close ${file.label} tab`}
-										className={cn(
-											"rounded-sm p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600",
-											isOnlyTab && "pointer-events-none opacity-30",
-										)}
-									>
-										<X className="h-3 w-3" />
-									</button>
-								</div>
-							)
-						})}
-					</div>
+					<DndContext
+						sensors={sensors}
+						collisionDetection={closestCenter}
+						onDragEnd={handleTabDragEnd}
+					>
+						<SortableContext items={openFiles} strategy={horizontalListSortingStrategy}>
+							<div className="flex items-center gap-1">
+								{openFiles.map((fileId) => {
+									const file = editorFilesById.get(fileId)
+									if (!file) return null
+									const isActive = activeFile === file.id
+									const isOnlyTab = openFiles.length <= 1
+									return (
+										<SnippetEditorTab
+											key={file.id}
+											file={file}
+											isActive={isActive}
+											isOnlyTab={isOnlyTab}
+											onSelectFile={onSelectFile}
+											onCloseFileTab={onCloseFileTab}
+										/>
+									)
+								})}
+							</div>
+						</SortableContext>
+					</DndContext>
 					{isSourceEditorActive && (
 						<>
 							<Button
