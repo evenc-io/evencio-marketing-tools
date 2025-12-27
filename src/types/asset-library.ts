@@ -145,6 +145,7 @@ export interface SnippetAssetDefinition {
 	/** Single inline source for custom snippets */
 	source?: string
 	viewport?: SnippetViewport
+	entryExport?: string
 }
 
 export interface AssetBase {

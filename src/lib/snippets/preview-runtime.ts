@@ -262,9 +262,14 @@ export function generatePreviewSrcdoc(
 
       // Get the exported component
       const SnippetComponent = window.__SNIPPET_COMPONENT__;
+      const exportError = window.__SNIPPET_COMPONENT_ERROR__;
+
+      if (exportError) {
+        throw new Error(exportError);
+      }
 
       if (!SnippetComponent) {
-        throw new Error('No default export found. Snippet must export a default React component.');
+        throw new Error('No export found. Snippet must export a React component.');
       }
 
       // Props from parent

@@ -211,6 +211,7 @@ export function AssetDetailsPanel({
 							readOnly
 							height={200}
 							language="typescript"
+							path={`snippet-${asset.id}.tsx`}
 						/>
 					</div>
 				</div>

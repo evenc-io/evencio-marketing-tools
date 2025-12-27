@@ -7,8 +7,16 @@ import {
 	SAMPLE_COLLECTION,
 	SAMPLE_TAG,
 } from "@/lib/asset-library"
-import { deriveSnippetPropsFromSource } from "@/lib/snippets"
-import { getSnippetViewportError, SNIPPET_SOURCE_MAX_CHARS } from "@/lib/snippets/constraints"
+import {
+	DEFAULT_SNIPPET_EXPORT,
+	deriveSnippetPropsFromSource,
+	listSnippetComponentExports,
+} from "@/lib/snippets"
+import {
+	getSnippetViewportError,
+	SNIPPET_COMPONENT_LIMITS,
+	SNIPPET_SOURCE_MAX_CHARS,
+} from "@/lib/snippets/constraints"
 import type {
 	Asset,
 	AssetAttribution,
@@ -234,6 +242,7 @@ interface SnippetRegistrationInput {
 	propsSchema: SnippetPropsSchemaDefinition
 	defaultProps: SnippetProps
 	viewport?: SnippetViewport
+	entryExport?: string
 	scope: AssetScope
 	title: string
 	description?: string | null
@@ -362,6 +371,7 @@ export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActio
 			entry: input.entry,
 			runtime: input.runtime,
 			propsSchema: input.propsSchema,
+			entryExport: input.entryExport,
 			viewport: input.viewport,
 		}
 
@@ -397,9 +407,35 @@ export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActio
 		const scopeRef = resolveScopeRef(input.scope)
 		const tagIds = await ensureTagIds(input.tagNames, scopeRef)
 		let derived: { propsSchema: SnippetPropsSchemaDefinition; defaultProps: SnippetProps }
+		const entryExport = input.entryExport ?? DEFAULT_SNIPPET_EXPORT
+		let componentExports: Awaited<ReturnType<typeof listSnippetComponentExports>> = []
 		try {
-			derived = await deriveSnippetPropsFromSource(input.source)
-		} catch {
+			componentExports = await listSnippetComponentExports(input.source)
+			if (componentExports.length === 0) {
+				throw new Error("Snippet must export at least one component.")
+			}
+			if (componentExports.length > SNIPPET_COMPONENT_LIMITS.hard) {
+				throw new Error(
+					`Snippet exports too many components (limit ${SNIPPET_COMPONENT_LIMITS.hard}).`,
+				)
+			}
+			const hasEntry =
+				entryExport === DEFAULT_SNIPPET_EXPORT
+					? componentExports.some((component) => component.isDefault)
+					: componentExports.some((component) => component.exportName === entryExport)
+			if (!hasEntry) {
+				throw new Error(
+					entryExport === DEFAULT_SNIPPET_EXPORT
+						? "Snippet must include a default export or select a named component."
+						: `Snippet entry "${entryExport}" was not found.`,
+				)
+			}
+
+			derived = await deriveSnippetPropsFromSource(input.source, entryExport)
+		} catch (error) {
+			if (error instanceof Error) {
+				throw error
+			}
 			throw new Error("Snippet source must be valid TSX before saving")
 		}
 		const metadata = {
@@ -419,6 +455,7 @@ export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActio
 			propsSchema: derived.propsSchema,
 			source: input.source,
 			viewport: input.viewport,
+			entryExport: entryExport === DEFAULT_SNIPPET_EXPORT ? undefined : entryExport,
 		}
 
 		const asset = await service.createAsset(
@@ -449,10 +486,34 @@ export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActio
 		if (existing.type !== "snippet") {
 			throw new Error("Asset is not a snippet")
 		}
+		if (source.length > SNIPPET_SOURCE_MAX_CHARS) {
+			throw new Error(`Snippet source is too large (limit ${SNIPPET_SOURCE_MAX_CHARS} characters).`)
+		}
+
+		const componentExports = await listSnippetComponentExports(source)
+		if (componentExports.length === 0) {
+			throw new Error("Snippet must export at least one component.")
+		}
+		if (componentExports.length > SNIPPET_COMPONENT_LIMITS.hard) {
+			throw new Error(
+				`Snippet exports too many components (limit ${SNIPPET_COMPONENT_LIMITS.hard}).`,
+			)
+		}
+
+		const preferredEntry = existing.snippet.entryExport ?? DEFAULT_SNIPPET_EXPORT
+		const hasPreferred =
+			preferredEntry === DEFAULT_SNIPPET_EXPORT
+				? componentExports.some((component) => component.isDefault)
+				: componentExports.some((component) => component.exportName === preferredEntry)
+		const fallbackEntry =
+			componentExports.find((component) => component.isDefault)?.exportName ??
+			componentExports[0]?.exportName ??
+			DEFAULT_SNIPPET_EXPORT
+		const entryExport = hasPreferred ? preferredEntry : fallbackEntry
 
 		let derived: { propsSchema: SnippetPropsSchemaDefinition; defaultProps: SnippetProps }
 		try {
-			derived = await deriveSnippetPropsFromSource(source)
+			derived = await deriveSnippetPropsFromSource(source, entryExport)
 		} catch {
 			throw new Error("Snippet source must be valid TSX before saving")
 		}
@@ -462,6 +523,7 @@ export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActio
 				...existing.snippet,
 				source,
 				propsSchema: derived.propsSchema,
+				entryExport: entryExport === DEFAULT_SNIPPET_EXPORT ? undefined : entryExport,
 			},
 			defaultProps: derived.defaultProps,
 			changelog: "Updated snippet source",

@@ -2,6 +2,7 @@ import { compile } from "tailwindcss"
 import tailwindIndexCss from "tailwindcss/index.css?raw"
 import appStylesRaw from "@/styles.css?raw"
 import { SNIPPET_TAILWIND_MAX_CANDIDATES, SNIPPET_TAILWIND_MAX_CSS_CHARS } from "./constraints"
+import { expandSnippetSource } from "./source-files"
 
 let compilerPromise: ReturnType<typeof compile> | null = null
 
@@ -83,8 +84,9 @@ export const extractTailwindCandidatesFromSource = async (source: string): Promi
 	}
 
 	try {
+		const normalizedSource = expandSnippetSource(source)
 		const parser = await loadParser()
-		const ast = parser.parse(source, {
+		const ast = parser.parse(normalizedSource, {
 			sourceType: "module",
 			plugins: ["typescript", "jsx"],
 		})

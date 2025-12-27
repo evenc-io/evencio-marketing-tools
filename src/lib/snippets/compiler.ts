@@ -6,6 +6,7 @@
  */
 
 import type * as esbuild from "esbuild-wasm"
+import { expandSnippetSource } from "./source-files"
 
 // Types
 export interface CompileError {
@@ -105,7 +106,8 @@ function toCompileError(msg: esbuild.Message, severity: "error" | "warning"): Co
  * The preview iframe provides React and ReactDOM as globals (via UMD),
  * so we need to transform the ES module output to use those globals.
  */
-function wrapForPreview(code: string): string {
+function wrapForPreview(code: string, entryExport?: string): string {
+	const resolvedEntryExport = entryExport ? JSON.stringify(entryExport) : "null"
 	return `
 (function() {
   const React = window.React;
@@ -137,8 +139,18 @@ function wrapForPreview(code: string): string {
   // Compiled code
   ${code}
 
-  // Return the default export
-  window.__SNIPPET_COMPONENT__ = module.exports.default || exports.default || module.exports;
+  const requestedExport = ${resolvedEntryExport};
+  const resolvedComponent = requestedExport && requestedExport !== "default"
+    ? module.exports?.[requestedExport] ?? exports?.[requestedExport]
+    : (module.exports?.default ?? exports?.default ?? module.exports);
+
+  if (!resolvedComponent) {
+    window.__SNIPPET_COMPONENT_ERROR__ = requestedExport && requestedExport !== "default"
+      ? "No export named \\"" + requestedExport + "\\" found. Export a component with that name."
+      : "No default export found. Snippet must export a React component.";
+  }
+
+  window.__SNIPPET_COMPONENT__ = resolvedComponent;
 })();
 `
 }
@@ -147,13 +159,15 @@ function wrapForPreview(code: string): string {
  * Compile TSX source code to browser-executable JavaScript.
  *
  * @param source - Raw TSX source code
+ * @param entryExport - Named export to render (defaults to "default")
  * @returns Compilation result with code or errors
  */
-export async function compileSnippet(source: string): Promise<CompileResult> {
+export async function compileSnippet(source: string, entryExport?: string): Promise<CompileResult> {
 	try {
 		const esbuild = await getEsbuild()
+		const normalizedSource = expandSnippetSource(source)
 
-		const result = await esbuild.transform(source, {
+		const result = await esbuild.transform(normalizedSource, {
 			loader: "tsx",
 			jsx: "automatic",
 			target: "es2020",
@@ -167,7 +181,7 @@ export async function compileSnippet(source: string): Promise<CompileResult> {
 			const warnings = result.warnings.map((w) => toCompileError(w, "warning"))
 			return {
 				success: true,
-				code: wrapForPreview(result.code),
+				code: wrapForPreview(result.code, entryExport),
 				errors: [],
 				warnings,
 			}
@@ -175,7 +189,7 @@ export async function compileSnippet(source: string): Promise<CompileResult> {
 
 		return {
 			success: true,
-			code: wrapForPreview(result.code),
+			code: wrapForPreview(result.code, entryExport),
 			errors: [],
 			warnings: [],
 		}

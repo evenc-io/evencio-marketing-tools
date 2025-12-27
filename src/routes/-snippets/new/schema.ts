@@ -63,14 +63,16 @@ export const customSnippetSchema = z
 		}
 
 		const source = data.source.trim()
-		const hasDefaultExport =
-			/export\s+default\s+function/.test(source) || /export\s+default\s+/.test(source)
+		const hasExport =
+			/export\s+default\s+/.test(source) ||
+			/export\s+(const|function|class)\s+[A-Za-z0-9_$]+/.test(source) ||
+			/export\s*{[^}]+}/.test(source)
 
-		if (!hasDefaultExport) {
+		if (!hasExport) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
 				path: ["source"],
-				message: "Snippet must have a default export (e.g., 'export default function MySnippet')",
+				message: "Snippet must export at least one component (default or named export required).",
 			})
 		}
 

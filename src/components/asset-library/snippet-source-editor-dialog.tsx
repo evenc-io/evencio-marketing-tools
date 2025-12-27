@@ -23,13 +23,15 @@ function validateSnippetSyntax(source: string): SnippetSyntaxValidationResult {
 		return { valid: false, error: "Source code is required" }
 	}
 
-	const hasDefaultExport =
-		/export\s+default\s+function/.test(trimmed) || /export\s+default\s+/.test(trimmed)
+	const hasExport =
+		/export\s+default\s+/.test(trimmed) ||
+		/export\s+(const|function|class)\s+[A-Za-z0-9_$]+/.test(trimmed) ||
+		/export\s*{[^}]+}/.test(trimmed)
 
-	if (!hasDefaultExport) {
+	if (!hasExport) {
 		return {
 			valid: false,
-			error: "Snippet must have a default export (e.g., 'export default function MySnippet')",
+			error: "Snippet must export at least one component (default or named export required).",
 		}
 	}
 
@@ -123,6 +125,7 @@ export function SnippetSourceEditorDialog({
 						value={source}
 						onChange={setSource}
 						language="typescript"
+						path={asset ? `snippet-${asset.id}.tsx` : "snippet.tsx"}
 						height={400}
 						markers={monacoMarkers}
 						markerOwner="snippet-compiler"

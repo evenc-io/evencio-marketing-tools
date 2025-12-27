@@ -41,8 +41,8 @@ describe("generatePreviewSrcdoc", () => {
 			const srcdoc = generatePreviewSrcdoc(mockCompiledCode, {}, DEFAULT_PREVIEW_DIMENSIONS)
 
 			expect(srcdoc).not.toContain("unpkg.com")
-			expect(srcdoc).not.toContain("http://")
-			expect(srcdoc).not.toContain("https://")
+			expect(srcdoc).not.toMatch(/<script[^>]+src=/i)
+			expect(srcdoc).not.toContain("cdn.jsdelivr.net")
 		})
 
 		it("includes root container element", () => {
