@@ -263,10 +263,7 @@ function AssetLibraryPage() {
 									className="pl-9 shadow-none focus-visible:ring-neutral-900"
 								/>
 							</div>
-							<Tabs
-								value={smartView}
-								onValueChange={(value) => setSmartView(value as SmartView)}
-							>
+							<Tabs value={smartView} onValueChange={(value) => setSmartView(value as SmartView)}>
 								<TabsList className="h-auto flex-wrap gap-1 rounded-full border border-neutral-200 bg-white p-1">
 									<TabsTrigger
 										value="all"
