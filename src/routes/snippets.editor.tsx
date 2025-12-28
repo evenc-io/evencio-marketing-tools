@@ -715,7 +715,7 @@ function NewSnippetPage() {
 			if (nextSource !== fileSource) {
 				updateSourceForFile(current.fileId, nextSource)
 			}
-			const rawValue = buildSnippetTextLiteral(pendingValue, current.quote)
+			const rawValue = buildSnippetTextLiteral(resolvedValue, current.quote)
 			const nextRange = buildTextRangeFromValue(current.range, rawValue)
 			setInspectTextEdit((prev) => (prev ? { ...prev, range: nextRange } : prev))
 			inspectTextPendingValueRef.current = null
