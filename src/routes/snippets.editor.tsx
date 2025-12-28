@@ -30,7 +30,10 @@ import {
 	SNIPPET_SOURCE_MAX_CHARS,
 } from "@/lib/snippets/constraints"
 import { SNIPPET_EXAMPLES } from "@/lib/snippets/examples"
-import { DEFAULT_PREVIEW_DIMENSIONS } from "@/lib/snippets/preview-runtime"
+import {
+	DEFAULT_PREVIEW_DIMENSIONS,
+	type PreviewSourceLocation,
+} from "@/lib/snippets/preview-runtime"
 import { SNIPPET_TEMPLATES, type SnippetTemplateId } from "@/lib/snippets/templates"
 import { SnippetDetailsPanel } from "@/routes/-snippets/new/components/details-panel"
 import { SnippetEditorPanel } from "@/routes/-snippets/new/components/editor-panel"
@@ -40,6 +43,11 @@ import { PanelRail } from "@/routes/-snippets/new/components/panel-rail"
 import { SnippetPreviewHeaderActions } from "@/routes/-snippets/new/components/preview-header-actions"
 import { SnippetFileOverlays } from "@/routes/-snippets/new/components/snippet-file-overlays"
 import { SnippetHeader } from "@/routes/-snippets/new/components/snippet-header"
+import {
+	type InspectContextMenuState,
+	type InspectTextEditState,
+	SnippetInspectOverlays,
+} from "@/routes/-snippets/new/components/snippet-inspect-overlays"
 import { SnippetScreenGuard } from "@/routes/-snippets/new/components/snippet-screen-guard"
 import { SnippetSplitViewResizer } from "@/routes/-snippets/new/components/split-view-resizer"
 import {
@@ -81,6 +89,12 @@ import {
 	syncImportBlock,
 	toComponentFileId,
 } from "@/routes/-snippets/new/snippet-file-utils"
+import {
+	buildSnippetTextLiteral,
+	getSnippetTextRangeValue,
+	replaceSnippetTextRange,
+	type SnippetTextRange,
+} from "@/routes/-snippets/new/snippet-inspect-utils"
 import { useAssetLibraryStore } from "@/stores/asset-library-store"
 import type { AssetScope, SnippetAsset } from "@/types/asset-library"
 
@@ -104,9 +118,15 @@ function NewSnippetPage() {
 	const fileMigrationRef = useRef(false)
 	const editAppliedRef = useRef<string | null>(null)
 	const suppressComponentSyncRef = useRef(false)
+	const inspectTextEditRef = useRef<HTMLDivElement>(null)
+	const inspectTextEditStateRef = useRef<InspectTextEditState | null>(null)
+	const inspectTextCommitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+	const inspectTextPendingValueRef = useRef<string | null>(null)
+	const inspectContextMenuRef = useRef<HTMLDivElement>(null)
 	const [error, setError] = useState<string | null>(null)
 	const [isSubmitting, setIsSubmitting] = useState(false)
 	const [useComponentDefaults, setUseComponentDefaults] = useState(false)
+	const [inspectTextEdit, setInspectTextEdit] = useState<InspectTextEditState | null>(null)
 	const [openFiles, setOpenFiles] = useState<SnippetEditorFileId[]>(() =>
 		SNIPPET_FILES.map((file) => file.id),
 	)
@@ -123,6 +143,14 @@ function NewSnippetPage() {
 		x: 0,
 		y: 0,
 		fileId: null,
+	})
+	const [inspectContextMenu, setInspectContextMenu] = useState<InspectContextMenuState>({
+		open: false,
+		x: 0,
+		y: 0,
+		label: "Snippet text",
+		editable: false,
+		request: null,
 	})
 	const [deleteTarget, setDeleteTarget] = useState<{
 		exportName: string
@@ -302,6 +330,16 @@ function NewSnippetPage() {
 	const mainSource = parsedFiles.mainSource
 	const mainEditorSource = useMemo(() => stripAutoImportBlock(mainSource), [mainSource])
 	const componentFiles = parsedFiles.files
+	const getSourceForFile = useCallback(
+		(fileId: SnippetEditorFileId) => {
+			if (fileId === "source") return mainEditorSource
+			if (!isComponentFileId(fileId)) return ""
+			const fileName = getComponentFileName(fileId)
+			if (!fileName) return ""
+			return componentFiles[fileName] ?? ""
+		},
+		[componentFiles, mainEditorSource],
+	)
 	const activeComponentFileName = isComponentFileId(activeFile)
 		? getComponentFileName(activeFile)
 		: null
@@ -539,7 +577,11 @@ function NewSnippetPage() {
 		debounceMs: 500,
 		enableTailwindCss: isPreviewVisible,
 	})
-	const previewProps = useComponentDefaults ? {} : parsedProps
+	const emptyPreviewProps = useMemo(() => ({}), [])
+	const previewProps = useMemo(
+		() => (useComponentDefaults ? emptyPreviewProps : parsedProps),
+		[emptyPreviewProps, parsedProps, useComponentDefaults],
+	)
 	const {
 		status: exampleCompileStatus,
 		compiledCode: exampleCompiledCode,
@@ -598,6 +640,7 @@ function NewSnippetPage() {
 		inspectHighlight,
 		onPreviewInspectHover,
 		onPreviewInspectSelect,
+		onPreviewInspectContext,
 	} = useSnippetInspect({
 		mainSource: parsedFiles.mainSource,
 		mainEditorSource,
@@ -606,6 +649,315 @@ function NewSnippetPage() {
 		isExamplePreviewActive,
 		onOpenFileForInspect: openFileForInspect,
 	})
+
+	const buildTextRangeFromValue = useCallback((range: SnippetTextRange, rawValue: string) => {
+		const lines = rawValue.split(/\r?\n/)
+		if (lines.length <= 1) {
+			return {
+				...range,
+				endLine: range.startLine,
+				endColumn: range.startColumn + rawValue.length,
+			}
+		}
+		const lastLine = lines[lines.length - 1] ?? ""
+		return {
+			...range,
+			endLine: range.startLine + lines.length - 1,
+			endColumn: lastLine.length + 1,
+		}
+	}, [])
+
+	const updateSourceForFile = useCallback(
+		(fileId: SnippetEditorFileId, nextFileSource: string) => {
+			const currentSource = form.getValues("source") ?? ""
+			const parsed = parseSnippetFiles(currentSource)
+			const sanitizedValue = stripSnippetFileDirectives(nextFileSource)
+
+			if (fileId === "source") {
+				const normalizedMain = syncImportBlock(sanitizedValue, Object.keys(parsed.files))
+				const nextSource = serializeSnippetFiles(normalizedMain, parsed.files)
+				if (nextSource !== currentSource) {
+					form.setValue("source", nextSource, { shouldValidate: true, shouldDirty: true })
+				}
+				return
+			}
+
+			if (!isComponentFileId(fileId)) return
+			const fileName = getComponentFileName(fileId)
+			if (!fileName) return
+			const nextFiles = { ...parsed.files, [fileName]: sanitizedValue }
+			const nextMain = syncImportBlock(parsed.mainSource, Object.keys(nextFiles))
+			const nextSource = serializeSnippetFiles(nextMain, nextFiles)
+			if (nextSource !== currentSource) {
+				form.setValue("source", nextSource, { shouldValidate: true, shouldDirty: true })
+			}
+		},
+		[form],
+	)
+
+	const flushInspectTextEdit = useCallback(
+		(nextValue?: string | null) => {
+			const pendingValue =
+				typeof nextValue === "string" ? nextValue : inspectTextPendingValueRef.current
+			if (pendingValue === null || pendingValue === undefined) return
+			const current = inspectTextEditStateRef.current
+			if (!current) return
+			const resolvedValue = current.quote
+				? pendingValue
+				: `${current.leadingWhitespace}${pendingValue}${current.trailingWhitespace}`
+			const fileSource = getSourceForFile(current.fileId)
+			const nextSource = replaceSnippetTextRange(
+				fileSource,
+				current.range,
+				resolvedValue,
+				current.quote,
+			)
+			if (nextSource !== fileSource) {
+				updateSourceForFile(current.fileId, nextSource)
+			}
+			const rawValue = buildSnippetTextLiteral(pendingValue, current.quote)
+			const nextRange = buildTextRangeFromValue(current.range, rawValue)
+			setInspectTextEdit((prev) => (prev ? { ...prev, range: nextRange } : prev))
+			inspectTextPendingValueRef.current = null
+			if (inspectTextCommitTimerRef.current) {
+				clearTimeout(inspectTextCommitTimerRef.current)
+				inspectTextCommitTimerRef.current = null
+			}
+		},
+		[buildTextRangeFromValue, getSourceForFile, updateSourceForFile],
+	)
+
+	const closeInspectTextEdit = useCallback(() => {
+		flushInspectTextEdit()
+		setInspectTextEdit(null)
+	}, [flushInspectTextEdit])
+
+	const handleInspectTextChange = useCallback(
+		(nextValue: string) => {
+			setInspectTextEdit((prev) => {
+				if (!prev) return prev
+				return {
+					...prev,
+					value: nextValue,
+				}
+			})
+			inspectTextPendingValueRef.current = nextValue
+			if (inspectTextCommitTimerRef.current) {
+				clearTimeout(inspectTextCommitTimerRef.current)
+			}
+			inspectTextCommitTimerRef.current = setTimeout(() => {
+				flushInspectTextEdit()
+			}, 300)
+		},
+		[flushInspectTextEdit],
+	)
+
+	const openInspectTextEditor = useCallback(
+		(request: { fileId: SnippetEditorFileId; range: SnippetTextRange }, x: number, y: number) => {
+			const fileSource = getSourceForFile(request.fileId)
+			const { text, quote } = getSnippetTextRangeValue(fileSource, request.range)
+			const leadingWhitespace = quote ? "" : (text.match(/^\s+/)?.[0] ?? "")
+			const trailingWhitespace = quote ? "" : (text.match(/\s+$/)?.[0] ?? "")
+			const coreText = quote ? text : text.trim()
+			const normalizedText =
+				/[\r\n\t]/.test(coreText) || /\s{2,}/.test(coreText)
+					? coreText.replace(/\s+/g, " ").trim()
+					: coreText
+			const panelWidth = 288
+			const panelHeight = 156
+			const maxX = Math.max(12, window.innerWidth - panelWidth - 12)
+			const maxY = Math.max(12, window.innerHeight - panelHeight - 12)
+			setInspectTextEdit({
+				fileId: request.fileId,
+				range: request.range,
+				value: normalizedText,
+				quote,
+				leadingWhitespace,
+				trailingWhitespace,
+				x: Math.min(Math.max(12, x), maxX),
+				y: Math.min(Math.max(12, y), maxY),
+			})
+		},
+		[getSourceForFile],
+	)
+
+	const closeInspectContextMenu = useCallback(() => {
+		setInspectContextMenu((prev) => ({
+			...prev,
+			open: false,
+			label: "Snippet text",
+			request: null,
+		}))
+	}, [])
+
+	const handleInspectContextEdit = useCallback(() => {
+		setInspectContextMenu((prev) => {
+			if (!prev.open || !prev.editable || !prev.request?.range) {
+				return { ...prev, open: false, request: null }
+			}
+			const offset = 10
+			openInspectTextEditor(
+				{ fileId: prev.request.fileId, range: prev.request.range },
+				prev.x + offset,
+				prev.y + offset,
+			)
+			return { ...prev, open: false, request: null }
+		})
+	}, [openInspectTextEditor])
+
+	const handleInspectContextRemove = useCallback(() => {
+		setInspectContextMenu((prev) => {
+			if (!prev.open || !prev.editable || !prev.request?.range) {
+				return { ...prev, open: false, request: null }
+			}
+			const fileSource = getSourceForFile(prev.request.fileId)
+			const { quote } = getSnippetTextRangeValue(fileSource, prev.request.range)
+			const nextSource = replaceSnippetTextRange(fileSource, prev.request.range, "", quote)
+			updateSourceForFile(prev.request.fileId, nextSource)
+			return { ...prev, open: false, request: null }
+		})
+	}, [getSourceForFile, updateSourceForFile])
+
+	const handlePreviewInspectSelect = useCallback(
+		(
+			source: PreviewSourceLocation | null,
+			meta?: {
+				reason?: "reset"
+			},
+		) => {
+			onPreviewInspectSelect(source)
+			if (!source && meta?.reason === "reset") return
+			if (inspectTextEdit) {
+				closeInspectTextEdit()
+			}
+			if (inspectContextMenu.open) {
+				closeInspectContextMenu()
+			}
+		},
+		[
+			closeInspectContextMenu,
+			closeInspectTextEdit,
+			inspectContextMenu.open,
+			inspectTextEdit,
+			onPreviewInspectSelect,
+		],
+	)
+
+	const handleInspectEscape = useCallback(() => {
+		if (inspectTextEdit) {
+			closeInspectTextEdit()
+		}
+		if (inspectContextMenu.open) {
+			closeInspectContextMenu()
+		}
+	}, [closeInspectContextMenu, closeInspectTextEdit, inspectContextMenu.open, inspectTextEdit])
+
+	const handleInspectContext = useCallback(
+		(payload: { source: PreviewSourceLocation | null; clientX: number; clientY: number }) => {
+			const request = onPreviewInspectContext(payload.source)
+			flushInspectTextEdit()
+			setInspectTextEdit(null)
+			if (!request) return
+			const menuWidth = 208
+			const menuHeight = 140
+			const maxX = Math.max(12, window.innerWidth - menuWidth - 12)
+			const maxY = Math.max(12, window.innerHeight - menuHeight - 12)
+			const fileLabel =
+				request.fileId === "source"
+					? "Snippet.tsx"
+					: (getComponentFileName(request.fileId) ?? "Component")
+			setInspectContextMenu({
+				open: true,
+				x: Math.min(payload.clientX, maxX),
+				y: Math.min(payload.clientY, maxY),
+				label: fileLabel,
+				editable: Boolean(request.range),
+				request,
+			})
+		},
+		[flushInspectTextEdit, onPreviewInspectContext],
+	)
+
+	useEffect(() => {
+		inspectTextEditStateRef.current = inspectTextEdit
+	}, [inspectTextEdit])
+
+	useEffect(() => {
+		if (!inspectTextEdit) return
+
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "Escape" || event.key === "Esc") {
+				closeInspectTextEdit()
+			}
+		}
+
+		const handlePointerDown = (event: PointerEvent) => {
+			const target = event.target as Node | null
+			if (inspectTextEditRef.current && target && inspectTextEditRef.current.contains(target)) {
+				return
+			}
+			flushInspectTextEdit()
+			closeInspectTextEdit()
+		}
+
+		window.addEventListener("keydown", handleKeyDown)
+		window.addEventListener("pointerdown", handlePointerDown)
+		return () => {
+			window.removeEventListener("keydown", handleKeyDown)
+			window.removeEventListener("pointerdown", handlePointerDown)
+		}
+	}, [closeInspectTextEdit, flushInspectTextEdit, inspectTextEdit])
+
+	useEffect(() => {
+		return () => {
+			if (inspectTextCommitTimerRef.current) {
+				clearTimeout(inspectTextCommitTimerRef.current)
+				inspectTextCommitTimerRef.current = null
+			}
+			inspectTextPendingValueRef.current = null
+		}
+	}, [])
+
+	useEffect(() => {
+		if (!inspectContextMenu.open) return
+
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "Escape" || event.key === "Esc") {
+				closeInspectContextMenu()
+			}
+		}
+
+		const handlePointerDown = (event: PointerEvent) => {
+			const target = event.target as Node | null
+			if (
+				inspectContextMenuRef.current &&
+				target &&
+				inspectContextMenuRef.current.contains(target)
+			) {
+				return
+			}
+			closeInspectContextMenu()
+		}
+
+		window.addEventListener("keydown", handleKeyDown)
+		window.addEventListener("pointerdown", handlePointerDown)
+		return () => {
+			window.removeEventListener("keydown", handleKeyDown)
+			window.removeEventListener("pointerdown", handlePointerDown)
+		}
+	}, [closeInspectContextMenu, inspectContextMenu.open])
+
+	useEffect(() => {
+		if (!inspectEnabled && inspectTextEdit) {
+			closeInspectTextEdit()
+		}
+	}, [closeInspectTextEdit, inspectEnabled, inspectTextEdit])
+
+	useEffect(() => {
+		if (!inspectEnabled && inspectContextMenu.open) {
+			closeInspectContextMenu()
+		}
+	}, [closeInspectContextMenu, inspectContextMenu.open, inspectEnabled])
 
 	const handleReorderOpenFiles = useCallback((fileIds: SnippetEditorFileId[]) => {
 		setOpenFiles(fileIds)
@@ -1014,6 +1366,11 @@ export const ${name} = ({ title = "New snippet" }) => {
 			onToggleInspect={() => setInspectMode((prev) => !prev)}
 		/>
 	)
+	const inspectEditorLabel = inspectTextEdit
+		? inspectTextEdit.fileId === "source"
+			? "Snippet.tsx"
+			: (getComponentFileName(inspectTextEdit.fileId) ?? "Component")
+		: undefined
 	const { onResizeStart } = useSnippetSplitView({
 		containerRef: splitContainerRef,
 		editorRef: editorPanelRef,
@@ -1040,6 +1397,17 @@ export const ${name} = ({ title = "New snippet" }) => {
 				onRequestDelete={setDeleteTarget}
 				onCancelDelete={() => setDeleteTarget(null)}
 				onConfirmDelete={handleConfirmDeleteComponent}
+			/>
+			<SnippetInspectOverlays
+				contextMenu={inspectContextMenu}
+				onContextEdit={handleInspectContextEdit}
+				onContextRemove={handleInspectContextRemove}
+				editor={inspectTextEdit}
+				editorLabel={inspectEditorLabel}
+				editorRef={inspectTextEditRef}
+				menuRef={inspectContextMenuRef}
+				onEditorChange={handleInspectTextChange}
+				onEditorClose={closeInspectTextEdit}
 			/>
 			<SnippetHeader
 				canSubmit={canSubmit}
@@ -1148,7 +1516,9 @@ export const ${name} = ({ title = "New snippet" }) => {
 								headerActions={previewHeaderActions}
 								inspectEnabled={inspectEnabled}
 								onInspectHover={onPreviewInspectHover}
-								onInspectSelect={onPreviewInspectSelect}
+								onInspectSelect={handlePreviewInspectSelect}
+								onInspectContext={handleInspectContext}
+								onInspectEscape={handleInspectEscape}
 							/>
 						</div>
 					</section>

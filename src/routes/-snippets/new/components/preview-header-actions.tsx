@@ -66,6 +66,11 @@ export function SnippetPreviewHeaderActions({
 					Inspect
 				</Button>
 			)}
+			{inspectEnabled && (
+				<span className="hidden text-[10px] font-semibold uppercase tracking-widest text-neutral-400 md:inline">
+					Right click to edit text
+				</span>
+			)}
 			<Button
 				type="button"
 				variant="ghost"
