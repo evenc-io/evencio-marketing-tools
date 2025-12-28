@@ -1,4 +1,12 @@
-import { FileCode, FolderOpen, Info, LayoutTemplate, SlidersHorizontal } from "lucide-react"
+import {
+	Clock,
+	FileCode,
+	FolderOpen,
+	Info,
+	LayoutTemplate,
+	Settings,
+	SlidersHorizontal,
+} from "lucide-react"
 import type { MouseEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -15,12 +23,14 @@ interface PanelRailProps {
 	explorerCollapsed: boolean
 	examplesOpen: boolean
 	importsOpen: boolean
+	historyOpen: boolean
 	isFocusPanelOpen: boolean
 	onToggleEditor: () => void
 	onToggleDetails: () => void
 	onToggleExplorer: () => void
 	onToggleExamples: () => void
 	onToggleImports: () => void
+	onToggleHistory: () => void
 	exampleFilters: ExampleFilterId[]
 	importsFilters: ImportFilterId[]
 	onExampleFilterClick: (id: ExampleFilterId, event: MouseEvent<HTMLButtonElement>) => void
@@ -33,12 +43,14 @@ export function PanelRail({
 	explorerCollapsed,
 	examplesOpen,
 	importsOpen,
+	historyOpen,
 	isFocusPanelOpen,
 	onToggleEditor,
 	onToggleDetails,
 	onToggleExplorer,
 	onToggleExamples,
 	onToggleImports,
+	onToggleHistory,
 	exampleFilters,
 	importsFilters,
 	onExampleFilterClick,
@@ -131,6 +143,35 @@ export function PanelRail({
 						title="Imports"
 					>
 						<SlidersHorizontal className="h-4 w-4" />
+					</Button>
+				</div>
+
+				<div className="mt-auto flex flex-col items-center gap-1 pb-2">
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						className={cn(
+							"h-10 w-10",
+							historyOpen && "border border-neutral-200 bg-white text-neutral-900",
+						)}
+						onClick={onToggleHistory}
+						aria-pressed={historyOpen}
+						aria-label={historyOpen ? "Hide history panel" : "Show history panel"}
+						title="History"
+					>
+						<Clock className="h-4 w-4" />
+					</Button>
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						className="h-10 w-10"
+						disabled
+						aria-label="Settings (coming soon)"
+						title="Settings (coming soon)"
+					>
+						<Settings className="h-4 w-4" />
 					</Button>
 				</div>
 

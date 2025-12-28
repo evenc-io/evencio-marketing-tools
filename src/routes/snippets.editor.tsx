@@ -43,6 +43,7 @@ import { PanelRail } from "@/routes/-snippets/new/components/panel-rail"
 import { SnippetPreviewHeaderActions } from "@/routes/-snippets/new/components/preview-header-actions"
 import { SnippetFileOverlays } from "@/routes/-snippets/new/components/snippet-file-overlays"
 import { SnippetHeader } from "@/routes/-snippets/new/components/snippet-header"
+import { SnippetHistoryPanel } from "@/routes/-snippets/new/components/snippet-history-panel"
 import {
 	type InspectContextMenuState,
 	type InspectTextEditState,
@@ -61,6 +62,7 @@ import {
 import { useDerivedSnippetProps } from "@/routes/-snippets/new/hooks/use-derived-snippet-props"
 import { useSnippetComponentExports } from "@/routes/-snippets/new/hooks/use-snippet-component-exports"
 import { useSnippetFilters } from "@/routes/-snippets/new/hooks/use-snippet-filters"
+import { useSnippetHistory } from "@/routes/-snippets/new/hooks/use-snippet-history"
 import { useSnippetInspect } from "@/routes/-snippets/new/hooks/use-snippet-inspect"
 import { useSnippetPanels } from "@/routes/-snippets/new/hooks/use-snippet-panels"
 import { useSnippetSplitView } from "@/routes/-snippets/new/hooks/use-snippet-split-view"
@@ -168,9 +170,11 @@ function NewSnippetPage() {
 		setExplorerCollapsed,
 		examplesOpen,
 		importsOpen,
+		historyOpen,
 		isFocusPanelOpen,
 		toggleExamplesPanel,
 		toggleImportsPanel,
+		toggleHistoryPanel,
 	} = useSnippetPanels()
 	const [activeExampleId, setActiveExampleId] = useState(() => SNIPPET_EXAMPLES[0]?.id ?? "")
 	const [isExamplePreviewActive, setIsExamplePreviewActive] = useState(false)
@@ -352,6 +356,63 @@ function NewSnippetPage() {
 		activeComponentFileName && hasActiveComponentFile
 			? (componentFiles[activeComponentFileName] ?? "")
 			: ""
+	const historyLabel = useCallback(() => {
+		if (activeFile === "source") return "Edit Snippet.tsx"
+		if (isComponentFileId(activeFile)) {
+			const fileName = getComponentFileName(activeFile)
+			return fileName ? `Edit ${fileName}` : "Edit component"
+		}
+		return "Edit snippet"
+	}, [activeFile])
+	const {
+		entries: historyEntries,
+		activeIndex: historyActiveIndex,
+		canUndo,
+		canRedo,
+		undo,
+		redo,
+		jumpTo: jumpToHistory,
+		markLabel: markHistoryLabel,
+		commitNow: commitHistoryNow,
+		reset: resetHistory,
+	} = useSnippetHistory({
+		source: watchedSource,
+		onApply: (nextSource) => {
+			form.setValue("source", nextSource, { shouldValidate: true, shouldDirty: true })
+		},
+		getLabel: historyLabel,
+		maxEntries: 12,
+		debounceMs: 900,
+		minChangeChars: 6,
+		minCommitIntervalMs: 1500,
+		ignoreWhitespaceOnly: true,
+	})
+
+	useEffect(() => {
+		if (typeof window === "undefined") return
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (!event.metaKey && !event.ctrlKey) return
+			const key = event.key.toLowerCase()
+			const isUndo = key === "z" && !event.shiftKey
+			const isRedo = key === "z" && event.shiftKey
+			const isAltRedo = key === "y"
+			if (!isUndo && !isRedo && !isAltRedo) return
+			const target = event.target as HTMLElement | null
+			if (target) {
+				if (target.isContentEditable) return
+				if (target.closest("input, textarea, select")) return
+				if (target.closest(".monaco-editor")) return
+			}
+			event.preventDefault()
+			if (isUndo) {
+				undo()
+			} else {
+				redo()
+			}
+		}
+		window.addEventListener("keydown", handleKeyDown)
+		return () => window.removeEventListener("keydown", handleKeyDown)
+	}, [redo, undo])
 	const componentTypeLibs = useMemo(() => {
 		const libs: Array<{ content: string; filePath: string }> = []
 		for (const [fileName, fileSource] of Object.entries(componentFiles)) {
@@ -462,12 +523,21 @@ function NewSnippetPage() {
 			},
 			{ keepDirty: false, keepTouched: false },
 		)
+		resetHistory(editAsset.snippet.source ?? "", "Loaded snippet")
 		setOpenFiles(SNIPPET_FILES.map((file) => file.id))
 		setActiveFile("source")
 		setActiveComponentExport(editAsset.snippet.entryExport ?? DEFAULT_SNIPPET_EXPORT)
 		setIsExamplePreviewActive(false)
 		editAppliedRef.current = editAsset.id
-	}, [editAsset, editTagNames, form, isEditing, isLibraryLoading, resetComponentExports])
+	}, [
+		editAsset,
+		editTagNames,
+		form,
+		isEditing,
+		isLibraryLoading,
+		resetComponentExports,
+		resetHistory,
+	])
 
 	useEffect(() => {
 		const element = previewContainerRef.current
@@ -679,6 +749,7 @@ function NewSnippetPage() {
 				const normalizedMain = syncImportBlock(sanitizedValue, Object.keys(parsed.files))
 				const nextSource = serializeSnippetFiles(normalizedMain, parsed.files)
 				if (nextSource !== currentSource) {
+					markHistoryLabel("Edit Snippet.tsx")
 					form.setValue("source", nextSource, { shouldValidate: true, shouldDirty: true })
 				}
 				return
@@ -691,10 +762,11 @@ function NewSnippetPage() {
 			const nextMain = syncImportBlock(parsed.mainSource, Object.keys(nextFiles))
 			const nextSource = serializeSnippetFiles(nextMain, nextFiles)
 			if (nextSource !== currentSource) {
+				markHistoryLabel(fileName ? `Edit ${fileName}` : "Edit component")
 				form.setValue("source", nextSource, { shouldValidate: true, shouldDirty: true })
 			}
 		},
-		[form],
+		[form, markHistoryLabel],
 	)
 
 	const flushInspectTextEdit = useCallback(
@@ -1048,14 +1120,20 @@ function NewSnippetPage() {
 			autoOpenComponentsRef.current = false
 			fileMigrationRef.current = false
 			resetComponentExports()
+			const shouldMarkDirty = options?.markDirty ?? true
 			form.setValue("source", template.source, {
 				shouldValidate: true,
-				shouldDirty: options?.markDirty ?? true,
+				shouldDirty: shouldMarkDirty,
 			})
+			if (shouldMarkDirty) {
+				commitHistoryNow("Apply template", template.source)
+			} else {
+				resetHistory(template.source, "Template loaded")
+			}
 			setIsExamplePreviewActive(false)
 			openFileTab("source")
 		},
-		[form, openFileTab, resetComponentExports],
+		[commitHistoryNow, form, openFileTab, resetComponentExports, resetHistory],
 	)
 
 	const handleFileContextMenu = (
@@ -1103,6 +1181,7 @@ function NewSnippetPage() {
 			}
 
 			form.setValue("source", nextSource, { shouldValidate: true, shouldDirty: true })
+			commitHistoryNow("Remove component", nextSource)
 			if (activeComponentExport === deleteTarget.exportName) {
 				setActiveComponentExport(DEFAULT_SNIPPET_EXPORT)
 			}
@@ -1126,6 +1205,7 @@ function NewSnippetPage() {
 			fileMigrationRef.current = false
 			resetComponentExports()
 			form.setValue("source", content, { shouldValidate: true })
+			commitHistoryNow("Upload source", content)
 			if (!form.getValues("title")) {
 				const name = file.name.replace(/\.(jsx?|tsx?)$/, "")
 				form.setValue("title", name)
@@ -1204,6 +1284,7 @@ export const ${name} = ({ title = "New snippet" }) => {
 
 		setError(null)
 		form.setValue("source", nextSource, { shouldValidate: true, shouldDirty: true })
+		commitHistoryNow("Add component", nextSource)
 		setActiveComponentExport(nextName)
 		selectFile(toComponentFileId(fileName))
 	}
@@ -1216,10 +1297,11 @@ export const ${name} = ({ title = "New snippet" }) => {
 			const normalizedMain = syncImportBlock(sanitizedMain, Object.keys(parsed.files))
 			const nextSource = serializeSnippetFiles(normalizedMain, parsed.files)
 			if (nextSource !== currentSource) {
+				markHistoryLabel("Edit Snippet.tsx")
 				form.setValue("source", nextSource, { shouldValidate: true, shouldDirty: true })
 			}
 		},
-		[form],
+		[form, markHistoryLabel],
 	)
 
 	const handleComponentSourceChange = useCallback(
@@ -1243,6 +1325,7 @@ export const ${name} = ({ title = "New snippet" }) => {
 				const nextMain = syncImportBlock(parsed.mainSource, Object.keys(nextFiles))
 				const nextSource = serializeSnippetFiles(nextMain, nextFiles)
 				form.setValue("source", nextSource, { shouldValidate: true, shouldDirty: true })
+				commitHistoryNow("Rename component", nextSource)
 				setOpenFiles((prev) =>
 					prev.map((fileId) =>
 						fileId === toComponentFileId(activeComponentFileName)
@@ -1263,10 +1346,11 @@ export const ${name} = ({ title = "New snippet" }) => {
 			const nextMain = syncImportBlock(parsed.mainSource, Object.keys(nextFiles))
 			const nextSource = serializeSnippetFiles(nextMain, nextFiles)
 			if (nextSource !== currentSource) {
+				markHistoryLabel(`Edit ${activeComponentFileName}`)
 				form.setValue("source", nextSource, { shouldValidate: true, shouldDirty: true })
 			}
 		},
-		[activeComponentFileName, form],
+		[activeComponentFileName, commitHistoryNow, form, markHistoryLabel],
 	)
 
 	const applyExampleToEditor = () => {
@@ -1274,6 +1358,7 @@ export const ${name} = ({ title = "New snippet" }) => {
 		fileMigrationRef.current = false
 		resetComponentExports()
 		form.setValue("source", activeExample.source, { shouldValidate: true })
+		commitHistoryNow("Apply example", activeExample.source)
 		form.setValue("viewportWidth", activeExample.viewport.width, { shouldValidate: true })
 		form.setValue("viewportHeight", activeExample.viewport.height, { shouldValidate: true })
 
@@ -1450,12 +1535,14 @@ export const ${name} = ({ title = "New snippet" }) => {
 						explorerCollapsed={explorerCollapsed}
 						examplesOpen={examplesOpen}
 						importsOpen={importsOpen}
+						historyOpen={historyOpen}
 						isFocusPanelOpen={isFocusPanelOpen}
 						onToggleEditor={() => setEditorCollapsed((prev) => !prev)}
 						onToggleDetails={() => setDetailsCollapsed((prev) => !prev)}
 						onToggleExplorer={() => setExplorerCollapsed((prev) => !prev)}
 						onToggleExamples={toggleExamplesPanel}
 						onToggleImports={toggleImportsPanel}
+						onToggleHistory={toggleHistoryPanel}
 						exampleFilters={exampleFilters}
 						importsFilters={importsFilters}
 						onExampleFilterClick={handleExampleFilterClick}
@@ -1469,6 +1556,16 @@ export const ${name} = ({ title = "New snippet" }) => {
 						onSelectTemplate={setSelectedTemplateId}
 						onApplyTemplate={() => applySnippetTemplate(selectedTemplateId)}
 						error={error}
+					/>
+					<SnippetHistoryPanel
+						open={historyOpen}
+						entries={historyEntries}
+						activeIndex={historyActiveIndex}
+						canUndo={canUndo}
+						canRedo={canRedo}
+						onUndo={undo}
+						onRedo={redo}
+						onJump={jumpToHistory}
 					/>
 
 					<SnippetExamplesPanel
@@ -1526,6 +1623,10 @@ export const ${name} = ({ title = "New snippet" }) => {
 							compileStatus={compileStatus}
 							compileErrors={compileErrors}
 							inspectHighlight={inspectHighlight}
+							canUndo={canUndo}
+							canRedo={canRedo}
+							onUndo={undo}
+							onRedo={redo}
 						/>
 
 						<SnippetSplitViewResizer isHidden={editorCollapsed} onPointerDown={onResizeStart} />
