@@ -7,6 +7,8 @@ import { nitro } from "nitro/vite"
 import { defineConfig } from "vite"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const nitroPreset =
+	process.env.NITRO_PRESET ?? process.env.SERVER_PRESET ?? (process.env.VERCEL ? "vercel" : "bun")
 
 const config = defineConfig({
 	server: {
@@ -20,7 +22,7 @@ const config = defineConfig({
 			"@/": `${path.resolve(__dirname, "src")}/`,
 		},
 	},
-	plugins: [nitro({ preset: "bun" }), tailwindcss(), tanstackStart(), viteReact()],
+	plugins: [nitro({ preset: nitroPreset }), tailwindcss(), tanstackStart(), viteReact()],
 })
 
 export default config
