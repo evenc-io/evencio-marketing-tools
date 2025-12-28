@@ -35,6 +35,8 @@ export type PreviewMessage =
 	| { type: "render-error"; error?: string; stack?: string }
 	| { type: "inspect-hover"; source: PreviewSourceLocation | null }
 	| { type: "inspect-select"; source: PreviewSourceLocation | null }
+	| { type: "inspect-context"; source: PreviewSourceLocation | null; x: number; y: number }
+	| { type: "inspect-escape" }
 
 /**
  * Minimal CSS reset and container styles for the preview iframe.
@@ -386,6 +388,7 @@ export function generatePreviewSrcdoc(
         inspectListenersAttached = true;
         document.addEventListener("mousemove", handleMouseMove);
         document.addEventListener("click", handleClick);
+        document.addEventListener("contextmenu", handleContextMenu);
         document.addEventListener("keydown", handleKeyDown);
         window.addEventListener("resize", updateInspectOverlay);
       };
@@ -395,13 +398,14 @@ export function generatePreviewSrcdoc(
         inspectListenersAttached = false;
         document.removeEventListener("mousemove", handleMouseMove);
         document.removeEventListener("click", handleClick);
+        document.removeEventListener("contextmenu", handleContextMenu);
         document.removeEventListener("keydown", handleKeyDown);
         window.removeEventListener("resize", updateInspectOverlay);
       };
 
-      const sendInspectMessage = (type, element) => {
+      const sendInspectMessage = (type, element, payload) => {
         const source = element ? elementSourceMap.get(element) : null;
-        parent.postMessage({ type, source: source ?? null }, "*");
+        parent.postMessage({ type, source: source ?? null, ...(payload ?? {}) }, "*");
       };
 
       const updateInspectOverlay = () => {
@@ -446,6 +450,7 @@ export function generatePreviewSrcdoc(
 
       const handleClick = (event) => {
         if (!inspectState.enabled) return;
+        if (event.button !== 0) return;
         event.preventDefault();
         event.stopPropagation();
         const target = resolveInspectableTarget(event.target);
@@ -454,12 +459,25 @@ export function generatePreviewSrcdoc(
         sendInspectMessage("inspect-select", target);
       };
 
+      const handleContextMenu = (event) => {
+        if (!inspectState.enabled) return;
+        const target = resolveInspectableTarget(event.target);
+        if (!target) return;
+        event.preventDefault();
+        event.stopPropagation();
+        inspectState.selected = target;
+        updateInspectOverlay();
+        sendInspectMessage("inspect-select", target);
+        sendInspectMessage("inspect-context", target, { x: event.clientX, y: event.clientY });
+      };
+
       const handleKeyDown = (event) => {
         if (!inspectState.enabled) return;
         if (event.key !== "Escape") return;
         inspectState.selected = null;
         updateInspectOverlay();
         sendInspectMessage("inspect-select", null);
+        sendInspectMessage("inspect-escape", null);
       };
 
       window.addEventListener("message", (event) => {

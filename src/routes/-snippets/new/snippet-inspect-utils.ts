@@ -25,6 +25,12 @@ export interface SnippetInspectHighlight extends SnippetInspectTarget {
 	textRanges: SnippetTextRange[]
 }
 
+export interface SnippetInspectTextRequest extends SnippetInspectTarget {
+	range: SnippetTextRange | null
+}
+
+export type SnippetTextQuote = "'" | '"' | null
+
 type SnippetLineSegment =
 	| {
 			start: number
@@ -209,10 +215,11 @@ export const createSnippetElementLocator = (source: string) => {
 			if (expression.type === "StringLiteral") {
 				const literalValue = typeof expression.value === "string" ? expression.value : ""
 				if (literalValue.trim().length === 0) return
-			}
-			const loc = node.loc as SourceLocation | null | undefined
-			if (loc) {
-				ranges.push(loc)
+				const loc = expression.loc as SourceLocation | null | undefined
+				if (loc) {
+					ranges.push(loc)
+				}
+				return
 			}
 			return
 		}
@@ -272,4 +279,77 @@ export const createSnippetElementLocator = (source: string) => {
 	}
 
 	return { findMatch }
+}
+
+const getOffsetForPosition = (source: string, lineNumber: number, columnNumber: number) => {
+	const targetLine = Math.max(1, Math.floor(lineNumber))
+	const targetColumn = Math.max(1, Math.floor(columnNumber))
+	let line = 1
+	let lineStart = 0
+
+	for (let index = 0; index <= source.length; index += 1) {
+		if (index === source.length || source[index] === "\n") {
+			if (line === targetLine) {
+				const lineEnd = index
+				const lineLength = Math.max(0, lineEnd - lineStart)
+				const clampedColumn = Math.min(Math.max(targetColumn, 1), lineLength + 1)
+				return lineStart + clampedColumn - 1
+			}
+			line += 1
+			lineStart = index + 1
+		}
+	}
+
+	return source.length
+}
+
+const getRangeOffsets = (source: string, range: SnippetTextRange) => {
+	const startOffset = getOffsetForPosition(source, range.startLine, range.startColumn)
+	const endOffset = getOffsetForPosition(source, range.endLine, range.endColumn)
+	const start = Math.min(startOffset, endOffset)
+	const end = Math.max(startOffset, endOffset)
+	return { start, end }
+}
+
+const isQuote = (value: string) => value === "'" || value === '"'
+
+const escapeForQuote = (value: string, quote: Exclude<SnippetTextQuote, null>) =>
+	value
+		.replace(/\\/g, "\\\\")
+		.replace(/\r/g, "\\r")
+		.replace(/\n/g, "\\n")
+		.replace(quote === "'" ? /'/g : /"/g, `\\${quote}`)
+
+export const getSnippetTextRangeValue = (
+	source: string,
+	range: SnippetTextRange,
+): {
+	raw: string
+	text: string
+	quote: SnippetTextQuote
+} => {
+	const { start, end } = getRangeOffsets(source, range)
+	const raw = source.slice(start, end)
+	const quote =
+		raw.length >= 2 && raw[0] === raw[raw.length - 1] && isQuote(raw[0])
+			? (raw[0] as Exclude<SnippetTextQuote, null>)
+			: null
+	const text = quote ? raw.slice(1, -1) : raw
+	return { raw, text, quote }
+}
+
+export const buildSnippetTextLiteral = (text: string, quote: SnippetTextQuote) => {
+	if (!quote) return text
+	return `${quote}${escapeForQuote(text, quote)}${quote}`
+}
+
+export const replaceSnippetTextRange = (
+	source: string,
+	range: SnippetTextRange,
+	nextText: string,
+	quote: SnippetTextQuote,
+) => {
+	const { start, end } = getRangeOffsets(source, range)
+	const replacement = buildSnippetTextLiteral(nextText, quote)
+	return source.slice(0, start) + replacement + source.slice(end)
 }
