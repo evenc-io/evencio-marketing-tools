@@ -37,6 +37,7 @@ import type { MonacoMarker } from "@/components/ui/monaco-editor"
 import type { CompileError, CompileStatus } from "@/lib/snippets"
 import { SNIPPET_COMPONENT_LIMITS } from "@/lib/snippets/constraints"
 import { cn } from "@/lib/utils"
+import { SnippetHistoryActions } from "@/routes/-snippets/new/components/snippet-history-actions"
 import { LazyMonacoEditor, MonacoEditorSkeleton } from "@/routes/-snippets/new/editor"
 import type { CustomSnippetValues } from "@/routes/-snippets/new/schema"
 import type {
@@ -85,6 +86,10 @@ interface SnippetEditorPanelProps {
 	compileStatus: CompileStatus
 	compileErrors: CompileError[]
 	inspectHighlight?: SnippetInspectHighlight | null
+	canUndo: boolean
+	canRedo: boolean
+	onUndo: () => void
+	onRedo: () => void
 }
 
 interface SnippetEditorTabProps {
@@ -198,6 +203,10 @@ export function SnippetEditorPanel({
 	compileStatus,
 	compileErrors,
 	inspectHighlight = null,
+	canUndo,
+	canRedo,
+	onUndo,
+	onRedo,
 }: SnippetEditorPanelProps) {
 	const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
 	const monacoRef = useRef<Monaco | null>(null)
@@ -482,28 +491,36 @@ export function SnippetEditorPanel({
 									</div>
 								</SortableContext>
 							</DndContext>
-							{isSourceEditorActive && (
-								<div className="ml-auto flex items-center gap-2">
-									<Button
-										type="button"
-										variant="ghost"
-										size="sm"
-										className="h-7 text-xs"
-										onClick={() => fileInputRef.current?.click()}
-										disabled={activeFile !== "source"}
-									>
-										<Upload className="mr-1 h-3 w-3" />
-										Upload
-									</Button>
-									<input
-										ref={fileInputRef}
-										type="file"
-										accept=".jsx,.tsx,.js,.ts"
-										className="hidden"
-										onChange={onSourceUpload}
-									/>
-								</div>
-							)}
+							<div className="ml-auto flex items-center gap-2">
+								{isSourceEditorActive && (
+									<>
+										<Button
+											type="button"
+											variant="ghost"
+											size="sm"
+											className="h-7 text-xs"
+											onClick={() => fileInputRef.current?.click()}
+											disabled={activeFile !== "source"}
+										>
+											<Upload className="mr-1 h-3 w-3" />
+											Upload
+										</Button>
+										<input
+											ref={fileInputRef}
+											type="file"
+											accept=".jsx,.tsx,.js,.ts"
+											className="hidden"
+											onChange={onSourceUpload}
+										/>
+									</>
+								)}
+								<SnippetHistoryActions
+									canUndo={canUndo}
+									canRedo={canRedo}
+									onUndo={onUndo}
+									onRedo={onRedo}
+								/>
+							</div>
 						</div>
 					</div>
 				</div>
