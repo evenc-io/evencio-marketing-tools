@@ -145,6 +145,9 @@ export function useSnippetInspect({
 			return {
 				...target,
 				range,
+				elementRange: match?.elementRange ?? null,
+				elementType: match?.elementType ?? null,
+				elementName: match?.elementName ?? null,
 			}
 		},
 		[getSourceForFile],

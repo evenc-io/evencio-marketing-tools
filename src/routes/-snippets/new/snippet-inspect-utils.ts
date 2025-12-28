@@ -27,6 +27,9 @@ export interface SnippetInspectHighlight extends SnippetInspectTarget {
 
 export interface SnippetInspectTextRequest extends SnippetInspectTarget {
 	range: SnippetTextRange | null
+	elementRange: SnippetTextRange | null
+	elementType: "element" | "fragment" | null
+	elementName: string | null
 }
 
 export type SnippetTextQuote = "'" | '"' | null
@@ -136,6 +139,15 @@ type SourceLocation = {
 	end: { line: number; column: number }
 }
 
+type SnippetElementMatch = {
+	startLine: number
+	endLine: number
+	textRanges: SnippetTextRange[]
+	elementRange: SnippetTextRange
+	elementType: "element" | "fragment"
+	elementName: string | null
+}
+
 const isJsxNodeType = (type: string) => type === "JSXElement" || type === "JSXFragment"
 
 const isWithinLocation = (loc: SourceLocation, line: number, column: number) => {
@@ -166,6 +178,37 @@ export const createSnippetElementLocator = (source: string) => {
 		} catch {
 			ast = null
 		}
+	}
+
+	const formatJsxName = (node: Record<string, unknown>): string | null => {
+		const type = node.type
+		if (type === "JSXIdentifier") {
+			return typeof node.name === "string" ? node.name : null
+		}
+		if (type === "JSXMemberExpression") {
+			const object = node.object as Record<string, unknown> | undefined
+			const property = node.property as Record<string, unknown> | undefined
+			const objectName = object ? formatJsxName(object) : null
+			const propertyName = property ? formatJsxName(property) : null
+			if (!objectName || !propertyName) return null
+			return `${objectName}.${propertyName}`
+		}
+		if (type === "JSXNamespacedName") {
+			const namespace = node.namespace as Record<string, unknown> | undefined
+			const name = node.name as Record<string, unknown> | undefined
+			const namespaceName = namespace ? formatJsxName(namespace) : null
+			const nameValue = name ? formatJsxName(name) : null
+			if (!namespaceName || !nameValue) return null
+			return `${namespaceName}:${nameValue}`
+		}
+		return null
+	}
+
+	const getJsxElementName = (node: Record<string, unknown>) => {
+		const openingElement = node.openingElement as Record<string, unknown> | undefined
+		const nameNode = openingElement?.name as Record<string, unknown> | undefined
+		if (!nameNode) return null
+		return formatJsxName(nameNode)
 	}
 
 	const collectJsxNodes = (node: unknown) => {
@@ -244,11 +287,11 @@ export const createSnippetElementLocator = (source: string) => {
 		endColumn: loc.end.column + 1,
 	})
 
-	const findMatch = (lineNumber: number, columnNumber = 1) => {
+	const findMatch = (lineNumber: number, columnNumber = 1): SnippetElementMatch | null => {
 		if (!ast || jsxNodes.length === 0) return null
 		const line = Math.max(1, Math.floor(lineNumber))
 		const column = Math.max(0, Math.floor(columnNumber) - 1)
-		let best: { node: Record<string, unknown>; loc: SourceLocation } | null = null
+		let best: (typeof jsxNodes)[number] | null = null
 
 		for (const entry of jsxNodes) {
 			const loc = entry.loc
@@ -269,12 +312,19 @@ export const createSnippetElementLocator = (source: string) => {
 		}
 
 		if (!best) return null
+		const bestType = best.node.type
+		const isFragment = bestType === "JSXFragment"
+		const elementName = isFragment ? null : getJsxElementName(best.node)
+		const elementType: SnippetElementMatch["elementType"] = isFragment ? "fragment" : "element"
 		const textRanges: SourceLocation[] = []
 		collectTextRanges(best.node, textRanges)
 		return {
 			startLine: best.loc.start.line,
 			endLine: best.loc.end.line,
 			textRanges: textRanges.slice(0, MAX_TEXT_RANGES).map(toTextRange),
+			elementRange: toTextRange(best.loc),
+			elementType,
+			elementName,
 		}
 	}
 

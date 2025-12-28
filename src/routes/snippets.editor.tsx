@@ -150,6 +150,8 @@ function NewSnippetPage() {
 		y: 0,
 		label: "Snippet text",
 		editable: false,
+		canRemoveContainer: false,
+		containerLabel: "container",
 		request: null,
 	})
 	const [deleteTarget, setDeleteTarget] = useState<{
@@ -786,6 +788,8 @@ function NewSnippetPage() {
 			...prev,
 			open: false,
 			label: "Snippet text",
+			canRemoveContainer: false,
+			containerLabel: "container",
 			request: null,
 		}))
 	}, [])
@@ -813,6 +817,18 @@ function NewSnippetPage() {
 			const fileSource = getSourceForFile(prev.request.fileId)
 			const { quote } = getSnippetTextRangeValue(fileSource, prev.request.range)
 			const nextSource = replaceSnippetTextRange(fileSource, prev.request.range, "", quote)
+			updateSourceForFile(prev.request.fileId, nextSource)
+			return { ...prev, open: false, request: null }
+		})
+	}, [getSourceForFile, updateSourceForFile])
+
+	const handleInspectContextRemoveContainer = useCallback(() => {
+		setInspectContextMenu((prev) => {
+			if (!prev.open || !prev.request?.elementRange) {
+				return { ...prev, open: false, request: null }
+			}
+			const fileSource = getSourceForFile(prev.request.fileId)
+			const nextSource = replaceSnippetTextRange(fileSource, prev.request.elementRange, "", null)
 			updateSourceForFile(prev.request.fileId, nextSource)
 			return { ...prev, open: false, request: null }
 		})
@@ -859,19 +875,27 @@ function NewSnippetPage() {
 			setInspectTextEdit(null)
 			if (!request) return
 			const menuWidth = 208
-			const menuHeight = 140
+			const menuHeight = 176
 			const maxX = Math.max(12, window.innerWidth - menuWidth - 12)
 			const maxY = Math.max(12, window.innerHeight - menuHeight - 12)
 			const fileLabel =
 				request.fileId === "source"
 					? "Snippet.tsx"
 					: (getComponentFileName(request.fileId) ?? "Component")
+			const containerLabel =
+				request.elementType === "fragment"
+					? "fragment"
+					: request.elementName
+						? `<${request.elementName}>`
+						: "container"
 			setInspectContextMenu({
 				open: true,
 				x: Math.min(payload.clientX, maxX),
 				y: Math.min(payload.clientY, maxY),
 				label: fileLabel,
 				editable: Boolean(request.range),
+				canRemoveContainer: Boolean(request.elementRange),
+				containerLabel,
 				request,
 			})
 		},
@@ -1402,6 +1426,7 @@ export const ${name} = ({ title = "New snippet" }) => {
 				contextMenu={inspectContextMenu}
 				onContextEdit={handleInspectContextEdit}
 				onContextRemove={handleInspectContextRemove}
+				onContextRemoveContainer={handleInspectContextRemoveContainer}
 				editor={inspectTextEdit}
 				editorLabel={inspectEditorLabel}
 				editorRef={inspectTextEditRef}
