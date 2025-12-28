@@ -124,10 +124,12 @@ export function useSnippetHistory({
 							createdAt: now,
 						}
 						const nextEntries = [...base.slice(0, -1), mergedEntry]
-						return {
+						const nextState = {
 							entries: nextEntries,
 							activeIndex: Math.max(nextEntries.length - 1, 0),
 						}
+						historyRef.current = nextState
+						return nextState
 					}
 				}
 				const entryLabel = label ?? getLabel?.() ?? "Edit"
@@ -144,14 +146,24 @@ export function useSnippetHistory({
 					nextEntries = nextEntries.slice(overflow)
 					nextIndex = Math.max(nextIndex - overflow, 0)
 				}
-				return {
+				const nextState = {
 					entries: nextEntries,
 					activeIndex: nextIndex,
 				}
+				historyRef.current = nextState
+				return nextState
 			})
 		},
 		[getLabel, ignoreWhitespaceOnly, maxEntriesSafe, minChangeCharsSafe, minCommitIntervalMsSafe],
 	)
+
+	const flushPendingCommit = useCallback(() => {
+		if (!pendingTimerRef.current) return
+		clearPendingTimer()
+		const label = pendingLabelRef.current ?? getLabel?.() ?? "Edit"
+		pendingLabelRef.current = null
+		commitEntry(pendingSourceRef.current, label)
+	}, [clearPendingTimer, commitEntry, getLabel])
 
 	const markLabel = useCallback((label: string) => {
 		pendingLabelRef.current = label
@@ -206,16 +218,18 @@ export function useSnippetHistory({
 	)
 
 	const undo = useCallback(() => {
+		flushPendingCommit()
 		const { activeIndex } = historyRef.current
 		if (activeIndex <= 0) return
 		applyIndex(activeIndex - 1)
-	}, [applyIndex])
+	}, [applyIndex, flushPendingCommit])
 
 	const redo = useCallback(() => {
+		flushPendingCommit()
 		const { activeIndex, entries } = historyRef.current
 		if (activeIndex >= entries.length - 1) return
 		applyIndex(activeIndex + 1)
-	}, [applyIndex])
+	}, [applyIndex, flushPendingCommit])
 
 	useEffect(() => {
 		if (isApplyingRef.current) {
