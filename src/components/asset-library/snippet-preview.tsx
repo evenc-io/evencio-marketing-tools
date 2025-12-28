@@ -39,7 +39,15 @@ export interface SnippetPreviewProps {
 	/** Called when the preview reports a hovered element source location */
 	onInspectHover?: (source: PreviewSourceLocation | null) => void
 	/** Called when the preview reports a selected element source location */
-	onInspectSelect?: (source: PreviewSourceLocation | null) => void
+	onInspectSelect?: (source: PreviewSourceLocation | null, meta?: { reason?: "reset" }) => void
+	/** Called when the preview reports a context action (right click) */
+	onInspectContext?: (payload: {
+		source: PreviewSourceLocation | null
+		clientX: number
+		clientY: number
+	}) => void
+	/** Called when the preview reports escape while inspecting */
+	onInspectEscape?: () => void
 }
 
 export type PreviewStatus = "idle" | "loading" | "success" | "error"
@@ -56,6 +64,8 @@ export function SnippetPreview({
 	inspectEnabled = false,
 	onInspectHover,
 	onInspectSelect,
+	onInspectContext,
+	onInspectEscape,
 }: SnippetPreviewProps) {
 	const iframeRef = useRef<HTMLIFrameElement>(null)
 	const containerRef = useRef<HTMLDivElement>(null)
@@ -63,6 +73,28 @@ export function SnippetPreview({
 	const [error, setError] = useState<string | null>(null)
 	const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
 	const [isReady, setIsReady] = useState(false)
+	const onInspectHoverRef = useRef(onInspectHover)
+	const onInspectSelectRef = useRef(onInspectSelect)
+	const onInspectContextRef = useRef(onInspectContext)
+	const onInspectEscapeRef = useRef(onInspectEscape)
+	const onRenderSuccessRef = useRef(onRenderSuccess)
+	const onRenderErrorRef = useRef(onRenderError)
+
+	useEffect(() => {
+		onInspectHoverRef.current = onInspectHover
+		onInspectSelectRef.current = onInspectSelect
+		onInspectContextRef.current = onInspectContext
+		onInspectEscapeRef.current = onInspectEscape
+		onRenderSuccessRef.current = onRenderSuccess
+		onRenderErrorRef.current = onRenderError
+	}, [
+		onInspectHover,
+		onInspectSelect,
+		onInspectContext,
+		onInspectEscape,
+		onRenderSuccess,
+		onRenderError,
+	])
 
 	// Handle messages from the iframe
 	const handleMessage = useCallback(
@@ -85,22 +117,37 @@ export function SnippetPreview({
 				case "render-success":
 					setStatus("success")
 					setError(null)
-					onRenderSuccess?.()
+					onRenderSuccessRef.current?.()
 					break
 				case "render-error":
 					setStatus("error")
 					setError(data.error ?? "Unknown render error")
-					onRenderError?.(data.error ?? "Unknown error", data.stack)
+					onRenderErrorRef.current?.(data.error ?? "Unknown error", data.stack)
 					break
 				case "inspect-hover":
-					onInspectHover?.(data.source ?? null)
+					onInspectHoverRef.current?.(data.source ?? null)
 					break
 				case "inspect-select":
-					onInspectSelect?.(data.source ?? null)
+					onInspectSelectRef.current?.(data.source ?? null)
+					break
+				case "inspect-context": {
+					if (!onInspectContextRef.current) break
+					const rect = iframeRef.current?.getBoundingClientRect()
+					const x = typeof data.x === "number" ? data.x : 0
+					const y = typeof data.y === "number" ? data.y : 0
+					const scaleX = rect && dimensions.width > 0 ? rect.width / dimensions.width : 1
+					const scaleY = rect && dimensions.height > 0 ? rect.height / dimensions.height : 1
+					const clientX = rect ? rect.left + x * scaleX : x
+					const clientY = rect ? rect.top + y * scaleY : y
+					onInspectContextRef.current?.({ source: data.source ?? null, clientX, clientY })
+					break
+				}
+				case "inspect-escape":
+					onInspectEscapeRef.current?.()
 					break
 			}
 		},
-		[onInspectHover, onInspectSelect, onRenderSuccess, onRenderError],
+		[dimensions],
 	)
 
 	// Set up message listener
@@ -115,16 +162,16 @@ export function SnippetPreview({
 			setStatus("idle")
 			setError(null)
 			setIsReady(false)
-			onInspectHover?.(null)
-			onInspectSelect?.(null)
+			onInspectHoverRef.current?.(null)
+			onInspectSelectRef.current?.(null, { reason: "reset" })
 			return
 		}
 
 		setStatus("loading")
 		setError(null)
 		setIsReady(false)
-		onInspectHover?.(null)
-		onInspectSelect?.(null)
+		onInspectHoverRef.current?.(null)
+		onInspectSelectRef.current?.(null, { reason: "reset" })
 
 		// Generate new srcdoc
 		const srcdoc = generatePreviewSrcdoc(compiledCode, props, dimensions, tailwindCss ?? undefined)
@@ -133,7 +180,7 @@ export function SnippetPreview({
 		if (iframeRef.current) {
 			iframeRef.current.srcdoc = srcdoc
 		}
-	}, [compiledCode, props, dimensions, tailwindCss, onInspectHover, onInspectSelect])
+	}, [compiledCode, props, dimensions, tailwindCss])
 
 	useEffect(() => {
 		const iframe = iframeRef.current

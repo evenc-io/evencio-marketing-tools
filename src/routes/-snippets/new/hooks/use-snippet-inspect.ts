@@ -7,7 +7,19 @@ import {
 	createSnippetElementLocator,
 	type SnippetInspectHighlight,
 	type SnippetInspectTarget,
+	type SnippetInspectTextRequest,
 } from "@/routes/-snippets/new/snippet-inspect-utils"
+
+const isWithinTextRange = (
+	range: { startLine: number; endLine: number; startColumn: number; endColumn: number },
+	line: number,
+	column: number,
+) => {
+	if (line < range.startLine || line > range.endLine) return false
+	if (line === range.startLine && column < range.startColumn) return false
+	if (line === range.endLine && column > range.endColumn) return false
+	return true
+}
 
 interface UseSnippetInspectOptions {
 	mainSource: string
@@ -25,6 +37,9 @@ interface UseSnippetInspectResult {
 	inspectHighlight: SnippetInspectHighlight | null
 	onPreviewInspectHover: (source: PreviewSourceLocation | null) => void
 	onPreviewInspectSelect: (source: PreviewSourceLocation | null) => void
+	onPreviewInspectContext: (
+		source: PreviewSourceLocation | null,
+	) => SnippetInspectTextRequest | null
 }
 
 export function useSnippetInspect({
@@ -82,13 +97,18 @@ export function useSnippetInspect({
 		[activeFile, inspectMode, onOpenFileForInspect, resolveInspectTarget],
 	)
 
-	const activeSource = useMemo(() => {
-		if (activeFile === "source") return mainEditorSource
-		if (!isComponentFileId(activeFile)) return ""
-		const fileName = getComponentFileName(activeFile)
-		if (!fileName) return ""
-		return componentFiles[fileName] ?? ""
-	}, [activeFile, componentFiles, mainEditorSource])
+	const getSourceForFile = useCallback(
+		(fileId: SnippetEditorFileId) => {
+			if (fileId === "source") return mainEditorSource
+			if (!isComponentFileId(fileId)) return ""
+			const fileName = getComponentFileName(fileId)
+			if (!fileName) return ""
+			return componentFiles[fileName] ?? ""
+		},
+		[componentFiles, mainEditorSource],
+	)
+
+	const activeSource = useMemo(() => getSourceForFile(activeFile), [activeFile, getSourceForFile])
 
 	const elementLocator = useMemo(
 		() => createSnippetElementLocator(inspectMode ? activeSource : ""),
@@ -110,6 +130,24 @@ export function useSnippetInspect({
 			}
 		},
 		[activeFile, elementLocator],
+	)
+
+	const buildInspectTextRequest = useCallback(
+		(target: SnippetInspectTarget) => {
+			const source = getSourceForFile(target.fileId)
+			const locator = createSnippetElementLocator(source)
+			const match = locator.findMatch(target.line, target.column)
+			const ranges = match?.textRanges ?? []
+			const range =
+				ranges.find((entry) => isWithinTextRange(entry, target.line, target.column)) ??
+				ranges[0] ??
+				null
+			return {
+				...target,
+				range,
+			}
+		},
+		[getSourceForFile],
 	)
 
 	useEffect(() => {
@@ -134,6 +172,18 @@ export function useSnippetInspect({
 		return null
 	}, [inspectHover, inspectSelection, resolveHighlight])
 
+	const onPreviewInspectContext = useCallback(
+		(source: PreviewSourceLocation | null) => {
+			if (!inspectMode) return null
+			const target = resolveInspectTarget(source)
+			if (!target) return null
+			setInspectSelection(target)
+			setInspectHover(null)
+			return buildInspectTextRequest(target)
+		},
+		[buildInspectTextRequest, inspectMode, resolveInspectTarget],
+	)
+
 	return {
 		inspectMode,
 		setInspectMode,
@@ -141,5 +191,6 @@ export function useSnippetInspect({
 		inspectHighlight,
 		onPreviewInspectHover,
 		onPreviewInspectSelect,
+		onPreviewInspectContext,
 	}
 }
