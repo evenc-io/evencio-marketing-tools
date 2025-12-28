@@ -23,6 +23,8 @@ export type InspectContextMenuState = {
 	y: number
 	label: string
 	editable: boolean
+	canRemoveContainer: boolean
+	containerLabel: string
 	request: SnippetInspectTextRequest | null
 }
 
@@ -30,6 +32,7 @@ interface SnippetInspectOverlaysProps {
 	contextMenu: InspectContextMenuState
 	onContextEdit: () => void
 	onContextRemove: () => void
+	onContextRemoveContainer: () => void
 	editor: InspectTextEditState | null
 	editorLabel?: string
 	editorRef: RefObject<HTMLDivElement | null>
@@ -42,6 +45,7 @@ export function SnippetInspectOverlays({
 	contextMenu,
 	onContextEdit,
 	onContextRemove,
+	onContextRemoveContainer,
 	editor,
 	editorLabel,
 	editorRef,
@@ -88,6 +92,15 @@ export function SnippetInspectOverlays({
 							className="flex w-full items-center px-2 py-1.5 text-xs text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:text-neutral-300"
 						>
 							Remove text
+						</button>
+						<button
+							type="button"
+							role="menuitem"
+							onClick={onContextRemoveContainer}
+							disabled={!contextMenu.canRemoveContainer}
+							className="flex w-full items-center px-2 py-1.5 text-xs text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:text-neutral-300"
+						>
+							Remove {contextMenu.containerLabel}
 						</button>
 						{!contextMenu.editable && (
 							<div className="border-t border-neutral-200 px-2 py-1 text-[10px] text-neutral-400">
