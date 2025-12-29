@@ -12,7 +12,7 @@ const nitroPreset =
 
 const vendorChunks = (id: string) => {
 	if (!id.includes("node_modules")) return undefined
-	if (id.includes("monaco-editor")) return "monaco"
+	if (id.includes("node_modules/monaco-editor/")) return "monaco"
 	if (id.includes("esbuild-wasm")) return "esbuild"
 	if (id.includes("html2canvas")) return "html2canvas"
 	if (id.includes("jspdf")) return "jspdf"

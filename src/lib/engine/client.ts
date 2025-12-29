@@ -152,9 +152,10 @@ const requestEngine = async <T extends EngineResponse>(payload: EngineRequest): 
 		try {
 			return await requestWorker<T>(payload)
 		} catch (err) {
-			if (!isEngineError(err)) {
-				markWorkerUnhealthy(err)
+			if (isEngineError(err)) {
+				throw err
 			}
+			markWorkerUnhealthy(err)
 			return runInProcess<T>(payload)
 		}
 	}
