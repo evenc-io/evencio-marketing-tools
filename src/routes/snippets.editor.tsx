@@ -12,6 +12,7 @@ import {
 	useState,
 } from "react"
 import { useForm } from "react-hook-form"
+import { toast } from "sonner"
 import { z } from "zod"
 import { SnippetPreview } from "@/components/asset-library/snippet-preview"
 import { ClientOnly } from "@/components/ui/client-only"
@@ -1402,6 +1403,7 @@ export const ${name} = ({ title = "New snippet" }) => {
 					entryExport: activeComponentExport,
 				})
 				form.reset(values, { keepDirty: false, keepTouched: false })
+				toast.success("Changes saved")
 				return
 			}
 
@@ -1445,6 +1447,7 @@ export const ${name} = ({ title = "New snippet" }) => {
 				attribution: buildSnippetAttribution(values),
 			})
 
+			toast.success("Snippet created")
 			navigate({ to: "/library" })
 		} catch (err) {
 			const fallback = isEditing ? "Failed to update snippet" : "Failed to create custom snippet"

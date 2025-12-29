@@ -1,4 +1,6 @@
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router"
+import { ClientOnly } from "@/components/ui/client-only"
+import { Toaster } from "@/components/ui/sonner"
 
 import appCss from "../styles.css?url"
 
@@ -53,6 +55,9 @@ function RootComponent() {
 			</head>
 			<body className="min-h-screen bg-background antialiased">
 				<Outlet />
+				<ClientOnly>
+					<Toaster closeButton position="bottom-right" />
+				</ClientOnly>
 				<Scripts />
 			</body>
 		</html>
