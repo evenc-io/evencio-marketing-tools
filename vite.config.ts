@@ -1,7 +1,6 @@
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import tailwindcss from "@tailwindcss/vite"
-import { tanstackStart } from "@tanstack/react-start/plugin/vite"
 import viteReact from "@vitejs/plugin-react"
 import { nitro } from "nitro/vite"
 import { defineConfig } from "vite"
@@ -21,6 +20,34 @@ const vendorChunks = (id: string) => {
 	if (id.includes("@babel/parser")) return "babel"
 	return undefined
 }
+
+type ZodFunctionSchemaLike = {
+	output?: (schema: unknown) => unknown
+	returns?: (schema: unknown) => unknown
+}
+
+const ensureZodFunctionReturns = async () => {
+	const zodModule = await import("zod")
+	const z =
+		(zodModule as { z?: unknown }).z ?? (zodModule as { default?: unknown }).default ?? zodModule
+	const ZodFunction = (z as { ZodFunction?: { prototype?: ZodFunctionSchemaLike } }).ZodFunction
+	if (!ZodFunction?.prototype) return
+	if (typeof ZodFunction.prototype.returns === "function") return
+
+	// Patch zod v4 to expose v3-style .returns for tanstack router generator.
+	Object.defineProperty(ZodFunction.prototype, "returns", {
+		value(schema: unknown) {
+			const instance = this as ZodFunctionSchemaLike
+			if (typeof instance.output === "function") {
+				return instance.output(schema)
+			}
+			return this
+		},
+	})
+}
+
+await ensureZodFunctionReturns()
+const { tanstackStart } = await import("@tanstack/react-start/plugin/vite")
 
 const config = defineConfig({
 	server: {
@@ -42,7 +69,7 @@ const config = defineConfig({
 			"@/": `${path.resolve(__dirname, "src")}/`,
 		},
 	},
-	plugins: [nitro({ preset: nitroPreset }), tailwindcss(), tanstackStart(), viteReact()],
+	plugins: [nitro({ preset: nitroPreset }), tailwindcss(), ...tanstackStart(), viteReact()],
 })
 
 export default config
