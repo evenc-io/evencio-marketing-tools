@@ -223,7 +223,6 @@ function NewSnippetPage() {
 		source: watchedSource,
 		includeTailwind: true,
 		includeInspect,
-		key: "snippet-analyze",
 	})
 	const { componentExports, resetComponentExports } = useSnippetComponentExports({
 		source: watchedSource,

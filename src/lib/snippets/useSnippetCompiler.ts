@@ -336,29 +336,29 @@ export function useSnippetCompiler({
 		if (!analysis) return
 		if (!compiledCode || status !== "success") return
 		const analysisHash = typeof analysis.sourceHash === "number" ? analysis.sourceHash : null
-		if (analysisHash === null) return
-		const currentHash = hashSnippetSourceSync(source)
-		if (analysisHash !== currentHash) return
+		const analysisMatches = analysisHash !== null && analysisHash === hashSnippetSourceSync(source)
 
-		const securityErrors = securityIssuesToCompileErrors(analysis.securityIssues)
-		if (securityErrors.length > 0) {
-			if (!isMountedRef.current) return
-			setStatus("error")
-			setCompiledCode(null)
-			setErrors(securityErrors)
-			setTailwindCss(null)
-			return
+		if (analysisMatches) {
+			const securityErrors = securityIssuesToCompileErrors(analysis.securityIssues)
+			if (securityErrors.length > 0) {
+				if (!isMountedRef.current) return
+				setStatus("error")
+				setCompiledCode(null)
+				setErrors(securityErrors)
+				setTailwindCss(null)
+				return
+			}
+
+			if (analysis.tailwindError) {
+				if (!isMountedRef.current) return
+				setStatus("error")
+				setErrors([buildLimitError(analysis.tailwindError)])
+				setTailwindCss(null)
+				return
+			}
 		}
 
 		if (!enableTailwindCss) return
-
-		if (analysis.tailwindError) {
-			if (!isMountedRef.current) return
-			setStatus("error")
-			setErrors([buildLimitError(analysis.tailwindError)])
-			setTailwindCss(null)
-			return
-		}
 
 		if (analysis.tailwindCss !== null && analysis.tailwindCss !== tailwindCss) {
 			setTailwindCss(analysis.tailwindCss)

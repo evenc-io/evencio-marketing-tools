@@ -91,12 +91,13 @@ export const useSnippetAnalysis = ({
 		timerRef.current = setTimeout(() => {
 			void (async () => {
 				try {
-					const { data } = await analyzeSnippetInEngine(nextSource, {
+					const { data, stale } = await analyzeSnippetInEngine(nextSource, {
 						includeTailwind,
 						includeInspect,
 						key,
 					})
 					if (currentVersion !== versionRef.current || !isMountedRef.current) return
+					if (stale) return
 					const mapped = mapInspectIndexes(nextSource, data)
 					if (!isMountedRef.current) return
 					setAnalysis(mapped)
