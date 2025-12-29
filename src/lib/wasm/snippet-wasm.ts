@@ -226,7 +226,11 @@ export const scanSnippetFilesWasm = async (
 		}
 
 		const output = memoryAfter.subarray(outPtr, outPtr + outLen)
-		return decodeSnippetFileScanPayload(output)
+		try {
+			return decodeSnippetFileScanPayload(output)
+		} catch {
+			return null
+		}
 	} finally {
 		wasm.free(inputPtr, input.length)
 		wasm.free(outLenPtr, 4)
