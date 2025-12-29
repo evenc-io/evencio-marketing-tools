@@ -261,7 +261,9 @@ export function useSnippetCompiler({
 					setCompiledCode(result.code)
 					setErrors([])
 					setWarnings(result.warnings)
-					setTailwindCss(enableTailwindCss ? (effectiveAnalysis?.tailwindCss ?? null) : null)
+					if (enableTailwindCss) {
+						setTailwindCss(effectiveAnalysis?.tailwindCss ?? null)
+					}
 				} else {
 					if (!isMountedRef.current) return
 					setStatus("error")
@@ -359,11 +361,6 @@ export function useSnippetCompiler({
 			setTailwindCss(analysis.tailwindCss)
 		}
 	}, [analysis, compiledCode, enableTailwindCss, source, status, tailwindCss])
-
-	useEffect(() => {
-		if (enableTailwindCss) return
-		setTailwindCss((prev) => (prev === null ? prev : null))
-	}, [enableTailwindCss])
 
 	// Convert errors to Monaco markers
 	const monacoMarkers = useMemo(() => {
