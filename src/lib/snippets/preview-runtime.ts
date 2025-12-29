@@ -310,6 +310,15 @@ export function generatePreviewSrcdoc(
         return null;
       };
 
+      let inspectScale = 1;
+      const setInspectScale = (nextScale) => {
+        if (typeof nextScale !== "number" || !Number.isFinite(nextScale)) {
+          return;
+        }
+        inspectScale = Math.max(0.01, nextScale);
+        updateInspectOverlay();
+      };
+
       const createInspectOverlay = () => {
         const overlay = document.createElement("div");
         overlay.style.position = "fixed";
@@ -329,20 +338,47 @@ export function generatePreviewSrcdoc(
         };
 
         const createLabel = (color) => {
-          const label = document.createElement("div");
-          label.style.position = "fixed";
-          label.style.padding = "2px 6px";
-          label.style.fontSize = "11px";
-          label.style.fontFamily =
+          const container = document.createElement("div");
+          container.style.position = "fixed";
+          container.style.display = "none";
+          container.style.pointerEvents = "none";
+          container.style.whiteSpace = "nowrap";
+          container.style.fontFamily =
             "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
-          label.style.background = INSPECT_LABEL_BG;
-          label.style.color = INSPECT_LABEL_TEXT;
-          label.style.border = "1px solid " + color;
-          label.style.borderRadius = "2px";
-          label.style.pointerEvents = "none";
-          label.style.whiteSpace = "nowrap";
-          label.style.display = "none";
-          return label;
+          container.style.fontSize = "10px";
+          container.style.fontWeight = "600";
+          container.style.lineHeight = "1.2";
+          container.style.letterSpacing = "0.01em";
+          container.style.alignItems = "center";
+          container.style.flexDirection = "row";
+          container.style.gap = "6px";
+          container.style.transformOrigin = "top left";
+
+          const prefix = document.createElement("span");
+          prefix.style.display = "none";
+          prefix.style.alignItems = "center";
+          prefix.style.justifyContent = "center";
+          prefix.style.padding = "2px 5px";
+          prefix.style.borderRadius = "3px";
+          prefix.style.background = color;
+          prefix.style.color = "#FFFFFF";
+          prefix.style.fontSize = "9px";
+          prefix.style.fontWeight = "700";
+
+          const info = document.createElement("span");
+          info.style.display = "inline-flex";
+          info.style.alignItems = "center";
+          info.style.justifyContent = "center";
+          info.style.padding = "2px 7px";
+          info.style.borderRadius = "3px";
+          info.style.background = INSPECT_LABEL_BG;
+          info.style.color = INSPECT_LABEL_TEXT;
+          info.style.border = "1px solid " + color;
+
+          container.appendChild(prefix);
+          container.appendChild(info);
+
+          return { container, prefix, info, baseHeight: 0 };
         };
 
         const hoverBox = createBox(INSPECT_HOVER);
@@ -351,22 +387,60 @@ export function generatePreviewSrcdoc(
         const selectedLabel = createLabel(INSPECT_SELECTED);
 
         overlay.appendChild(selectedBox);
-        overlay.appendChild(selectedLabel);
+        overlay.appendChild(selectedLabel.container);
         overlay.appendChild(hoverBox);
-        overlay.appendChild(hoverLabel);
+        overlay.appendChild(hoverLabel.container);
         document.body.appendChild(overlay);
+
+        const measureLabelHeight = (label) => {
+          if (label.baseHeight) return;
+          const prevDisplay = label.container.style.display;
+          const prevVisibility = label.container.style.visibility;
+          const prevLeft = label.container.style.left;
+          const prevTop = label.container.style.top;
+          const prevTransform = label.container.style.transform;
+          const prevGap = label.container.style.gap;
+          const prevPrefixDisplay = label.prefix.style.display;
+          const prevPrefixText = label.prefix.textContent;
+
+          label.prefix.textContent = "Selected";
+          label.prefix.style.display = "inline-flex";
+          label.container.style.gap = "6px";
+          label.container.style.display = "flex";
+          label.container.style.visibility = "hidden";
+          label.container.style.left = "-9999px";
+          label.container.style.top = "0px";
+          label.container.style.transform = "scale(1)";
+          label.baseHeight = Math.max(
+            0,
+            Math.round(label.container.getBoundingClientRect().height),
+          );
+
+          label.container.style.display = prevDisplay;
+          label.container.style.visibility = prevVisibility;
+          label.container.style.left = prevLeft;
+          label.container.style.top = prevTop;
+          label.container.style.transform = prevTransform;
+          label.container.style.gap = prevGap;
+          label.prefix.style.display = prevPrefixDisplay;
+          label.prefix.textContent = prevPrefixText;
+
+          if (!label.baseHeight) {
+            label.baseHeight = 16;
+          }
+        };
 
         const updateBox = (box, label, target, prefix) => {
           if (!target) {
             box.style.display = "none";
-            label.style.display = "none";
+            label.container.style.display = "none";
             return;
           }
           const rect = target.getBoundingClientRect();
           const width = Math.max(0, Math.round(rect.width));
           const height = Math.max(0, Math.round(rect.height));
           const tag = target.tagName ? target.tagName.toLowerCase() : "element";
-          const prefixText = prefix ? prefix + " - " : "";
+          const prefixText = prefix ? prefix : "";
 
           box.style.display = "block";
           box.style.left = rect.left + "px";
@@ -374,11 +448,28 @@ export function generatePreviewSrcdoc(
           box.style.width = rect.width + "px";
           box.style.height = rect.height + "px";
 
-          label.textContent = prefixText + tag + " - " + width + " x " + height;
-          const labelTop = rect.top - 20 < 4 ? rect.bottom + 4 : rect.top - 20;
-          label.style.display = "block";
-          label.style.left = rect.left + "px";
-          label.style.top = labelTop + "px";
+          label.info.textContent = tag + " - " + width + " x " + height;
+          if (prefixText) {
+            label.prefix.textContent = prefixText;
+            label.prefix.style.display = "inline-flex";
+            label.container.style.gap = "6px";
+          } else {
+            label.prefix.style.display = "none";
+            label.container.style.gap = "0px";
+          }
+
+          label.container.style.display = "flex";
+          label.container.style.left = rect.left + "px";
+          label.container.style.top = "0px";
+          const labelScale = inspectScale > 0 ? 1 / inspectScale : 1;
+          label.container.style.transform = "scale(" + labelScale + ")";
+          measureLabelHeight(label);
+          const labelHeight = Math.round(label.baseHeight * labelScale);
+          const labelOffset = 6;
+          const labelTop = rect.top - labelHeight - labelOffset < 4
+            ? rect.bottom + labelOffset
+            : rect.top - labelHeight - labelOffset;
+          label.container.style.top = labelTop + "px";
         };
 
         return {
@@ -597,6 +688,10 @@ export function generatePreviewSrcdoc(
         if (!data || typeof data.type !== "string") return;
         if (data.type === "inspect-toggle") {
           setInspectEnabled(Boolean(data.enabled));
+          return;
+        }
+        if (data.type === "inspect-scale") {
+          setInspectScale(typeof data.scale === "number" ? data.scale : 1);
           return;
         }
         if (data.type === "code-update") {

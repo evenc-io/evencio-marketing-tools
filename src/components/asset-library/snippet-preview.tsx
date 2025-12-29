@@ -294,6 +294,12 @@ export function SnippetPreview({
 	const scaledWidth = Math.max(0, Math.round(dimensions.width * scale))
 	const scaledHeight = Math.max(0, Math.round(dimensions.height * scale))
 
+	useEffect(() => {
+		const iframe = iframeRef.current
+		if (!iframe || status !== "success") return
+		iframe.contentWindow?.postMessage({ type: "inspect-scale", scale }, "*")
+	}, [scale, status])
+
 	return (
 		<div className={`relative flex flex-col ${className ?? ""}`}>
 			{/* Preview header */}
