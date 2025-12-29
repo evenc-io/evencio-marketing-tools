@@ -69,6 +69,7 @@ export function SnippetPreview({
 }: SnippetPreviewProps) {
 	const iframeRef = useRef<HTMLIFrameElement>(null)
 	const containerRef = useRef<HTMLDivElement>(null)
+	const iframeReadyRef = useRef(false)
 	const [status, setStatus] = useState<PreviewStatus>("idle")
 	const [error, setError] = useState<string | null>(null)
 	const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
@@ -113,6 +114,9 @@ export function SnippetPreview({
 			}
 
 			switch (data.type) {
+				case "ready":
+					iframeReadyRef.current = true
+					break
 				case "render-success":
 					setStatus("success")
 					setError(null)
@@ -171,18 +175,36 @@ export function SnippetPreview({
 			lastCompiledCodeRef.current = null
 			lastTailwindCssRef.current = null
 			lastPropsJsonRef.current = null
+			iframeReadyRef.current = false
 			onInspectHoverRef.current?.(null)
 			onInspectSelectRef.current?.(null, { reason: "reset" })
 			return
 		}
 
 		const lastDimensions = lastDimensionsRef.current
-		const shouldReload =
-			compiledCode !== lastCompiledCodeRef.current ||
-			dimensions.width !== lastDimensions.width ||
-			dimensions.height !== lastDimensions.height
+		const dimensionsChanged =
+			dimensions.width !== lastDimensions.width || dimensions.height !== lastDimensions.height
+		const codeChanged = compiledCode !== lastCompiledCodeRef.current
 
-		if (!shouldReload) {
+		if (!codeChanged && !dimensionsChanged) {
+			return
+		}
+
+		const iframe = iframeRef.current
+		onInspectHoverRef.current?.(null)
+		onInspectSelectRef.current?.(null, { reason: "reset" })
+
+		const canHotSwap =
+			Boolean(iframe?.contentWindow) && iframeReadyRef.current && !dimensionsChanged
+
+		if (canHotSwap) {
+			lastCompiledCodeRef.current = compiledCode
+			lastDimensionsRef.current = dimensions
+			lastPropsJsonRef.current = propsJson
+			iframe?.contentWindow?.postMessage(
+				{ type: "code-update", code: compiledCode, propsJson },
+				"*",
+			)
 			return
 		}
 
@@ -190,10 +212,9 @@ export function SnippetPreview({
 		lastDimensionsRef.current = dimensions
 		lastTailwindCssRef.current = tailwindCss ?? null
 		lastPropsJsonRef.current = propsJson
+		iframeReadyRef.current = false
 		setStatus("loading")
 		setError(null)
-		onInspectHoverRef.current?.(null)
-		onInspectSelectRef.current?.(null, { reason: "reset" })
 
 		// Generate new srcdoc
 		const srcdoc = generatePreviewSrcdoc(
@@ -205,8 +226,8 @@ export function SnippetPreview({
 		)
 
 		// Update iframe
-		if (iframeRef.current) {
-			iframeRef.current.srcdoc = srcdoc
+		if (iframe) {
+			iframe.srcdoc = srcdoc
 		}
 	}, [compiledCode, dimensions, props, propsJson, tailwindCss])
 

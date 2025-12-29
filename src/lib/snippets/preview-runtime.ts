@@ -165,6 +165,8 @@ export function generatePreviewSrcdoc(
     // Signal that iframe is ready
     parent.postMessage({ type: 'ready' }, '*');
 
+    const SCRIPT_NONCE = "${nonce}";
+
     try {
       const React = (() => {
         const Fragment = Symbol.for("snippet.fragment");
@@ -436,6 +438,12 @@ export function generatePreviewSrcdoc(
         });
       };
 
+      const resetInspectState = () => {
+        inspectState.hovered = null;
+        inspectState.selected = null;
+        updateInspectOverlay();
+      };
+
       const setInspectEnabled = (enabled) => {
         if (enabled === inspectState.enabled) {
           updateInspectOverlay();
@@ -510,12 +518,29 @@ export function generatePreviewSrcdoc(
           message + '</pre></div>';
       };
 
-      // Execute compiled snippet code
-      ${escapedCode}
+      const resetSnippetExports = () => {
+        window.__SNIPPET_COMPONENT__ = undefined;
+        window.__SNIPPET_COMPONENT_ERROR__ = undefined;
+      };
 
-      // Get the exported component
-      const SnippetComponent = window.__SNIPPET_COMPONENT__;
-      const exportError = window.__SNIPPET_COMPONENT_ERROR__;
+      const applyCompiledCode = (code) => {
+        resetSnippetExports();
+        if (typeof code !== "string" || !code.trim()) {
+          window.__SNIPPET_COMPONENT_ERROR__ = "No compiled code provided.";
+          return;
+        }
+        const wrappedCode =
+          "try {\\n" +
+          code +
+          "\\n} catch (error) {\\n" +
+          "  window.__SNIPPET_COMPONENT_ERROR__ = error && error.message ? error.message : String(error);\\n" +
+          "}";
+        const script = document.createElement("script");
+        script.setAttribute("nonce", SCRIPT_NONCE);
+        script.textContent = wrappedCode;
+        document.body.appendChild(script);
+        script.remove();
+      };
 
       const normalizeProps = (value) => {
         if (value && typeof value === "object") return value;
@@ -530,8 +555,12 @@ export function generatePreviewSrcdoc(
         return {};
       };
 
+      let latestPropsPayload = ${escapedProps};
+
       const renderWithProps = (nextProps) => {
         try {
+          const exportError = window.__SNIPPET_COMPONENT_ERROR__;
+          const SnippetComponent = window.__SNIPPET_COMPONENT__;
           if (exportError) {
             throw new Error(exportError);
           }
@@ -552,6 +581,17 @@ export function generatePreviewSrcdoc(
         }
       };
 
+      const runInitialCode = () => {
+        resetSnippetExports();
+        try {
+          ${escapedCode}
+        } catch (error) {
+          window.__SNIPPET_COMPONENT_ERROR__ = error && error.message ? error.message : String(error);
+        }
+      };
+
+      runInitialCode();
+
       window.addEventListener("message", (event) => {
         const data = event.data;
         if (!data || typeof data.type !== "string") return;
@@ -559,17 +599,27 @@ export function generatePreviewSrcdoc(
           setInspectEnabled(Boolean(data.enabled));
           return;
         }
+        if (data.type === "code-update") {
+          if (typeof data.propsJson === "string" || typeof data.props === "string" || typeof data.props === "object") {
+            latestPropsPayload = data.propsJson ?? data.props;
+          }
+          resetInspectState();
+          applyCompiledCode(data.code);
+          renderWithProps(latestPropsPayload);
+          return;
+        }
         if (data.type === "tailwind-update") {
           setTailwindCss(data.css);
           return;
         }
         if (data.type === "props-update") {
-          renderWithProps(data.propsJson ?? data.props);
+          latestPropsPayload = data.propsJson ?? data.props;
+          renderWithProps(latestPropsPayload);
         }
       });
 
       // Initial render with props from parent
-      renderWithProps(${escapedProps});
+      renderWithProps(latestPropsPayload);
     } catch (error) {
       // Handle execution errors
       parent.postMessage({
