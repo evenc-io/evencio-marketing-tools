@@ -189,7 +189,6 @@ function NewSnippetPage() {
 	const splitContainerRef = useRef<HTMLDivElement>(null)
 	const editorPanelRef = useRef<HTMLDivElement>(null)
 	const previewContainerRef = useRef<HTMLDivElement>(null)
-	const [isPreviewVisible, setIsPreviewVisible] = useState(true)
 	const screenGate = useScreenGuard()
 	const form = useForm<CustomSnippetValues>({
 		resolver: zodResolver(customSnippetSchema),
@@ -222,7 +221,7 @@ function NewSnippetPage() {
 		error: analysisError,
 	} = useSnippetAnalysis({
 		source: watchedSource,
-		includeTailwind: isPreviewVisible,
+		includeTailwind: true,
 		includeInspect,
 		key: "snippet-analyze",
 	})
@@ -491,7 +490,7 @@ function NewSnippetPage() {
 	const exampleSource = activeExample?.source ?? ""
 	const { analysis: exampleAnalysis } = useSnippetAnalysis({
 		source: isExamplePreviewActive ? exampleSource : "",
-		includeTailwind: isExamplePreviewActive && isPreviewVisible,
+		includeTailwind: isExamplePreviewActive,
 		debounceMs: 300,
 		key: "snippet-analyze-example",
 	})
@@ -565,23 +564,6 @@ function NewSnippetPage() {
 		resetComponentExports,
 		resetHistory,
 	])
-
-	useEffect(() => {
-		const element = previewContainerRef.current
-		if (!element || typeof IntersectionObserver === "undefined") return
-
-		const observer = new IntersectionObserver(
-			(entries) => {
-				const entry = entries[0]
-				if (!entry) return
-				setIsPreviewVisible(entry.isIntersecting && entry.intersectionRatio >= 0.2)
-			},
-			{ threshold: [0, 0.2, 0.6, 1] },
-		)
-
-		observer.observe(element)
-		return () => observer.disconnect()
-	}, [])
 
 	useEffect(() => {
 		if (!examplesOpen) {
@@ -673,7 +655,7 @@ function NewSnippetPage() {
 		defaultProps: derivedProps.defaultProps,
 		entryExport: resolvedEntryExport,
 		debounceMs: 500,
-		enableTailwindCss: isPreviewVisible,
+		enableTailwindCss: true,
 		analysis,
 		engineKey: "snippet-compile-main",
 	})
@@ -688,7 +670,7 @@ function NewSnippetPage() {
 			defaultProps: examplePreviewProps,
 			debounceMs: 300,
 			autoCompile: isExamplePreviewActive,
-			enableTailwindCss: isExamplePreviewActive && isPreviewVisible,
+			enableTailwindCss: isExamplePreviewActive,
 			analysis: exampleAnalysis,
 			engineKey: "snippet-compile-example",
 		},
@@ -1595,7 +1577,7 @@ export const ${name} = ({ title = "New snippet" }) => {
 								analysis={analysis}
 								analysisStatus={analysisStatus}
 								analysisError={analysisError}
-								includeTailwind={isPreviewVisible}
+								includeTailwind
 								includeInspect={includeInspect}
 							/>
 
