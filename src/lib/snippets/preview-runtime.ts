@@ -552,9 +552,6 @@ export function generatePreviewSrcdoc(
         }
       };
 
-      // Initial render with props from parent
-      renderWithProps(${escapedProps});
-
       window.addEventListener("message", (event) => {
         const data = event.data;
         if (!data || typeof data.type !== "string") return;
@@ -570,6 +567,9 @@ export function generatePreviewSrcdoc(
           renderWithProps(data.propsJson ?? data.props);
         }
       });
+
+      // Initial render with props from parent
+      renderWithProps(${escapedProps});
     } catch (error) {
       // Handle execution errors
       parent.postMessage({
