@@ -16,9 +16,15 @@ type SnippetWasmExports = {
 	scan_inspect_index: (ptr: number, len: number, outLenPtr: number) => number
 	scan_snippet_files: (ptr: number, len: number, outLenPtr: number) => number
 	hash_bytes: (ptr: number, len: number) => number
+	strip_snippet_directives?: (ptr: number, len: number, outLenPtr: number) => number
+	strip_auto_import_block?: (ptr: number, len: number, outLenPtr: number) => number
+	scan_auto_import_offset?: (ptr: number, len: number) => number
+	scan_primary_export?: (ptr: number, len: number, outLenPtr: number) => number
+	scan_export_names?: (ptr: number, len: number, outLenPtr: number) => number
 }
 
 let wasmPromise: Promise<SnippetWasmExports | null> | null = null
+let wasmReady: SnippetWasmExports | null = null
 let wasmFailure: string | null = null
 let wasmFailureAt = 0
 
@@ -26,6 +32,7 @@ const WASM_TIMEOUT_MS = 5000
 const WASM_RETRY_MS = 1500
 
 const hasWasmSupport = () => typeof WebAssembly !== "undefined" && typeof fetch !== "undefined"
+const getSnippetWasmSync = (): SnippetWasmExports | null => wasmReady
 
 const loadSnippetWasm = async (): Promise<SnippetWasmExports | null> => {
 	if (!hasWasmSupport()) {
@@ -82,10 +89,13 @@ const loadSnippetWasm = async (): Promise<SnippetWasmExports | null> => {
 					return null
 				}
 				wasmFailure = null
-				return exports as SnippetWasmExports
+				const resolved = exports as SnippetWasmExports
+				wasmReady = resolved
+				return resolved
 			} catch (err) {
 				wasmFailure = err instanceof Error ? err.message : "Failed to load snippet WASM."
 				wasmFailureAt = Date.now()
+				wasmReady = null
 				return null
 			}
 		})(),
@@ -95,6 +105,7 @@ const loadSnippetWasm = async (): Promise<SnippetWasmExports | null> => {
 		.then((exports) => {
 			if (!exports) {
 				wasmPromise = null
+				wasmReady = null
 			}
 			return exports
 		})
@@ -102,6 +113,7 @@ const loadSnippetWasm = async (): Promise<SnippetWasmExports | null> => {
 			wasmFailure = err instanceof Error ? err.message : "Failed to load snippet WASM."
 			wasmFailureAt = Date.now()
 			wasmPromise = null
+			wasmReady = null
 			return null
 		})
 
@@ -259,6 +271,194 @@ export const getSnippetWasmStatus = async () => {
 
 const unescapeMessage = (value: string) =>
 	value.replace(/\\\\/g, "\\").replace(/\\n/g, "\n").replace(/\\r/g, "\r").replace(/\\t/g, "\t")
+
+export const stripSnippetFileDirectivesWasmSync = (source: string): string | undefined => {
+	const wasm = getSnippetWasmSync()
+	if (!wasm?.strip_snippet_directives) return undefined
+	if (!source) return ""
+
+	const input = encoder.encode(source)
+	if (input.length === 0) return ""
+
+	const inputPtr = wasm.alloc(input.length)
+	const outLenPtr = wasm.alloc(4)
+	if (!inputPtr || !outLenPtr) {
+		if (inputPtr) wasm.free(inputPtr, input.length)
+		if (outLenPtr) wasm.free(outLenPtr, 4)
+		return undefined
+	}
+
+	let outPtr = 0
+	let outLen = 0
+	try {
+		const memoryU8 = new Uint8Array(wasm.memory.buffer)
+		memoryU8.set(input, inputPtr)
+
+		outPtr = wasm.strip_snippet_directives(inputPtr, input.length, outLenPtr)
+		const memoryAfter = new Uint8Array(wasm.memory.buffer)
+		const outLenView = new DataView(memoryAfter.buffer)
+		outLen = outLenView.getUint32(outLenPtr, true)
+
+		if (!outPtr || outLen === 0) {
+			return ""
+		}
+
+		const output = memoryAfter.subarray(outPtr, outPtr + outLen)
+		return decoder.decode(output)
+	} finally {
+		wasm.free(inputPtr, input.length)
+		wasm.free(outLenPtr, 4)
+		if (outPtr && outLen) {
+			wasm.free(outPtr, outLen)
+		}
+	}
+}
+
+export const stripAutoImportBlockWasmSync = (source: string): string | undefined => {
+	const wasm = getSnippetWasmSync()
+	if (!wasm?.strip_auto_import_block) return undefined
+	if (!source) return ""
+
+	const input = encoder.encode(source)
+	if (input.length === 0) return ""
+
+	const inputPtr = wasm.alloc(input.length)
+	const outLenPtr = wasm.alloc(4)
+	if (!inputPtr || !outLenPtr) {
+		if (inputPtr) wasm.free(inputPtr, input.length)
+		if (outLenPtr) wasm.free(outLenPtr, 4)
+		return undefined
+	}
+
+	let outPtr = 0
+	let outLen = 0
+	try {
+		const memoryU8 = new Uint8Array(wasm.memory.buffer)
+		memoryU8.set(input, inputPtr)
+
+		outPtr = wasm.strip_auto_import_block(inputPtr, input.length, outLenPtr)
+		const memoryAfter = new Uint8Array(wasm.memory.buffer)
+		const outLenView = new DataView(memoryAfter.buffer)
+		outLen = outLenView.getUint32(outLenPtr, true)
+
+		if (!outPtr || outLen === 0) {
+			return ""
+		}
+
+		const output = memoryAfter.subarray(outPtr, outPtr + outLen)
+		return decoder.decode(output)
+	} finally {
+		wasm.free(inputPtr, input.length)
+		wasm.free(outLenPtr, 4)
+		if (outPtr && outLen) {
+			wasm.free(outPtr, outLen)
+		}
+	}
+}
+
+export const scanAutoImportOffsetWasmSync = (source: string): number | undefined => {
+	const wasm = getSnippetWasmSync()
+	if (!wasm?.scan_auto_import_offset) return undefined
+	if (!source) return 0
+
+	const input = encoder.encode(source)
+	if (input.length === 0) return 0
+
+	const inputPtr = wasm.alloc(input.length)
+	if (!inputPtr) return undefined
+	try {
+		const memoryU8 = new Uint8Array(wasm.memory.buffer)
+		memoryU8.set(input, inputPtr)
+		return wasm.scan_auto_import_offset(inputPtr, input.length)
+	} finally {
+		wasm.free(inputPtr, input.length)
+	}
+}
+
+export const scanPrimaryExportNameWasmSync = (source: string): string | null | undefined => {
+	const wasm = getSnippetWasmSync()
+	if (!wasm?.scan_primary_export) return undefined
+	if (!source) return null
+
+	const input = encoder.encode(source)
+	if (input.length === 0) return null
+
+	const inputPtr = wasm.alloc(input.length)
+	const outLenPtr = wasm.alloc(4)
+	if (!inputPtr || !outLenPtr) {
+		if (inputPtr) wasm.free(inputPtr, input.length)
+		if (outLenPtr) wasm.free(outLenPtr, 4)
+		return undefined
+	}
+
+	let outPtr = 0
+	let outLen = 0
+	try {
+		const memoryU8 = new Uint8Array(wasm.memory.buffer)
+		memoryU8.set(input, inputPtr)
+
+		outPtr = wasm.scan_primary_export(inputPtr, input.length, outLenPtr)
+		const memoryAfter = new Uint8Array(wasm.memory.buffer)
+		const outLenView = new DataView(memoryAfter.buffer)
+		outLen = outLenView.getUint32(outLenPtr, true)
+
+		if (!outPtr || outLen === 0) {
+			return null
+		}
+
+		const output = memoryAfter.subarray(outPtr, outPtr + outLen)
+		return decoder.decode(output)
+	} finally {
+		wasm.free(inputPtr, input.length)
+		wasm.free(outLenPtr, 4)
+		if (outPtr && outLen) {
+			wasm.free(outPtr, outLen)
+		}
+	}
+}
+
+export const scanExportNamesWasmSync = (source: string): string[] | undefined => {
+	const wasm = getSnippetWasmSync()
+	if (!wasm?.scan_export_names) return undefined
+	if (!source) return []
+
+	const input = encoder.encode(source)
+	if (input.length === 0) return []
+
+	const inputPtr = wasm.alloc(input.length)
+	const outLenPtr = wasm.alloc(4)
+	if (!inputPtr || !outLenPtr) {
+		if (inputPtr) wasm.free(inputPtr, input.length)
+		if (outLenPtr) wasm.free(outLenPtr, 4)
+		return undefined
+	}
+
+	let outPtr = 0
+	let outLen = 0
+	try {
+		const memoryU8 = new Uint8Array(wasm.memory.buffer)
+		memoryU8.set(input, inputPtr)
+
+		outPtr = wasm.scan_export_names(inputPtr, input.length, outLenPtr)
+		const memoryAfter = new Uint8Array(wasm.memory.buffer)
+		const outLenView = new DataView(memoryAfter.buffer)
+		outLen = outLenView.getUint32(outLenPtr, true)
+
+		if (!outPtr || outLen === 0) {
+			return []
+		}
+
+		const output = memoryAfter.subarray(outPtr, outPtr + outLen)
+		const decoded = decoder.decode(output)
+		return decoded.split("\n").filter(Boolean)
+	} finally {
+		wasm.free(inputPtr, input.length)
+		wasm.free(outLenPtr, 4)
+		if (outPtr && outLen) {
+			wasm.free(outPtr, outLen)
+		}
+	}
+}
 
 export const scanTailwindCandidatesWasm = async (
 	source: string,

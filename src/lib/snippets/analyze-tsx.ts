@@ -2,6 +2,7 @@ import type { AnalyzeTsxRequest, AnalyzeTsxResponse } from "@/lib/engine/protoco
 import {
 	buildSnippetInspectIndexWasm,
 	scanSnippetSecurityIssuesWasm,
+	stripAutoImportBlockWasmSync,
 } from "@/lib/wasm/snippet-wasm"
 import { loadBabelParser } from "./babel-parser"
 import { buildSnippetInspectIndex, type SnippetInspectIndex } from "./inspect-index"
@@ -17,7 +18,7 @@ import {
 
 const emptySchema = () => ({ version: 1 as const, props: [] })
 
-const stripSnippetFileDirectives = (source: string) =>
+const stripSnippetFileDirectivesFallback = (source: string) =>
 	source
 		.split(/\r?\n/)
 		.filter(
@@ -27,8 +28,8 @@ const stripSnippetFileDirectives = (source: string) =>
 		)
 		.join("\n")
 
-const stripAutoImportBlock = (source: string) => {
-	const lines = stripSnippetFileDirectives(source).split(/\r?\n/)
+const stripAutoImportBlockFallback = (source: string) => {
+	const lines = stripSnippetFileDirectivesFallback(source).split(/\r?\n/)
 	let index = 0
 	let sawImport = false
 	while (index < lines.length) {
@@ -117,7 +118,10 @@ export const analyzeSnippetTsx = async ({
 	let inspectIndexByFile: AnalyzeTsxResponse["inspectIndexByFile"]
 	let lineMapSegments: AnalyzeTsxResponse["lineMapSegments"]
 	if (includeInspect) {
-		const cleanedMain = stripAutoImportBlock(scan.mainSource)
+		const cleanedMain = isBrowser
+			? (stripAutoImportBlockWasmSync(scan.mainSource) ??
+				stripAutoImportBlockFallback(scan.mainSource))
+			: stripAutoImportBlockFallback(scan.mainSource)
 		if (isBrowser) {
 			const nextIndexByFile: Record<string, SnippetInspectIndex | null> = {}
 			const mainIndex = await buildSnippetInspectIndexWasm(cleanedMain, { expanded: true })

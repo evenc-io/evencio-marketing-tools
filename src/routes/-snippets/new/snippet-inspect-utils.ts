@@ -3,6 +3,7 @@ import {
 	buildSnippetLineMapSegments,
 	type SnippetLineMapSegment,
 } from "@/lib/snippets/source-files"
+import { scanAutoImportOffsetWasmSync } from "@/lib/wasm/snippet-wasm"
 import type { SnippetEditorFileId } from "@/routes/-snippets/new/snippet-editor-types"
 import { toComponentFileId } from "@/routes/-snippets/new/snippet-file-utils"
 
@@ -37,7 +38,7 @@ export interface SnippetInspectTextRequest extends SnippetInspectTarget {
 export type SnippetTextQuote = "'" | '"' | null
 export type SnippetElementContext = "jsx" | "expression"
 
-const getAutoImportOffset = (mainSource: string) => {
+const getAutoImportOffsetFallback = (mainSource: string) => {
 	const lines = mainSource.split(/\r?\n/)
 	let index = 0
 	let sawImport = false
@@ -58,6 +59,9 @@ const getAutoImportOffset = (mainSource: string) => {
 
 	return index
 }
+
+const getAutoImportOffset = (mainSource: string) =>
+	scanAutoImportOffsetWasmSync(mainSource) ?? getAutoImportOffsetFallback(mainSource)
 
 export const buildSnippetInspectMap = (
 	mainSource: string,

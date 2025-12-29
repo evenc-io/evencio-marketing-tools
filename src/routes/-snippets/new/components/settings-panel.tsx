@@ -78,96 +78,79 @@ export function SnippetSettingsPanel({
 		}
 	}, [open])
 
-	const logs = useMemo<LogEntry[]>(() => {
-		const entries: LogEntry[] = []
+	const { capabilityLogs, activityLogs } = useMemo(() => {
+		const capabilities: LogEntry[] = []
+		const activity: LogEntry[] = []
 		const wasmLoading = wasmStatus.loading && open
 		const wasmLoaded = wasmStatus.loaded
 		const wasmSupported = wasmStatus.supported
 		const wasmLabel = wasmLoading ? "Loading WASM module…" : "WASM module"
 
-		entries.push({
+		capabilities.push({
 			label: "WASM runtime",
 			status: wasmLoading ? "loading" : wasmSupported ? "ok" : "blocked",
 			detail: wasmSupported ? undefined : "Missing runtime.",
 		})
 
-		entries.push({
+		capabilities.push({
 			label: wasmLabel,
 			status: wasmLoading ? "loading" : wasmLoaded ? "ok" : "blocked",
 			detail: wasmLoaded ? undefined : (wasmStatus.error ?? "WASM unavailable."),
 		})
 
+		capabilities.push({
+			label: "Header scans (WASM accel)",
+			status: wasmLoading ? "loading" : wasmLoaded ? "ok" : "warn",
+			detail: wasmLoading
+				? "Checking WASM module."
+				: wasmLoaded
+					? "Fast path active."
+					: "JS fallback active.",
+		})
+
+		capabilities.push({
+			label: "Tailwind scan (WASM-only)",
+			status: !includeTailwind ? "skip" : wasmLoading ? "loading" : wasmLoaded ? "ok" : "blocked",
+			detail: !includeTailwind ? "Preview hidden." : wasmLoaded ? undefined : "WASM required.",
+		})
+
+		capabilities.push({
+			label: "Security scan (WASM-only)",
+			status: wasmLoading ? "loading" : wasmLoaded ? "ok" : "blocked",
+			detail: wasmLoaded ? undefined : "WASM required.",
+		})
+
+		capabilities.push({
+			label: "Inspect index (WASM-only)",
+			status: !includeInspect ? "skip" : wasmLoading ? "loading" : wasmLoaded ? "ok" : "blocked",
+			detail: !includeInspect ? "Inspect disabled." : wasmLoaded ? undefined : "WASM required.",
+		})
+
 		if (analysisStatus === "error") {
-			entries.push({
-				label: "Snippet analysis",
+			activity.push({
+				label: "Analysis pipeline",
 				status: "blocked",
 				detail: analysisError ?? "Analysis failed.",
 			})
 		} else {
 			const isIdle = analysisStatus === "idle"
-			entries.push({
-				label: "Snippet analysis",
+			activity.push({
+				label: "Analysis pipeline",
 				status: isIdle ? "skip" : analysisStatus === "loading" ? "loading" : "ok",
 				detail: isIdle ? "Waiting for source." : undefined,
 			})
 		}
 
 		const tailwindError = analysis?.tailwindError ?? null
-		entries.push({
-			label: "Tailwind scan (WASM-only)",
-			status: !includeTailwind
-				? "skip"
-				: wasmLoading || analysisStatus === "loading"
-					? "loading"
-					: tailwindError
-						? "blocked"
-						: wasmLoaded
-							? "ok"
-							: "blocked",
-			detail: !includeTailwind
-				? "Preview hidden."
-				: (tailwindError ?? (wasmLoaded ? undefined : "WASM required.")),
-		})
+		if (tailwindError) {
+			activity.push({
+				label: "Tailwind output",
+				status: "warn",
+				detail: tailwindError,
+			})
+		}
 
-		const securityFallback = Boolean(
-			analysis?.securityIssues?.some((issue) =>
-				issue.message.includes("WASM security scanner unavailable"),
-			),
-		)
-		entries.push({
-			label: "Security scan (WASM-only)",
-			status:
-				wasmLoading || analysisStatus === "loading"
-					? "loading"
-					: securityFallback || !wasmLoaded
-						? "blocked"
-						: "ok",
-			detail: securityFallback
-				? "WASM scanner missing."
-				: wasmLoaded
-					? undefined
-					: "WASM required.",
-		})
-
-		entries.push({
-			label: "Inspect index (WASM-only)",
-			status: !includeInspect
-				? "skip"
-				: wasmLoading || analysisStatus === "loading"
-					? "loading"
-					: wasmLoaded
-						? "ok"
-						: "blocked",
-			detail: !includeInspect ? "Inspect disabled." : wasmLoaded ? undefined : "WASM required.",
-		})
-
-		entries.push({
-			label: "TS fallback (client)",
-			status: wasmLoaded ? "ok" : "warn",
-			detail: wasmLoaded ? undefined : "No fallback.",
-		})
-
-		return entries
+		return { capabilityLogs: capabilities, activityLogs: activity }
 	}, [analysis, analysisError, analysisStatus, includeInspect, includeTailwind, open, wasmStatus])
 
 	return (
@@ -193,11 +176,41 @@ export function SnippetSettingsPanel({
 							<CollapsibleSection title="Developer" defaultOpen={false}>
 								<div className="flex items-center justify-between">
 									<p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
-										Logs
+										Capabilities
 									</p>
 								</div>
 								<div className="mt-3 space-y-2">
-									{logs.map((entry) => (
+									{capabilityLogs.map((entry) => (
+										<div
+											key={entry.label}
+											className="flex items-start justify-between gap-3 rounded-md border border-neutral-200 px-2 py-2 text-xs"
+										>
+											<div>
+												<p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-700">
+													{entry.label}
+												</p>
+												{entry.detail && (
+													<p className="mt-1 text-[10px] text-neutral-500">{entry.detail}</p>
+												)}
+											</div>
+											<span
+												className={cn(
+													"mt-0.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest",
+													statusClasses[entry.status],
+												)}
+											>
+												{statusLabel[entry.status]}
+											</span>
+										</div>
+									))}
+								</div>
+								<div className="mt-4 flex items-center justify-between">
+									<p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
+										Activity
+									</p>
+								</div>
+								<div className="mt-3 space-y-2">
+									{activityLogs.map((entry) => (
 										<div
 											key={entry.label}
 											className="flex items-start justify-between gap-3 rounded-md border border-neutral-200 px-2 py-2 text-xs"

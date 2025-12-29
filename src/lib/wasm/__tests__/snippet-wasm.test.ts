@@ -10,12 +10,85 @@ import { SNIPPET_TEMPLATES } from "@/lib/snippets/templates"
 import {
 	buildSnippetInspectIndexWasm,
 	hashSourceWasm,
+	scanAutoImportOffsetWasmSync,
+	scanExportNamesWasmSync,
+	scanPrimaryExportNameWasmSync,
 	scanSnippetFilesWasm,
 	scanSnippetSecurityIssuesWasm,
 	scanTailwindCandidatesWasm,
+	stripAutoImportBlockWasmSync,
+	stripSnippetFileDirectivesWasmSync,
+	warmSnippetWasm,
 } from "@/lib/wasm/snippet-wasm"
 
 const normalize = (value: string[]) => value.slice().sort()
+
+const stripSnippetFileDirectivesJs = (source: string) =>
+	source
+		.split(/\r?\n/)
+		.filter(
+			(line) =>
+				!/^(\s*\/\/\s*@snippet-file(\s|$))/.test(line) &&
+				!/^(\s*\/\/\s*@snippet-file-end\s*)$/.test(line),
+		)
+		.join("\n")
+
+const stripAutoImportBlockJs = (source: string) => {
+	const lines = stripSnippetFileDirectivesJs(source).split(/\r?\n/)
+	let index = 0
+	let sawImport = false
+	while (index < lines.length) {
+		const line = lines[index]
+		if (/^\s*\/\/\s*Auto-managed imports/i.test(line) || /^\s*\/\/\s*@import\s+/.test(line)) {
+			sawImport = true
+			index += 1
+			continue
+		}
+		if (sawImport && line.trim() === "") {
+			index += 1
+			continue
+		}
+		break
+	}
+	return lines.slice(index).join("\n")
+}
+
+const scanPrimaryExportNameJs = (source: string) => {
+	const match = source.match(/^\s*export\s+(?:const|function|class)\s+([A-Za-z_$][A-Za-z0-9_$]*)/m)
+	return match?.[1] ?? null
+}
+
+const scanExportNamesJs = (source: string) => {
+	const matches = source.matchAll(
+		/^\s*export\s+(?:const|function|class)\s+([A-Za-z_$][A-Za-z0-9_$]*)/gm,
+	)
+	const names = new Set<string>()
+	for (const match of matches) {
+		const name = match[1]
+		if (name) names.add(name)
+	}
+	return [...names]
+}
+
+const scanAutoImportOffsetJs = (source: string) => {
+	const lines = source.split(/\r?\n/)
+	let index = 0
+	let sawImport = false
+	while (index < lines.length) {
+		const line = lines[index]
+		if (/^\s*\/\/\s*Auto-managed imports/i.test(line) || /^\s*\/\/\s*@import\s+/.test(line)) {
+			sawImport = true
+			index += 1
+			continue
+		}
+		if (sawImport && line.trim() === "") {
+			index += 1
+			continue
+		}
+		break
+	}
+	return index
+}
 
 describe("snippet wasm tailwind scanner", () => {
 	test("extracts class candidates from static JSX", async () => {
@@ -159,6 +232,58 @@ describe("snippet wasm file scanner", () => {
 	})
 })
 
+describe("snippet wasm header scanners", () => {
+	test("matches JS helpers for import blocks and exports", async () => {
+		await warmSnippetWasm()
+		const source = `// Auto-managed imports (do not edit).
+// @import Button.tsx
+
+export const Alpha = () => null
+export function Beta() {
+  return null
+}
+export class Gamma {}
+export default function Delta() {
+  return null
+}
+
+// @snippet-file Button.tsx
+export const Button = () => <button />
+// @snippet-file-end
+`
+
+		const wasmStripDirectives = stripSnippetFileDirectivesWasmSync(source)
+		if (wasmStripDirectives === undefined) {
+			throw new Error("Snippet WASM strip directives unavailable.")
+		}
+		expect(wasmStripDirectives).toBe(stripSnippetFileDirectivesJs(source))
+
+		const wasmStripImports = stripAutoImportBlockWasmSync(source)
+		if (wasmStripImports === undefined) {
+			throw new Error("Snippet WASM strip imports unavailable.")
+		}
+		expect(wasmStripImports).toBe(stripAutoImportBlockJs(source))
+
+		const wasmPrimary = scanPrimaryExportNameWasmSync(source)
+		if (wasmPrimary === undefined) {
+			throw new Error("Snippet WASM primary export unavailable.")
+		}
+		expect(wasmPrimary).toBe(scanPrimaryExportNameJs(source))
+
+		const wasmNames = scanExportNamesWasmSync(source)
+		if (wasmNames === undefined) {
+			throw new Error("Snippet WASM export names unavailable.")
+		}
+		expect(wasmNames).toEqual(scanExportNamesJs(source))
+
+		const wasmOffset = scanAutoImportOffsetWasmSync(source)
+		if (wasmOffset === undefined) {
+			throw new Error("Snippet WASM auto import offset unavailable.")
+		}
+		expect(wasmOffset).toBe(scanAutoImportOffsetJs(source))
+	})
+})
+
 const repeat = (value: string, count: number) =>
 	Array.from({ length: count }, () => value).join("\n")
 
@@ -184,6 +309,29 @@ ${repeat(chunk, count)}
 
 const mediumSource = buildSource(baseChunk, 40)
 const heavySource = buildSource(baseChunk, 120)
+
+const autoImportHeader = `// Auto-managed imports (do not edit).
+// @import Button.tsx
+// @import Card.tsx
+
+`
+
+const buildExportBlock = (count: number) =>
+	Array.from({ length: count }, (_, index) => `export const Widget${index} = () => <div />`).join(
+		"\n",
+	)
+
+const buildHeaderSource = (exportCount: number, chunkRepeats: number) => {
+	const exports = buildExportBlock(exportCount)
+	const repeated = repeat(baseChunk, chunkRepeats)
+	const fileBlock = `// @snippet-file Widget.tsx
+export const Widget = () => <div />
+// @snippet-file-end`
+	return `${autoImportHeader}${exports}\n${repeated}\n${fileBlock}\n`
+}
+
+const mediumHeaderSource = buildHeaderSource(24, 30)
+const heavyHeaderSource = buildHeaderSource(120, 90)
 
 const templateSources = Object.values(SNIPPET_TEMPLATES).map((template) => template.source)
 const exampleSources = SNIPPET_EXAMPLES.map((example) => example.source)
@@ -220,6 +368,13 @@ const hashSourceJs = (value: string) => {
 		hash = Math.imul(hash, 0x01000193)
 	}
 	return hash >>> 0
+}
+
+const requireWasm = <T>(value: T | undefined, label: string): T => {
+	if (value === undefined) {
+		throw new Error(`Snippet WASM ${label} unavailable.`)
+	}
+	return value
 }
 
 const benchPair = async (
@@ -295,6 +450,7 @@ const benchWorkerRoundtrip = async (label: string, iterations: number, source: s
 describe("snippet wasm benchmarks", () => {
 	test("benchmarks zig vs ts (logs timings)", async () => {
 		if (!process.env.PERF_WASM) return
+		await warmSnippetWasm()
 
 		const wasmScan = async (source: string) => {
 			const result = await scanTailwindCandidatesWasm(source)
@@ -330,6 +486,46 @@ describe("snippet wasm benchmarks", () => {
 
 		const jsInspect = async (source: string) => {
 			buildSnippetInspectIndex(source)
+		}
+
+		const wasmStripDirectives = async (source: string) => {
+			requireWasm(stripSnippetFileDirectivesWasmSync(source), "strip directives")
+		}
+
+		const jsStripDirectives = async (source: string) => {
+			stripSnippetFileDirectivesJs(source)
+		}
+
+		const wasmStripImports = async (source: string) => {
+			requireWasm(stripAutoImportBlockWasmSync(source), "strip auto imports")
+		}
+
+		const jsStripImports = async (source: string) => {
+			stripAutoImportBlockJs(source)
+		}
+
+		const wasmPrimaryExport = async (source: string) => {
+			requireWasm(scanPrimaryExportNameWasmSync(source), "primary export")
+		}
+
+		const jsPrimaryExport = async (source: string) => {
+			scanPrimaryExportNameJs(source)
+		}
+
+		const wasmExportNames = async (source: string) => {
+			requireWasm(scanExportNamesWasmSync(source), "export names")
+		}
+
+		const jsExportNames = async (source: string) => {
+			scanExportNamesJs(source)
+		}
+
+		const wasmAutoImportOffset = async (source: string) => {
+			requireWasm(scanAutoImportOffsetWasmSync(source), "auto import offset")
+		}
+
+		const jsAutoImportOffset = async (source: string) => {
+			scanAutoImportOffsetJs(source)
 		}
 
 		const mediumScan = await benchPair(
@@ -381,6 +577,46 @@ describe("snippet wasm benchmarks", () => {
 		const mediumFiles = await benchSnippetFiles("medium snippet files", 10, mediumFileSources)
 		expect(mediumFiles.wasmSample.durationMs).toBeGreaterThan(0)
 
+		const mediumStripDirectives = await benchPair(
+			"medium strip directives",
+			40,
+			() => wasmStripDirectives(mediumHeaderSource),
+			() => jsStripDirectives(mediumHeaderSource),
+		)
+		expect(mediumStripDirectives.wasmSample.durationMs).toBeGreaterThan(0)
+
+		const mediumStripImports = await benchPair(
+			"medium strip auto imports",
+			40,
+			() => wasmStripImports(mediumHeaderSource),
+			() => jsStripImports(mediumHeaderSource),
+		)
+		expect(mediumStripImports.wasmSample.durationMs).toBeGreaterThan(0)
+
+		const mediumExportNames = await benchPair(
+			"medium export names",
+			60,
+			() => wasmExportNames(mediumHeaderSource),
+			() => jsExportNames(mediumHeaderSource),
+		)
+		expect(mediumExportNames.wasmSample.durationMs).toBeGreaterThan(0)
+
+		const mediumPrimaryExport = await benchPair(
+			"medium primary export",
+			120,
+			() => wasmPrimaryExport(mediumHeaderSource),
+			() => jsPrimaryExport(mediumHeaderSource),
+		)
+		expect(mediumPrimaryExport.wasmSample.durationMs).toBeGreaterThan(0)
+
+		const mediumImportOffset = await benchPair(
+			"medium import offset",
+			240,
+			() => wasmAutoImportOffset(mediumHeaderSource),
+			() => jsAutoImportOffset(mediumHeaderSource),
+		)
+		expect(mediumImportOffset.wasmSample.durationMs).toBeGreaterThan(0)
+
 		await benchWorkerRoundtrip("medium", 20, mediumSource)
 
 		const heavyScan = await benchPair(
@@ -431,6 +667,46 @@ describe("snippet wasm benchmarks", () => {
 
 		const heavyFiles = await benchSnippetFiles("heavy snippet files", 6, heavyFileSources)
 		expect(heavyFiles.wasmSample.durationMs).toBeGreaterThan(0)
+
+		const heavyStripDirectives = await benchPair(
+			"heavy strip directives",
+			20,
+			() => wasmStripDirectives(heavyHeaderSource),
+			() => jsStripDirectives(heavyHeaderSource),
+		)
+		expect(heavyStripDirectives.wasmSample.durationMs).toBeGreaterThan(0)
+
+		const heavyStripImports = await benchPair(
+			"heavy strip auto imports",
+			20,
+			() => wasmStripImports(heavyHeaderSource),
+			() => jsStripImports(heavyHeaderSource),
+		)
+		expect(heavyStripImports.wasmSample.durationMs).toBeGreaterThan(0)
+
+		const heavyExportNames = await benchPair(
+			"heavy export names",
+			24,
+			() => wasmExportNames(heavyHeaderSource),
+			() => jsExportNames(heavyHeaderSource),
+		)
+		expect(heavyExportNames.wasmSample.durationMs).toBeGreaterThan(0)
+
+		const heavyPrimaryExport = await benchPair(
+			"heavy primary export",
+			60,
+			() => wasmPrimaryExport(heavyHeaderSource),
+			() => jsPrimaryExport(heavyHeaderSource),
+		)
+		expect(heavyPrimaryExport.wasmSample.durationMs).toBeGreaterThan(0)
+
+		const heavyImportOffset = await benchPair(
+			"heavy import offset",
+			120,
+			() => wasmAutoImportOffset(heavyHeaderSource),
+			() => jsAutoImportOffset(heavyHeaderSource),
+		)
+		expect(heavyImportOffset.wasmSample.durationMs).toBeGreaterThan(0)
 
 		const largeFiles = await benchSnippetFiles("large snippet files", 4, largeFileSources)
 		expect(largeFiles.wasmSample.durationMs).toBeGreaterThan(0)
