@@ -2,12 +2,18 @@
 
 import { Editor, loader, type Monaco } from "@monaco-editor/react"
 import type { editor } from "monaco-editor"
+import * as monaco from "monaco-editor"
+import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker"
+import cssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker"
+import htmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker"
+import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker"
+import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { cn } from "@/lib/utils"
 
-const MONACO_CDN_VERSION = "0.55.1"
 let didAddReactTypes = false
+const MONACO_ENV_KEY = "__evencio_monaco_env__"
 
 const REACT_TYPE_DEFS = `
 declare namespace JSX {
@@ -40,14 +46,39 @@ declare module "react/jsx-dev-runtime" {
 }
 `.trim()
 
-// Configure Monaco to use CDN-hosted assets for the editor worker/runtime.
-if (typeof window !== "undefined") {
-	loader.config({
-		paths: {
-			vs: `https://cdn.jsdelivr.net/npm/monaco-editor@${MONACO_CDN_VERSION}/min/vs`,
+const setupMonacoEnvironment = () => {
+	if (typeof window === "undefined") return
+	const globalScope = globalThis as typeof globalThis & {
+		[MONACO_ENV_KEY]?: boolean
+		MonacoEnvironment?: { getWorker: (id: string, label: string) => Worker }
+	}
+	if (globalScope[MONACO_ENV_KEY]) return
+	globalScope[MONACO_ENV_KEY] = true
+	globalScope.MonacoEnvironment = {
+		getWorker: (_id, label) => {
+			switch (label) {
+				case "json":
+					return new jsonWorker()
+				case "css":
+				case "scss":
+				case "less":
+					return new cssWorker()
+				case "html":
+				case "handlebars":
+				case "razor":
+					return new htmlWorker()
+				case "typescript":
+				case "javascript":
+					return new tsWorker()
+				default:
+					return new editorWorker()
+			}
 		},
-	})
+	}
+	loader.config({ monaco })
 }
+
+setupMonacoEnvironment()
 
 type MonacoLanguage = "typescript" | "javascript" | "json" | "css" | "html"
 

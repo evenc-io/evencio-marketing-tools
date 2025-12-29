@@ -26,11 +26,27 @@ export interface CompileResult {
 	warnings: CompileError[]
 }
 
-// Singleton state for lazy initialization
-let esbuildInstance: typeof esbuild | null = null
-let initPromise: Promise<typeof esbuild> | null = null
-let initError: Error | null = null
-let initErrorAt = 0
+type EsbuildGlobalState = {
+	instance: typeof esbuild | null
+	initPromise: Promise<typeof esbuild> | null
+	initError: Error | null
+	initErrorAt: number
+}
+
+const getEsbuildGlobalState = (): EsbuildGlobalState => {
+	const globalScope = globalThis as typeof globalThis & {
+		__evencio_esbuild_wasm__?: EsbuildGlobalState
+	}
+	if (!globalScope.__evencio_esbuild_wasm__) {
+		globalScope.__evencio_esbuild_wasm__ = {
+			instance: null,
+			initPromise: null,
+			initError: null,
+			initErrorAt: 0,
+		}
+	}
+	return globalScope.__evencio_esbuild_wasm__
+}
 
 const INIT_TIMEOUT_MS = 6000
 const INIT_RETRY_MS = 1500
@@ -59,23 +75,24 @@ async function resolveBrowserWasmUrl(): Promise<string | undefined> {
 }
 
 async function getEsbuild(): Promise<typeof esbuild> {
+	const state = getEsbuildGlobalState()
 	// Return cached instance if already initialized
-	if (esbuildInstance) {
-		return esbuildInstance
+	if (state.instance) {
+		return state.instance
 	}
 
 	// Return cached error if initialization previously failed
-	if (initError) {
-		if (Date.now() - initErrorAt < INIT_RETRY_MS) {
-			throw initError
+	if (state.initError) {
+		if (Date.now() - state.initErrorAt < INIT_RETRY_MS) {
+			throw state.initError
 		}
-		initError = null
+		state.initError = null
 	}
 
 	// Return existing promise if initialization is in progress
-	if (!initPromise) {
+	if (!state.initPromise) {
 		// Start initialization
-		initPromise = (async () => {
+		state.initPromise = (async () => {
 			const esbuildModule = await import("esbuild-wasm")
 
 			const initOptions: esbuild.InitializeOptions = {
@@ -93,24 +110,24 @@ async function getEsbuild(): Promise<typeof esbuild> {
 			} catch (err) {
 				const message = err instanceof Error ? err.message : String(err)
 				if (message.includes("Cannot call initialize more than once")) {
-					esbuildInstance = esbuildModule
+					state.instance = esbuildModule
 					return esbuildModule
 				}
 				throw err
 			}
 
-			esbuildInstance = esbuildModule
+			state.instance = esbuildModule
 			return esbuildModule
 		})().catch((err) => {
-			initError = err instanceof Error ? err : new Error(String(err))
-			initErrorAt = Date.now()
-			initPromise = null
-			throw initError
+			state.initError = err instanceof Error ? err : new Error(String(err))
+			state.initErrorAt = Date.now()
+			state.initPromise = null
+			throw state.initError
 		})
 	}
 
 	try {
-		return await withTimeout(initPromise, INIT_TIMEOUT_MS, "esbuild initialization timed out")
+		return await withTimeout(state.initPromise, INIT_TIMEOUT_MS, "esbuild initialization timed out")
 	} catch (err) {
 		if (err instanceof Error && err.name === "TimeoutError") {
 			throw err
@@ -282,7 +299,7 @@ export async function compileSnippet(source: string, entryExport?: string): Prom
  * Useful for showing loading states.
  */
 export function isCompilerReady(): boolean {
-	return esbuildInstance !== null
+	return getEsbuildGlobalState().instance !== null
 }
 
 /**
