@@ -25,6 +25,7 @@ const vendorChunks = (id: string) => {
 const config = defineConfig({
 	server: {
 		port: 3000,
+		allowedHosts: ["dev-local-marketing.evencio-cdn-secure.com"],
 	},
 	build: {
 		chunkSizeWarningLimit: 700,

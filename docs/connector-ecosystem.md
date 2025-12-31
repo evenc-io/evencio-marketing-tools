@@ -46,6 +46,9 @@ A connector should define:
 - “Verified” badge for connectors that pass Evencio tests
 - Simple submission process (PR + checklist)
 
+## Current Implementation (Repo)
+Connector manifests live in `src/lib/connectors/` with a registry that feeds the settings UI. See `docs/connectors/README.md` for the connector module contract and setup guidelines.
+
 ## Monetization & Differentiation
 - Highlight “Official Evencio Hosting” as the fastest, most reliable option
 - Offer premium templates and render guarantees
