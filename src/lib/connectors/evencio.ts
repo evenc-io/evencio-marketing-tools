@@ -32,7 +32,7 @@ export const evencioConnector = defineConnector({
 		},
 		redirectUris: {
 			dev: ["https://dev-local-marketing.evencio-cdn-secure.com/oauth/callback"],
-			prod: ["https://evencio-marketing-tools.vercel.app/oauth/callback"],
+			prod: ["https://studio.evenc.io/oauth/callback"],
 		},
 		notes: [
 			"Client secrets must remain server-side.",

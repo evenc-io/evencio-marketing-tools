@@ -23,7 +23,7 @@ The Evencio connector uses OAuth 2.0 Authorization Code with PKCE to authorize a
 
 ## Redirect URIs
 - Dev: `https://dev-local-marketing.evencio-cdn-secure.com/oauth/callback`
-- Prod (temporary): `https://evencio-marketing-tools.vercel.app/oauth/callback`
+- Prod: `https://studio.evenc.io/oauth/callback`
 
 ## Supported scopes
 - `events:read`
@@ -69,7 +69,7 @@ No env vars are required for local dev or production defaults. Use these only to
 **Note:** OAuth clients are auto-provisioned per org using the admin session cookie. The current implementation stores client credentials and tokens in memory. For production use, persist refresh tokens (and client secrets) in a database or vault per organization.
 
 ## Admin session cookie (local dev)
-The auto-provision endpoint requires the Evencio admin session cookie. For local dev, run the Marketing Tools app on a subdomain of `evencio-cdn-secure.com` (for example via hosts + proxy) so the cookie is sent to the app server.
+The auto-provision endpoint requires the Evencio admin session cookie. For local dev, run the Marketing Tools app on a subdomain of `evencio-cdn-secure.com` (for example via hosts + proxy) so the cookie is sent to the app server. For production, run on a subdomain of `evenc.io` (for example `studio.evenc.io`).
 
 ## OAuth events API behavior
 All `/oauth/*` endpoints require `Authorization: Bearer <access_token>` (RS256 JWT) with `events:read` for event data.
