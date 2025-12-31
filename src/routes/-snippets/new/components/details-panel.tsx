@@ -7,7 +7,6 @@ import type { AssetScope } from "@/types/asset-library"
 
 interface SnippetDetailsPanelProps {
 	collapsed: boolean
-	tagHints: string[]
 	disabledScopes?: AssetScope[]
 	selectedTemplateId: SnippetTemplateId
 	onSelectTemplate: (id: SnippetTemplateId) => void
@@ -17,7 +16,6 @@ interface SnippetDetailsPanelProps {
 
 export function SnippetDetailsPanel({
 	collapsed,
-	tagHints,
 	disabledScopes,
 	selectedTemplateId,
 	onSelectTemplate,
@@ -43,7 +41,7 @@ export function SnippetDetailsPanel({
 				</div>
 
 				<div className="overflow-y-auto">
-					<MetadataFields tagHints={tagHints} disabledScopes={disabledScopes} />
+					<MetadataFields disabledScopes={disabledScopes} />
 					<ResolutionFields />
 					<div className="px-4 pb-4">
 						<div className="rounded-md border border-neutral-200 bg-white p-3">

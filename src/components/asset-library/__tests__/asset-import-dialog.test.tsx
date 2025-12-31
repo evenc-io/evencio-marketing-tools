@@ -78,7 +78,7 @@ describe("AssetImportDialog", () => {
 		expect(createAssetFromUpload).not.toHaveBeenCalled()
 	})
 
-	it("shows template links for custom snippets", async () => {
+	it("does not surface snippet templates in the import dialog", async () => {
 		render(<AssetImportDialog />)
 
 		fireEvent.click(screen.getByRole("button", { name: /add asset/i }))
@@ -86,12 +86,8 @@ describe("AssetImportDialog", () => {
 			expect(screen.getByRole("dialog")).toBeInTheDocument()
 		})
 
-		expect(screen.getByText(/create a custom snippet/i)).toBeInTheDocument()
-		const singleLink = screen.getByRole("link", { name: /single component/i })
-		const multiLink = screen.getByRole("link", { name: /multi-component/i })
-		expect(singleLink).toBeInTheDocument()
-		expect(multiLink).toBeInTheDocument()
-		expect(singleLink.getAttribute("href")).toContain("template=single")
-		expect(multiLink.getAttribute("href")).toContain("template=multi")
+		expect(screen.queryByText(/create a custom snippet/i)).not.toBeInTheDocument()
+		expect(screen.queryByRole("link", { name: /single component/i })).not.toBeInTheDocument()
+		expect(screen.queryByRole("link", { name: /multi-component/i })).not.toBeInTheDocument()
 	})
 })

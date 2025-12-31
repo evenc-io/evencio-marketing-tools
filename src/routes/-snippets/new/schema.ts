@@ -5,12 +5,6 @@ import type { SnippetProps, SnippetPropsSchemaDefinition } from "@/types/asset-l
 
 const optionalUrl = z.union([z.literal(""), z.string().url("Enter a valid URL")])
 
-export const parseTagInput = (value: string) =>
-	value
-		.split(",")
-		.map((tag) => tag.trim())
-		.filter(Boolean)
-
 export const slugify = (value: string) =>
 	value
 		.toLowerCase()
@@ -22,7 +16,6 @@ export const customSnippetSchema = z
 	.object({
 		title: z.string().min(1, "Title is required"),
 		description: z.string().optional(),
-		tags: z.string().min(1, "Add at least one tag"),
 		scope: z.enum(["personal", "event", "org"]),
 		licenseName: z.string(),
 		licenseId: z.string(),
@@ -46,14 +39,6 @@ export const customSnippetSchema = z
 		defaultProps: z.string().optional(),
 	})
 	.superRefine((data, ctx) => {
-		if (parseTagInput(data.tags).length === 0) {
-			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
-				path: ["tags"],
-				message: "Add at least one tag",
-			})
-		}
-
 		if (data.attributionRequired && !data.attributionText?.trim()) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,

@@ -156,7 +156,7 @@ const ensureTagIds = async (
 ) => {
 	const cleaned = Array.from(new Set(tagNames.map((tag) => tag.trim()).filter(Boolean)))
 	if (cleaned.length === 0) {
-		throw new Error("At least one tag is required")
+		return []
 	}
 
 	const existingTags = await service.listTags(scope)

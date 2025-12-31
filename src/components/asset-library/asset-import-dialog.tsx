@@ -1,5 +1,4 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Link } from "@tanstack/react-router"
 import { Plus } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useForm, useFormContext } from "react-hook-form"
@@ -23,7 +22,6 @@ import {
 	FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { SNIPPET_TEMPLATE_OPTIONS } from "@/lib/snippets/templates"
 import { useAssetLibraryStore } from "@/stores/asset-library-store"
 import type { AssetLicense, AssetScope } from "@/types/asset-library"
 
@@ -427,43 +425,6 @@ export function AssetImportDialog() {
 						Upload images or SVGs. Files are stored locally in your browser (IndexedDB).
 					</DialogDescription>
 				</DialogHeader>
-
-				<div className="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 p-4">
-					<div>
-						<p className="text-sm font-medium text-neutral-900">Create a custom snippet</p>
-						<p className="text-xs text-neutral-500">
-							Build reusable React components with a code editor
-						</p>
-					</div>
-				</div>
-				<div className="grid gap-2 sm:grid-cols-2">
-					{SNIPPET_TEMPLATE_OPTIONS.map((template) => (
-						<Link
-							key={template.id}
-							to="/snippets/editor"
-							search={{ template: template.id }}
-							onClick={() => handleOpenChange(false)}
-							className="flex flex-col gap-1 rounded-md border border-neutral-200 bg-white px-3 py-2 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50"
-						>
-							<span className="text-[11px] font-semibold uppercase tracking-widest text-neutral-500">
-								{template.label}
-							</span>
-							<span className="text-xs text-neutral-500">{template.description}</span>
-						</Link>
-					))}
-				</div>
-				<p className="text-[10px] text-neutral-500">
-					Choose a starter example now. You can switch templates later in the editor.
-				</p>
-
-				<div className="relative">
-					<div className="absolute inset-0 flex items-center">
-						<span className="w-full border-t border-neutral-200" />
-					</div>
-					<div className="relative flex justify-center text-xs uppercase">
-						<span className="bg-white px-2 text-neutral-500">or upload a file</span>
-					</div>
-				</div>
 
 				<Form {...uploadForm}>
 					<form onSubmit={uploadForm.handleSubmit(handleUploadSubmit)} className="space-y-5">

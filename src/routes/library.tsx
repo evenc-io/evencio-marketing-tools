@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { AlertCircle, BarChart3, Clock, Grid2x2, List, Search, Star, Tag } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
+import { AddSnippetButton } from "../components/asset-library/add-snippet-button"
 import { AssetCard } from "../components/asset-library/asset-card"
 import { AssetDeleteDialog } from "../components/asset-library/asset-delete-dialog"
 import { AssetDetailsPanel } from "../components/asset-library/asset-details-panel"
@@ -225,6 +226,7 @@ function AssetLibraryPage() {
 						<Button variant="outline" size="sm" asChild>
 							<Link to="/">Projects</Link>
 						</Button>
+						<AddSnippetButton />
 						<AssetImportDialog />
 					</div>
 				</div>

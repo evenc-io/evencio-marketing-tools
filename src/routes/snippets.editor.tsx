@@ -73,11 +73,7 @@ import { useSnippetHistory } from "@/routes/-snippets/new/hooks/use-snippet-hist
 import { useSnippetInspect } from "@/routes/-snippets/new/hooks/use-snippet-inspect"
 import { useSnippetPanels } from "@/routes/-snippets/new/hooks/use-snippet-panels"
 import { useSnippetSplitView } from "@/routes/-snippets/new/hooks/use-snippet-split-view"
-import {
-	type CustomSnippetValues,
-	customSnippetSchema,
-	parseTagInput,
-} from "@/routes/-snippets/new/schema"
+import { type CustomSnippetValues, customSnippetSchema } from "@/routes/-snippets/new/schema"
 
 const LazySnippetLayers3DView = lazy(() =>
 	import("@/routes/-snippets/new/components/snippet-layers-3d").then((module) => ({
@@ -214,7 +210,6 @@ function NewSnippetPage() {
 		defaultValues: {
 			title: "",
 			description: "",
-			tags: "",
 			scope: "personal",
 			licenseName: "",
 			licenseId: "",
@@ -263,7 +258,6 @@ function NewSnippetPage() {
 		(state) => state.registerCustomSnippetAsset,
 	)
 	const updateCustomSnippetAsset = useAssetLibraryStore((state) => state.updateCustomSnippetAsset)
-	const tagHints = useMemo(() => tags.map((tag) => tag.name), [tags])
 	const tagNameById = useMemo(() => new Map(tags.map((tag) => [tag.id, tag.name])), [tags])
 	const editAsset = useMemo(() => {
 		if (!editAssetId) return null
@@ -281,8 +275,8 @@ function NewSnippetPage() {
 		return order.slice(0, currentIndex)
 	}, [editAsset, isEditing])
 	const editTagNames = useMemo(() => {
-		if (!editAsset) return ""
-		return editAsset.metadata.tags.map((tagId) => tagNameById.get(tagId) ?? tagId).join(", ")
+		if (!editAsset) return []
+		return editAsset.metadata.tags.map((tagId) => tagNameById.get(tagId) ?? tagId).filter(Boolean)
 	}, [editAsset, tagNameById])
 	const mainComponentLabel = useMemo(() => {
 		const defaultExport = componentExports.find((component) => component.isDefault)
@@ -548,7 +542,6 @@ function NewSnippetPage() {
 			{
 				title: editAsset.metadata.title ?? "",
 				description: editAsset.metadata.description ?? "",
-				tags: editTagNames,
 				scope: editScope,
 				licenseName: license.name ?? "",
 				licenseId: license.id ?? "",
@@ -573,7 +566,6 @@ function NewSnippetPage() {
 		editAppliedRef.current = editAsset.id
 	}, [
 		editAsset,
-		editTagNames,
 		form,
 		isEditing,
 		isLibraryLoading,
@@ -1421,11 +1413,6 @@ export const ${name} = ({ title = "New snippet" }) => {
 			form.setValue("description", activeExample.description, { shouldValidate: true })
 		}
 
-		const currentTags = form.getValues("tags")
-		if (!currentTags.trim() && activeExample.tags.length > 0) {
-			form.setValue("tags", activeExample.tags.join(", "), { shouldValidate: true })
-		}
-
 		selectFile("source")
 		setIsExamplePreviewActive(false)
 	}
@@ -1433,6 +1420,7 @@ export const ${name} = ({ title = "New snippet" }) => {
 	const handleSubmit = async (values: CustomSnippetValues) => {
 		setError(null)
 		setIsSubmitting(true)
+		const tagNames = isEditing ? editTagNames : []
 		try {
 			if (isEditing) {
 				if (!editAsset) {
@@ -1443,7 +1431,7 @@ export const ${name} = ({ title = "New snippet" }) => {
 					scope: values.scope,
 					title: values.title.trim(),
 					description: values.description?.trim() || null,
-					tagNames: parseTagInput(values.tags),
+					tagNames,
 					license: buildSnippetLicense(values),
 					attribution: buildSnippetAttribution(values),
 					viewport: {
@@ -1492,7 +1480,7 @@ export const ${name} = ({ title = "New snippet" }) => {
 				scope: values.scope,
 				title: values.title.trim(),
 				description: values.description?.trim() || null,
-				tagNames: parseTagInput(values.tags),
+				tagNames,
 				license: buildSnippetLicense(values),
 				attribution: buildSnippetAttribution(values),
 			})
@@ -1615,7 +1603,6 @@ export const ${name} = ({ title = "New snippet" }) => {
 							/>
 							<SnippetDetailsPanel
 								collapsed={detailsCollapsed}
-								tagHints={tagHints}
 								disabledScopes={disabledScopes}
 								selectedTemplateId={selectedTemplateId}
 								onSelectTemplate={setSelectedTemplateId}

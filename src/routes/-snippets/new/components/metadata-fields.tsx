@@ -14,14 +14,12 @@ import type { CustomSnippetValues } from "@/routes/-snippets/new/schema"
 import type { AssetScope } from "@/types/asset-library"
 
 interface MetadataFieldsProps {
-	tagHints: string[]
 	disabledScopes?: AssetScope[]
 }
 
-export function MetadataFields({ tagHints, disabledScopes = [] }: MetadataFieldsProps) {
+export function MetadataFields({ disabledScopes = [] }: MetadataFieldsProps) {
 	const form = useFormContext<CustomSnippetValues>()
 	const attributionRequired = form.watch("attributionRequired")
-	const tagHintText = tagHints.length > 0 ? `Existing: ${tagHints.slice(0, 3).join(", ")}` : null
 
 	return (
 		<div className="flex flex-col">
@@ -51,21 +49,6 @@ export function MetadataFields({ tagHints, disabledScopes = [] }: MetadataFields
 								<FormControl>
 									<Input placeholder="Short summary" {...field} />
 								</FormControl>
-							</FormItem>
-						)}
-					/>
-
-					<FormField
-						control={form.control}
-						name="tags"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel>Tags</FormLabel>
-								<FormControl>
-									<Input placeholder="banner, hero, social" {...field} />
-								</FormControl>
-								<FormDescription className="text-xs">{tagHintText}</FormDescription>
-								<FormMessage />
 							</FormItem>
 						)}
 					/>
