@@ -16,8 +16,7 @@ export default defineEventHandler(async (event) => {
 	if (!adminCookie) {
 		throw createError({
 			statusCode: 401,
-			statusMessage:
-				"Missing admin session cookie. Run the app on evencio-cdn-secure.com and sign in.",
+			statusMessage: "Missing admin session cookie. Run the app on studio.evenc.io and sign in.",
 		})
 	}
 

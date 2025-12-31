@@ -77,7 +77,7 @@ const getEnvConfig = () => {
 	const redirectUri =
 		process.env.EVENCIO_OAUTH_REDIRECT_URI ??
 		(isProd
-			? "https://evencio-marketing-tools.vercel.app/oauth/callback"
+			? "https://studio.evenc.io/oauth/callback"
 			: "https://dev-local-marketing.evencio-cdn-secure.com/oauth/callback")
 	const scopesRaw = process.env.EVENCIO_OAUTH_SCOPES?.trim()
 	const scopes = (scopesRaw ? scopesRaw.split(" ") : DEFAULT_SCOPES).filter(Boolean)
