@@ -116,10 +116,16 @@ export const createOAuthRequest = (sessionId: string) => {
 }
 
 export const consumeOAuthRequest = (sessionId: string) => {
+	pruneStaleSessions()
 	const request = oauthRequests.get(sessionId) ?? null
-	if (request) {
+	if (!request) return null
+
+	if (Date.now() - request.createdAt > OAUTH_REQUEST_TTL_MS) {
 		oauthRequests.delete(sessionId)
+		return null
 	}
+
+	oauthRequests.delete(sessionId)
 	return request
 }
 
