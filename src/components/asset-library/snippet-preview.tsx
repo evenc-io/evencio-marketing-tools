@@ -14,6 +14,8 @@ import {
 	generatePreviewSrcdoc,
 	type PreviewDimensions,
 	type PreviewLayerSnapshot,
+	type PreviewLayoutCommit,
+	type PreviewLayoutDebugEvent,
 	type PreviewMessage,
 	type PreviewSourceLocation,
 } from "@/lib/snippets/preview-runtime"
@@ -57,9 +59,17 @@ export interface SnippetPreviewProps {
 	onLayersSnapshot?: (snapshot: PreviewLayerSnapshot) => void
 	/** Called when the preview reports a layers error */
 	onLayersError?: (error: string) => void
+	/** Enable layout manipulation in the preview iframe */
+	layoutEnabled?: boolean
+	/** Enable layout debug logging in the preview iframe */
+	layoutDebugEnabled?: boolean
+	/** Called when the preview commits a layout change */
+	onLayoutCommit?: (commit: PreviewLayoutCommit) => void
 }
 
 export type PreviewStatus = "idle" | "loading" | "success" | "error"
+
+const MAX_LAYOUT_DEBUG_ENTRIES = 200
 
 export function SnippetPreview({
 	compiledCode,
@@ -79,6 +89,9 @@ export function SnippetPreview({
 	layersRequestToken = 0,
 	onLayersSnapshot,
 	onLayersError,
+	layoutEnabled = false,
+	layoutDebugEnabled = false,
+	onLayoutCommit,
 }: SnippetPreviewProps) {
 	const iframeRef = useRef<HTMLIFrameElement>(null)
 	const containerRef = useRef<HTMLDivElement>(null)
@@ -90,6 +103,7 @@ export function SnippetPreview({
 	const lastDimensionsRef = useRef<PreviewDimensions>(dimensions)
 	const lastTailwindCssRef = useRef<string | null>(null)
 	const lastPropsJsonRef = useRef<string | null>(null)
+	const layoutDebugEnabledRef = useRef(Boolean(layoutDebugEnabled))
 	const onInspectHoverRef = useRef(onInspectHover)
 	const onInspectSelectRef = useRef(onInspectSelect)
 	const onInspectContextRef = useRef(onInspectContext)
@@ -99,6 +113,9 @@ export function SnippetPreview({
 	const onLayersSnapshotRef = useRef(onLayersSnapshot)
 	const onLayersErrorRef = useRef(onLayersError)
 	const layersEnabledRef = useRef(Boolean(layersEnabled))
+	const onLayoutCommitRef = useRef(onLayoutCommit)
+	const layoutEnabledRef = useRef(Boolean(layoutEnabled))
+	const [layoutDebugEntries, setLayoutDebugEntries] = useState<PreviewLayoutDebugEvent[]>([])
 
 	useEffect(() => {
 		onInspectHoverRef.current = onInspectHover
@@ -110,6 +127,9 @@ export function SnippetPreview({
 		onLayersSnapshotRef.current = onLayersSnapshot
 		onLayersErrorRef.current = onLayersError
 		layersEnabledRef.current = Boolean(layersEnabled)
+		onLayoutCommitRef.current = onLayoutCommit
+		layoutEnabledRef.current = Boolean(layoutEnabled)
+		layoutDebugEnabledRef.current = Boolean(layoutDebugEnabled)
 	}, [
 		onInspectHover,
 		onInspectSelect,
@@ -120,7 +140,16 @@ export function SnippetPreview({
 		onLayersSnapshot,
 		onLayersError,
 		layersEnabled,
+		onLayoutCommit,
+		layoutEnabled,
+		layoutDebugEnabled,
 	])
+
+	useEffect(() => {
+		if (!layoutDebugEnabled) {
+			setLayoutDebugEntries([])
+		}
+	}, [layoutDebugEnabled])
 
 	// Handle messages from the iframe
 	const handleMessage = useCallback(
@@ -145,6 +174,16 @@ export function SnippetPreview({
 						)
 						iframeRef.current?.contentWindow?.postMessage({ type: "layers-request" }, "*")
 					}
+					if (layoutEnabledRef.current) {
+						iframeRef.current?.contentWindow?.postMessage(
+							{ type: "layout-toggle", enabled: true },
+							"*",
+						)
+					}
+					iframeRef.current?.contentWindow?.postMessage(
+						{ type: "layout-debug-toggle", enabled: layoutDebugEnabledRef.current },
+						"*",
+					)
 					break
 				case "render-success":
 					setStatus("success")
@@ -186,6 +225,21 @@ export function SnippetPreview({
 					if (data.error) {
 						onLayersErrorRef.current?.(data.error)
 					}
+					break
+				case "layout-commit":
+					if (data.commit) {
+						onLayoutCommitRef.current?.(data.commit)
+					}
+					break
+				case "layout-debug":
+					if (!layoutDebugEnabledRef.current || !data.entry) break
+					setLayoutDebugEntries((prev) => {
+						const next = [...prev, data.entry]
+						if (next.length > MAX_LAYOUT_DEBUG_ENTRIES) {
+							next.splice(0, next.length - MAX_LAYOUT_DEBUG_ENTRIES)
+						}
+						return next
+					})
 					break
 			}
 		},
@@ -309,6 +363,24 @@ export function SnippetPreview({
 	}, [layersEnabled])
 
 	useEffect(() => {
+		const iframe = iframeRef.current
+		if (!iframe?.contentWindow || !iframeReadyRef.current) return
+		iframe.contentWindow.postMessage(
+			{ type: "layout-toggle", enabled: Boolean(layoutEnabled) },
+			"*",
+		)
+	}, [layoutEnabled])
+
+	useEffect(() => {
+		const iframe = iframeRef.current
+		if (!iframe?.contentWindow || !iframeReadyRef.current) return
+		iframe.contentWindow.postMessage(
+			{ type: "layout-debug-toggle", enabled: Boolean(layoutDebugEnabled) },
+			"*",
+		)
+	}, [layoutDebugEnabled])
+
+	useEffect(() => {
 		if (!layersEnabledRef.current) return
 		if (!layersRequestToken) return
 		const iframe = iframeRef.current
@@ -356,6 +428,20 @@ export function SnippetPreview({
 		if (!iframe || status !== "success") return
 		iframe.contentWindow?.postMessage({ type: "inspect-scale", scale }, "*")
 	}, [scale, status])
+
+	const layoutDebugText = useMemo(
+		() => layoutDebugEntries.map((entry) => JSON.stringify(entry)).join("\n"),
+		[layoutDebugEntries],
+	)
+
+	const handleCopyLayoutDebug = useCallback(async () => {
+		if (!layoutDebugText) return
+		try {
+			await navigator.clipboard.writeText(layoutDebugText)
+		} catch {
+			// Ignore clipboard errors; user can still select manually.
+		}
+	}, [layoutDebugText])
 
 	return (
 		<div className={`relative flex flex-col ${className ?? ""}`}>
@@ -420,6 +506,37 @@ export function SnippetPreview({
 										height: dimensions.height,
 										border: "none",
 									}}
+								/>
+							</div>
+						)}
+
+						{layoutDebugEnabled && (
+							<div className="absolute bottom-3 right-3 z-30 w-[360px] rounded-md border border-neutral-200 bg-white/95 text-[10px] text-neutral-700 shadow-sm">
+								<div className="flex items-center justify-between border-b border-neutral-200 px-2 py-1">
+									<span className="font-semibold uppercase tracking-widest text-neutral-500">
+										Layout debug ({layoutDebugEntries.length})
+									</span>
+									<div className="flex items-center gap-1">
+										<button
+											type="button"
+											className="rounded border border-neutral-200 px-1.5 py-0.5 text-[10px] text-neutral-600 hover:bg-neutral-50"
+											onClick={handleCopyLayoutDebug}
+										>
+											Copy
+										</button>
+										<button
+											type="button"
+											className="rounded border border-neutral-200 px-1.5 py-0.5 text-[10px] text-neutral-600 hover:bg-neutral-50"
+											onClick={() => setLayoutDebugEntries([])}
+										>
+											Clear
+										</button>
+									</div>
+								</div>
+								<textarea
+									readOnly
+									value={layoutDebugText}
+									className="h-40 w-full resize-none border-0 bg-transparent p-2 font-mono text-[10px] text-neutral-700 focus:outline-none"
 								/>
 							</div>
 						)}

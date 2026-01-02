@@ -1,6 +1,7 @@
 import type { EngineRequest, EngineResponse } from "@/lib/engine/protocol"
 import { analyzeSnippetTsx } from "@/lib/snippets/analyze-tsx"
 import { compileSnippet } from "@/lib/snippets/compiler"
+import { applySnippetTranslate } from "@/lib/snippets/source-layout"
 
 const send = (message: EngineResponse) => {
 	postMessage(message)
@@ -28,6 +29,12 @@ self.onmessage = async (event: MessageEvent<EngineRequest>) => {
 			const { source, entryExport } = data.payload
 			const result = await compileSnippet(source, entryExport)
 			send({ id: data.id, type: "compile", payload: result })
+			return
+		}
+
+		if (data.type === "layout-translate") {
+			const result = await applySnippetTranslate(data.payload)
+			send({ id: data.id, type: "layout-translate", payload: result })
 			return
 		}
 	} catch (err) {

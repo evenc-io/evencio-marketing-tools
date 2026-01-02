@@ -3,9 +3,12 @@ import type {
 	CompileSnippetResponse,
 	EngineRequest,
 	EngineResponse,
+	LayoutTranslateRequest,
+	LayoutTranslateResponse,
 } from "@/lib/engine/protocol"
 import { analyzeSnippetTsx } from "@/lib/snippets/analyze-tsx"
 import { compileSnippet } from "@/lib/snippets/compiler"
+import { applySnippetTranslate } from "@/lib/snippets/source-layout"
 
 const isBrowser = typeof window !== "undefined" || typeof self !== "undefined"
 const hasWorker = typeof Worker !== "undefined"
@@ -143,6 +146,10 @@ const runInProcess = async <T extends EngineResponse>(payload: EngineRequest): P
 		const result = await analyzeSnippetTsx(payload.payload)
 		return { id: payload.id, type: "analyze", payload: result } as T
 	}
+	if (payload.type === "layout-translate") {
+		const result = await applySnippetTranslate(payload.payload)
+		return { id: payload.id, type: "layout-translate", payload: result } as T
+	}
 	const result = await compileSnippet(payload.payload.source, payload.payload.entryExport)
 	return { id: payload.id, type: "compile", payload: result } as T
 }
@@ -215,4 +222,19 @@ export const compileSnippetInEngine = async (
 		data: response.payload,
 		stale: isStale(key, version),
 	}
+}
+
+export const applySnippetLayoutInEngine = async (
+	payload: LayoutTranslateRequest,
+): Promise<LayoutTranslateResponse> => {
+	const id = `layout-translate-${++requestCounter}`
+	const response = await requestEngine<EngineResponse>({
+		id,
+		type: "layout-translate",
+		payload,
+	})
+	if (response.type !== "layout-translate") {
+		throw new Error("Engine returned unexpected response")
+	}
+	return response.payload
 }

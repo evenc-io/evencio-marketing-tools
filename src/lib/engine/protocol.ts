@@ -34,6 +34,20 @@ export type CompileSnippetRequest = {
 
 export type CompileSnippetResponse = CompileResult
 
+export type LayoutTranslateRequest = {
+	source: string
+	line: number
+	column: number
+	translateX: number
+	translateY: number
+}
+
+export type LayoutTranslateResponse = {
+	source: string
+	changed: boolean
+	reason?: string
+}
+
 export type EngineRequest =
 	| {
 			id: string
@@ -44,6 +58,11 @@ export type EngineRequest =
 			id: string
 			type: "compile"
 			payload: CompileSnippetRequest
+	  }
+	| {
+			id: string
+			type: "layout-translate"
+			payload: LayoutTranslateRequest
 	  }
 
 export type EngineResponse =
@@ -56,6 +75,11 @@ export type EngineResponse =
 			id: string
 			type: "compile"
 			payload: CompileSnippetResponse
+	  }
+	| {
+			id: string
+			type: "layout-translate"
+			payload: LayoutTranslateResponse
 	  }
 	| {
 			id: string

@@ -10,6 +10,10 @@ interface SnippetPreviewHeaderActionsProps {
 	onToggleDefaults: () => void
 	inspectEnabled?: boolean
 	onToggleInspect?: () => void
+	layoutEnabled?: boolean
+	onToggleLayout?: () => void
+	layoutDebugEnabled?: boolean
+	onToggleLayoutDebug?: () => void
 	layers3dEnabled?: boolean
 	onToggleLayers3d?: () => void
 }
@@ -23,6 +27,10 @@ export function SnippetPreviewHeaderActions({
 	onToggleDefaults,
 	inspectEnabled = false,
 	onToggleInspect,
+	layoutEnabled = false,
+	onToggleLayout,
+	layoutDebugEnabled = false,
+	onToggleLayoutDebug,
 	layers3dEnabled = false,
 	onToggleLayers3d,
 }: SnippetPreviewHeaderActionsProps) {
@@ -65,6 +73,15 @@ export function SnippetPreviewHeaderActions({
 		)
 	}
 
+	const hint =
+		layoutEnabled && inspectEnabled
+			? "Drag to move / Right click to edit text"
+			: layoutEnabled
+				? "Drag to move"
+				: inspectEnabled
+					? "Right click to edit text"
+					: null
+
 	return (
 		<>
 			<span className="max-w-[140px] truncate text-[11px] text-neutral-500">
@@ -104,9 +121,44 @@ export function SnippetPreviewHeaderActions({
 					Inspect
 				</Button>
 			)}
-			{inspectEnabled && (
+			{onToggleLayout && (
+				<Button
+					type="button"
+					variant="ghost"
+					size="sm"
+					className={cn(
+						"h-6 px-2 text-[11px]",
+						layoutEnabled
+							? "bg-neutral-900 text-white hover:bg-neutral-800"
+							: "text-neutral-500 hover:text-neutral-700",
+					)}
+					aria-pressed={layoutEnabled}
+					onClick={onToggleLayout}
+				>
+					Layout
+				</Button>
+			)}
+			{onToggleLayoutDebug && (
+				<Button
+					type="button"
+					variant="ghost"
+					size="sm"
+					className={cn(
+						"h-6 px-2 text-[11px]",
+						layoutDebugEnabled
+							? "bg-neutral-900 text-white hover:bg-neutral-800"
+							: "text-neutral-500 hover:text-neutral-700",
+					)}
+					aria-pressed={layoutDebugEnabled}
+					disabled={!layoutEnabled}
+					onClick={onToggleLayoutDebug}
+				>
+					Debug
+				</Button>
+			)}
+			{hint && (
 				<span className="hidden text-[10px] font-semibold uppercase tracking-widest text-neutral-400 md:inline">
-					Right click to edit text
+					{hint}
 				</span>
 			)}
 			<Button

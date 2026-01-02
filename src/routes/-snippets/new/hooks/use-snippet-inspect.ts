@@ -33,6 +33,7 @@ interface UseSnippetInspectOptions {
 	onOpenFileForInspect: (fileId: SnippetEditorFileId) => void
 	inspectIndexByFileId?: Record<string, SnippetInspectIndex | null>
 	lineMapSegments?: SnippetLineMapSegment[]
+	forceEnabled?: boolean
 }
 
 interface UseSnippetInspectResult {
@@ -45,6 +46,7 @@ interface UseSnippetInspectResult {
 	onPreviewInspectContext: (
 		source: PreviewSourceLocation | null,
 	) => SnippetInspectTextRequest | null
+	resolvePreviewSource: (source: PreviewSourceLocation | null) => SnippetInspectTarget | null
 }
 
 export function useSnippetInspect({
@@ -56,10 +58,13 @@ export function useSnippetInspect({
 	onOpenFileForInspect,
 	inspectIndexByFileId,
 	lineMapSegments,
+	forceEnabled = false,
 }: UseSnippetInspectOptions): UseSnippetInspectResult {
 	const [inspectMode, setInspectMode] = useState(false)
 	const [inspectHover, setInspectHover] = useState<SnippetInspectTarget | null>(null)
 	const [inspectSelection, setInspectSelection] = useState<SnippetInspectTarget | null>(null)
+
+	const inspectActive = inspectMode || forceEnabled
 
 	const inspectMap = useMemo(
 		() => buildSnippetInspectMap(mainSource, componentFiles, lineMapSegments),
@@ -76,7 +81,7 @@ export function useSnippetInspect({
 
 	const onPreviewInspectHover = useCallback(
 		(source: PreviewSourceLocation | null) => {
-			if (!inspectMode) return
+			if (!inspectActive) return
 			const target = resolveInspectTarget(source)
 			if (!target) {
 				setInspectHover(null)
@@ -84,12 +89,12 @@ export function useSnippetInspect({
 			}
 			setInspectHover(target)
 		},
-		[inspectMode, resolveInspectTarget],
+		[inspectActive, resolveInspectTarget],
 	)
 
 	const onPreviewInspectSelect = useCallback(
 		(source: PreviewSourceLocation | null) => {
-			if (!inspectMode) return
+			if (!inspectActive) return
 			const target = resolveInspectTarget(source)
 			if (!target) {
 				setInspectSelection(null)
@@ -101,7 +106,7 @@ export function useSnippetInspect({
 				onOpenFileForInspect(target.fileId)
 			}
 		},
-		[activeFile, inspectMode, onOpenFileForInspect, resolveInspectTarget],
+		[activeFile, inspectActive, onOpenFileForInspect, resolveInspectTarget],
 	)
 
 	const getSourceForFile = useCallback(
@@ -149,9 +154,9 @@ export function useSnippetInspect({
 	)
 
 	const elementLocator = useMemo(() => {
-		if (!inspectMode) return createSnippetElementLocator("")
+		if (!inspectActive) return createSnippetElementLocator("")
 		return getLocatorForFile(activeFile)
-	}, [activeFile, getLocatorForFile, inspectMode])
+	}, [activeFile, getLocatorForFile, inspectActive])
 
 	const resolveHighlight = useCallback(
 		(target: SnippetInspectTarget | null, kind: "hover" | "select") => {
@@ -197,10 +202,10 @@ export function useSnippetInspect({
 	}, [isExamplePreviewActive])
 
 	useEffect(() => {
-		if (inspectMode) return
+		if (inspectActive) return
 		setInspectHover(null)
 		setInspectSelection(null)
-	}, [inspectMode])
+	}, [inspectActive])
 
 	const inspectHighlight = useMemo<SnippetInspectHighlight | null>(() => {
 		if (inspectSelection) {
@@ -227,10 +232,11 @@ export function useSnippetInspect({
 	return {
 		inspectMode,
 		setInspectMode,
-		inspectEnabled: inspectMode && !isExamplePreviewActive,
+		inspectEnabled: inspectActive && !isExamplePreviewActive,
 		inspectHighlight,
 		onPreviewInspectHover,
 		onPreviewInspectSelect,
 		onPreviewInspectContext,
+		resolvePreviewSource: resolveInspectTarget,
 	}
 }
