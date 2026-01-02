@@ -188,7 +188,7 @@ export function EditorToolbar() {
 				size="sm"
 				onClick={togglePreviewMode}
 				disabled={!canvas}
-				className={`gap-1.5 ${previewMode ? "bg-neutral-900 text-white hover:bg-neutral-800" : ""}`}
+				className={`gap-1.5 ${previewMode ? "bg-neutral-900 text-white hover:bg-neutral-800 hover:text-white" : ""}`}
 				title="Preview Mode (P)"
 			>
 				<Eye className="h-4 w-4" />

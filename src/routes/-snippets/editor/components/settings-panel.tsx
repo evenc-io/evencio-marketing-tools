@@ -201,7 +201,7 @@ export function SnippetSettingsPanel({
 										className={cn(
 											"h-7 px-2 text-[11px]",
 											layoutSnapEnabled
-												? "bg-neutral-900 text-white hover:bg-neutral-800"
+												? "bg-neutral-900 text-white hover:bg-neutral-800 hover:text-white"
 												: "text-neutral-500 hover:text-neutral-700",
 										)}
 										aria-pressed={layoutSnapEnabled}

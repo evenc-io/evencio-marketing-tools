@@ -90,7 +90,6 @@ function NewSnippetPage() {
 	const editAppliedRef = useRef<string | null>(null)
 	const [error, setError] = useState<string | null>(null)
 	const [isSubmitting, setIsSubmitting] = useState(false)
-	const [useComponentDefaults, setUseComponentDefaults] = useState(false)
 	const [layoutMode, setLayoutMode] = useState(false)
 	const [layoutDebugEnabled, setLayoutDebugEnabled] = useState(false)
 	const [layoutSnapEnabled, setLayoutSnapEnabled] = useState(true)
@@ -249,14 +248,7 @@ function NewSnippetPage() {
 	const overSoftComponentLimit = componentCount > SNIPPET_COMPONENT_LIMITS.soft
 	const overHardComponentLimit = componentCount > SNIPPET_COMPONENT_LIMITS.hard
 	const canAddComponent = componentCount < SNIPPET_COMPONENT_LIMITS.hard
-	const activeComponent = useMemo(
-		() => componentExports.find((component) => component.exportName === activeComponentExport),
-		[activeComponentExport, componentExports],
-	)
 	const resolvedEntryExport = activeComponentExport || DEFAULT_SNIPPET_EXPORT
-	const activeComponentLabel =
-		activeComponent?.label ??
-		(resolvedEntryExport === DEFAULT_SNIPPET_EXPORT ? "Default export" : activeComponentExport)
 	const filteredExamples = useMemo(() => {
 		if (exampleFilters.includes("all") || exampleFilters.length === 0) return SNIPPET_EXAMPLES
 		return SNIPPET_EXAMPLES.filter((example) =>
@@ -528,11 +520,7 @@ function NewSnippetPage() {
 		analysis,
 		engineKey: "snippet-compile-main",
 	})
-	const emptyPreviewProps = useMemo(() => ({}), [])
-	const previewProps = useMemo(
-		() => (useComponentDefaults ? emptyPreviewProps : parsedProps),
-		[emptyPreviewProps, parsedProps, useComponentDefaults],
-	)
+	const previewProps = useMemo(() => parsedProps ?? {}, [parsedProps])
 	const { compiledCode: exampleCompiledCode, tailwindCss: exampleTailwindCss } = useSnippetCompiler(
 		{
 			source: exampleSource,
@@ -715,10 +703,7 @@ function NewSnippetPage() {
 		<SnippetPreviewHeaderActions
 			isExamplePreviewing={isExamplePreviewing}
 			activeExampleTitle={activeExample?.title}
-			activeComponentLabel={activeComponentLabel}
-			useComponentDefaults={useComponentDefaults}
 			onExitExamplePreview={() => setIsExamplePreviewActive(false)}
-			onToggleDefaults={() => setUseComponentDefaults((prev) => !prev)}
 			inspectEnabled={inspectMode}
 			onToggleInspect={() => setInspectMode((prev) => !prev)}
 			layoutEnabled={layoutMode}

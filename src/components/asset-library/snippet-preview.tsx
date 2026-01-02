@@ -19,6 +19,7 @@ import {
 	type PreviewMessage,
 	type PreviewSourceLocation,
 } from "@/lib/snippets/preview/runtime"
+import { cn } from "@/lib/utils"
 
 export interface SnippetPreviewProps {
 	/** Compiled JavaScript code from the snippet compiler */
@@ -471,6 +472,33 @@ export function SnippetPreview({
 	const scaledWidth = Math.max(0, Math.round(dimensions.width * scale))
 	const scaledHeight = Math.max(0, Math.round(dimensions.height * scale))
 	const scalePercent = Math.round(scale * 100)
+	const dimensionsLabel = `${dimensions.width} x ${dimensions.height}`
+	const scaleLabel = `${scalePercent}%`
+	const showScaleLabel = scalePercent < 100
+	const [metaOverride, setMetaOverride] = useState<"dimensions" | "scale" | null>(null)
+	const previewMetaMode = showScaleLabel ? (metaOverride ?? "scale") : "dimensions"
+	const previewMetaLabel = previewMetaMode === "scale" ? scaleLabel : dimensionsLabel
+	const previewMetaTitle = `${dimensionsLabel} / ${scaleLabel}`
+
+	useEffect(() => {
+		if (!showScaleLabel && metaOverride !== null) {
+			setMetaOverride(null)
+		}
+	}, [metaOverride, showScaleLabel])
+
+	const handleMetaToggle = useCallback(() => {
+		if (!showScaleLabel) return
+		setMetaOverride((prev) => (prev === "dimensions" ? "scale" : "dimensions"))
+	}, [showScaleLabel])
+
+	const previewHint = useMemo(() => {
+		if (layoutEnabled && inspectEnabled) {
+			return "Drag to reposition · Right-click to edit"
+		}
+		if (layoutEnabled) return "Drag to reposition"
+		if (inspectEnabled) return "Right-click to edit"
+		return null
+	}, [inspectEnabled, layoutEnabled])
 
 	useEffect(() => {
 		const iframe = iframeRef.current
@@ -499,15 +527,30 @@ export function SnippetPreview({
 				<span className="text-xs font-medium text-neutral-500">Preview</span>
 				<div className="flex items-center gap-2">
 					{headerActions}
-					<span className="text-xs text-neutral-400">
-						{dimensions.width} x {dimensions.height}
-					</span>
-					<span className="text-xs text-neutral-400">Scale {scalePercent}%</span>
+					<button
+						type="button"
+						className={cn(
+							"text-xs text-neutral-400 transition-colors",
+							showScaleLabel ? "cursor-pointer hover:text-neutral-600" : "cursor-default",
+						)}
+						onClick={handleMetaToggle}
+						title={previewMetaTitle}
+						aria-label="Preview scale and dimensions"
+					>
+						{previewMetaLabel}
+					</button>
 				</div>
 			</div>
 
 			{/* Preview container */}
 			<div className="relative flex-1 overflow-auto bg-neutral-100 p-4">
+				{previewHint && (
+					<div className="pointer-events-none absolute bottom-3 left-3 right-3 z-10 flex justify-center">
+						<div className="rounded-full border border-neutral-200 bg-white/95 px-2 py-1 text-[10px] font-medium text-neutral-500">
+							{previewHint}
+						</div>
+					</div>
+				)}
 				<div ref={containerRef} className="relative flex h-full w-full items-center justify-center">
 					<div
 						className="relative overflow-hidden rounded-md border border-neutral-200 bg-white"

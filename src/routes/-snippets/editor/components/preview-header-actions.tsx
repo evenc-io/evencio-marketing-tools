@@ -1,13 +1,11 @@
+import { ArrowLeft, Bug, Crosshair, Layers, LayoutGrid } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 interface SnippetPreviewHeaderActionsProps {
 	isExamplePreviewing: boolean
 	activeExampleTitle?: string
-	activeComponentLabel: string
-	useComponentDefaults: boolean
 	onExitExamplePreview: () => void
-	onToggleDefaults: () => void
 	inspectEnabled?: boolean
 	onToggleInspect?: () => void
 	layoutEnabled?: boolean
@@ -21,10 +19,7 @@ interface SnippetPreviewHeaderActionsProps {
 export function SnippetPreviewHeaderActions({
 	isExamplePreviewing,
 	activeExampleTitle,
-	activeComponentLabel,
-	useComponentDefaults,
 	onExitExamplePreview,
-	onToggleDefaults,
 	inspectEnabled = false,
 	onToggleInspect,
 	layoutEnabled = false,
@@ -34,148 +29,114 @@ export function SnippetPreviewHeaderActions({
 	layers3dEnabled = false,
 	onToggleLayers3d,
 }: SnippetPreviewHeaderActionsProps) {
+	const toggleButtonClass = (enabled: boolean) =>
+		cn(
+			"h-7 w-7",
+			enabled
+				? "bg-neutral-900 text-white hover:bg-neutral-800 hover:text-white"
+				: "text-neutral-500 hover:text-neutral-700",
+		)
+
 	if (isExamplePreviewing) {
 		return (
 			<>
 				<span className="rounded-full border border-neutral-200 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-neutral-500">
 					Example
 				</span>
-				<span className="max-w-[140px] truncate text-[11px] text-neutral-500">
+				<span
+					className="max-w-[140px] truncate text-[11px] text-neutral-500"
+					title={activeExampleTitle}
+				>
 					{activeExampleTitle}
 				</span>
 				<Button
 					type="button"
 					variant="ghost"
-					size="sm"
-					className="h-6 px-2 text-[11px]"
+					size="icon-sm"
+					className="h-7 w-7 text-neutral-500 hover:text-neutral-700"
 					onClick={onExitExamplePreview}
+					aria-label="Back to snippet"
+					title="Back to snippet"
 				>
-					Back to snippet
+					<ArrowLeft className="h-4 w-4" />
 				</Button>
 				{onToggleLayers3d && (
 					<Button
 						type="button"
 						variant="ghost"
-						size="sm"
-						className={cn(
-							"h-6 px-2 text-[11px]",
-							layers3dEnabled
-								? "bg-neutral-900 text-white hover:bg-neutral-800"
-								: "text-neutral-500 hover:text-neutral-700",
-						)}
+						size="icon-sm"
+						className={toggleButtonClass(layers3dEnabled)}
 						aria-pressed={layers3dEnabled}
 						onClick={onToggleLayers3d}
+						aria-label="Layers 3D"
+						title="Layers 3D"
 					>
-						Layers 3D
+						<Layers className="h-4 w-4" />
 					</Button>
 				)}
 			</>
 		)
 	}
 
-	const hint =
-		layoutEnabled && inspectEnabled
-			? "Drag to move / Right click to edit text"
-			: layoutEnabled
-				? "Drag to move"
-				: inspectEnabled
-					? "Right click to edit text"
-					: null
-
 	return (
 		<>
-			<span className="max-w-[140px] truncate text-[11px] text-neutral-500">
-				Component: {activeComponentLabel}
-			</span>
 			{onToggleLayers3d && (
 				<Button
 					type="button"
 					variant="ghost"
-					size="sm"
-					className={cn(
-						"h-6 px-2 text-[11px]",
-						layers3dEnabled
-							? "bg-neutral-900 text-white hover:bg-neutral-800"
-							: "text-neutral-500 hover:text-neutral-700",
-					)}
+					size="icon-sm"
+					className={toggleButtonClass(layers3dEnabled)}
 					aria-pressed={layers3dEnabled}
 					onClick={onToggleLayers3d}
+					aria-label="Layers 3D"
+					title="Layers 3D"
 				>
-					Layers 3D
+					<Layers className="h-4 w-4" />
 				</Button>
 			)}
 			{onToggleInspect && (
 				<Button
 					type="button"
 					variant="ghost"
-					size="sm"
-					className={cn(
-						"h-6 px-2 text-[11px]",
-						inspectEnabled
-							? "bg-neutral-900 text-white hover:bg-neutral-800"
-							: "text-neutral-500 hover:text-neutral-700",
-					)}
+					size="icon-sm"
+					className={toggleButtonClass(inspectEnabled)}
 					aria-pressed={inspectEnabled}
 					onClick={onToggleInspect}
+					aria-label="Inspect"
+					title="Inspect"
 				>
-					Inspect
+					<Crosshair className="h-4 w-4" />
 				</Button>
 			)}
 			{onToggleLayout && (
 				<Button
 					type="button"
 					variant="ghost"
-					size="sm"
-					className={cn(
-						"h-6 px-2 text-[11px]",
-						layoutEnabled
-							? "bg-neutral-900 text-white hover:bg-neutral-800"
-							: "text-neutral-500 hover:text-neutral-700",
-					)}
+					size="icon-sm"
+					className={toggleButtonClass(layoutEnabled)}
 					aria-pressed={layoutEnabled}
 					onClick={onToggleLayout}
+					aria-label="Layout"
+					title="Layout"
 				>
-					Layout
+					<LayoutGrid className="h-4 w-4" />
 				</Button>
 			)}
 			{onToggleLayoutDebug && (
 				<Button
 					type="button"
 					variant="ghost"
-					size="sm"
-					className={cn(
-						"h-6 px-2 text-[11px]",
-						layoutDebugEnabled
-							? "bg-neutral-900 text-white hover:bg-neutral-800"
-							: "text-neutral-500 hover:text-neutral-700",
-					)}
+					size="icon-sm"
+					className={toggleButtonClass(layoutDebugEnabled)}
 					aria-pressed={layoutDebugEnabled}
 					disabled={!layoutEnabled}
 					onClick={onToggleLayoutDebug}
+					aria-label="Debug"
+					title="Debug"
 				>
-					Debug
+					<Bug className="h-4 w-4" />
 				</Button>
 			)}
-			{hint && (
-				<span className="hidden text-[10px] font-semibold uppercase tracking-widest text-neutral-400 md:inline">
-					{hint}
-				</span>
-			)}
-			<Button
-				type="button"
-				variant="ghost"
-				size="sm"
-				className={cn(
-					"h-6 px-2 text-[11px]",
-					useComponentDefaults
-						? "bg-neutral-900 text-white hover:bg-neutral-800"
-						: "text-neutral-500 hover:text-neutral-700",
-				)}
-				aria-pressed={useComponentDefaults}
-				onClick={onToggleDefaults}
-			>
-				Preview: {useComponentDefaults ? "Component defaults" : "Default props"}
-			</Button>
 		</>
 	)
 }

@@ -16,7 +16,7 @@ function Toaster({ className, ...props }: ToasterProps) {
 					title: "group-[.toast]:text-sm group-[.toast]:font-medium",
 					description: "group-[.toast]:text-xs group-[.toast]:text-neutral-500",
 					actionButton:
-						"group-[.toast]:bg-neutral-900 group-[.toast]:text-white group-[.toast]:hover:bg-neutral-800",
+						"group-[.toast]:bg-neutral-900 group-[.toast]:text-white group-[.toast]:hover:bg-neutral-800 group-[.toast]:hover:text-white",
 					cancelButton:
 						"group-[.toast]:bg-neutral-100 group-[.toast]:text-neutral-700 group-[.toast]:hover:bg-neutral-200",
 					closeButton: "group-[.toast]:text-neutral-400 group-[.toast]:hover:text-neutral-700",

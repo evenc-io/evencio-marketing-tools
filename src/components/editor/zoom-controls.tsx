@@ -53,7 +53,10 @@ export function ZoomControls() {
 				size="icon"
 				onClick={togglePanning}
 				title={`Pan Mode (${panHint})`}
-				className={cn("h-7 w-7", isPanning && "bg-neutral-900 text-white hover:bg-neutral-800")}
+				className={cn(
+					"h-7 w-7",
+					isPanning && "bg-neutral-900 text-white hover:bg-neutral-800 hover:text-white",
+				)}
 			>
 				<Hand className="h-3.5 w-3.5" />
 			</Button>
