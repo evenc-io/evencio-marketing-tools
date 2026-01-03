@@ -69,6 +69,7 @@ interface UseSnippetSubmitOptions {
 	registerCustomSnippetAsset: RegisterCustomSnippetAsset
 	updateCustomSnippetAsset: UpdateCustomSnippetAsset
 	navigate: NavigateFn
+	onSuccess?: (info: { mode: "update" | "create"; assetId: string }) => void
 }
 
 export function useSnippetSubmit({
@@ -83,6 +84,7 @@ export function useSnippetSubmit({
 	registerCustomSnippetAsset,
 	updateCustomSnippetAsset,
 	navigate,
+	onSuccess,
 }: UseSnippetSubmitOptions) {
 	const handleSubmit = useCallback(
 		async (values: CustomSnippetValues) => {
@@ -110,6 +112,7 @@ export function useSnippetSubmit({
 					})
 					form.reset(values, { keepDirty: false, keepTouched: false })
 					toast.success("Changes saved")
+					onSuccess?.({ mode: "update", assetId: editAsset.id })
 					return
 				}
 
@@ -134,7 +137,7 @@ export function useSnippetSubmit({
 
 				const entry = `custom:${nanoid()}`
 
-				await registerCustomSnippetAsset({
+				const createdAsset = await registerCustomSnippetAsset({
 					entry,
 					runtime: "react",
 					propsSchema,
@@ -154,6 +157,7 @@ export function useSnippetSubmit({
 				})
 
 				toast.success("Snippet created")
+				onSuccess?.({ mode: "create", assetId: createdAsset.id })
 				navigate({ to: "/library" })
 			} catch (err) {
 				const fallback = isEditing ? "Failed to update snippet" : "Failed to create custom snippet"
@@ -171,6 +175,7 @@ export function useSnippetSubmit({
 			form,
 			isEditing,
 			navigate,
+			onSuccess,
 			registerCustomSnippetAsset,
 			setError,
 			setIsSubmitting,

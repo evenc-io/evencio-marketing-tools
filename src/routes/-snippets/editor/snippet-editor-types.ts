@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react"
 import type { SnippetFileId } from "@/routes/-snippets/editor/constants"
+import type { AssetScope } from "@/types/asset-library"
 
 export type SnippetEditorFileId = SnippetFileId | `component:${string}`
 
@@ -14,4 +15,13 @@ export interface SnippetEditorFile {
 	exportName?: string
 	fileName?: string
 	deletable: boolean
+}
+
+export interface SnippetExplorerItem {
+	id: string
+	title: string
+	description?: string | null
+	scope: AssetScope
+	updatedLabel: string
+	hasDraft: boolean
 }

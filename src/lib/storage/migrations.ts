@@ -66,6 +66,16 @@ export const migrations: Migration[] = [
 			}
 		},
 	},
+	{
+		version: 3,
+		description: "Snippet editor draft storage",
+		migrate: (db) => {
+			if (!db.objectStoreNames.contains("snippetDrafts")) {
+				const draftsStore = db.createObjectStore("snippetDrafts", { keyPath: "id" })
+				draftsStore.createIndex("updatedAt", "updatedAt", { unique: false })
+			}
+		},
+	},
 ]
 
 /**

@@ -7,7 +7,7 @@ export type ProjectId = string
 export type SlideId = string
 
 /** Current schema version for storage migrations */
-export const CURRENT_SCHEMA_VERSION = 2
+export const CURRENT_SCHEMA_VERSION = 3
 
 /**
  * A single slide within a project.

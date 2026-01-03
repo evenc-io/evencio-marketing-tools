@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { ChevronRight } from "lucide-react"
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { z } from "zod"
 import { SnippetPreview } from "@/components/asset-library/snippet-preview"
 import { ClientOnly } from "@/components/ui/client-only"
@@ -38,13 +38,13 @@ import { SnippetHeader } from "@/routes/-snippets/editor/components/snippet/head
 import { SnippetHistoryPanel } from "@/routes/-snippets/editor/components/snippet/history-panel"
 import { SnippetInspectOverlays } from "@/routes/-snippets/editor/components/snippet/inspect-overlays"
 import { SnippetScreenGuard } from "@/routes/-snippets/editor/components/snippet/screen-guard"
+import { SnippetSwitcherDialog } from "@/routes/-snippets/editor/components/snippet/switcher-dialog"
 import { SnippetSplitViewResizer } from "@/routes/-snippets/editor/components/split-view-resizer"
 import {
 	CUSTOM_PRESET_ID,
 	DEFAULT_DEFAULT_PROPS,
 	DEFAULT_PROPS_SCHEMA,
 	type ExampleFilterId,
-	SNIPPET_FILES,
 	STARTER_SOURCE,
 } from "@/routes/-snippets/editor/constants"
 import { useSnippetAnalysis } from "@/routes/-snippets/editor/hooks/snippet/analysis"
@@ -52,6 +52,7 @@ import { useSnippetComponentExports } from "@/routes/-snippets/editor/hooks/snip
 import { useSnippetComponentTree } from "@/routes/-snippets/editor/hooks/snippet/component-tree"
 import { useSnippetComponentTreePanel } from "@/routes/-snippets/editor/hooks/snippet/component-tree-panel"
 import { useDerivedSnippetProps } from "@/routes/-snippets/editor/hooks/snippet/derived-props"
+import { useSnippetDrafts } from "@/routes/-snippets/editor/hooks/snippet/drafts"
 import { useSnippetEditorActions } from "@/routes/-snippets/editor/hooks/snippet/editor-actions"
 import { useSnippetEditorFiles } from "@/routes/-snippets/editor/hooks/snippet/editor-files"
 import { useSnippetFilters } from "@/routes/-snippets/editor/hooks/snippet/filters"
@@ -59,6 +60,7 @@ import { useSnippetHistory } from "@/routes/-snippets/editor/hooks/snippet/histo
 import { useSnippetInspect } from "@/routes/-snippets/editor/hooks/snippet/inspect"
 import { useSnippetInspectText } from "@/routes/-snippets/editor/hooks/snippet/inspect-text"
 import { useSnippetPanels } from "@/routes/-snippets/editor/hooks/snippet/panels"
+import { useSnippetSelection } from "@/routes/-snippets/editor/hooks/snippet/selection"
 import { useSnippetSplitView } from "@/routes/-snippets/editor/hooks/snippet/split-view"
 import { useSnippetSubmit } from "@/routes/-snippets/editor/hooks/snippet/submit"
 import { type CustomSnippetValues, customSnippetSchema } from "@/routes/-snippets/editor/schema"
@@ -69,7 +71,11 @@ const LazySnippetLayers3DView = lazy(() =>
 	})),
 )
 
-import type { SnippetEditorFileId } from "@/routes/-snippets/editor/snippet-editor-types"
+import { getSnippetDraftId, NEW_SNIPPET_DRAFT_ID } from "@/routes/-snippets/editor/snippet-drafts"
+import type {
+	SnippetEditorFileId,
+	SnippetExplorerItem,
+} from "@/routes/-snippets/editor/snippet-editor-types"
 import {
 	getComponentFileName,
 	isComponentFileId,
@@ -95,6 +101,24 @@ const getPreviewSourceLineKey = (source: PreviewSourceLocation | null) => {
 }
 
 const isDomNodeName = (name: string) => /^[a-z]/.test(name)
+
+const getDefaultSnippetValues = (): CustomSnippetValues => ({
+	title: "",
+	description: "",
+	scope: "personal",
+	licenseName: "",
+	licenseId: "",
+	licenseUrl: "",
+	attributionRequired: false,
+	attributionText: "",
+	attributionUrl: "",
+	viewportPreset: CUSTOM_PRESET_ID,
+	viewportWidth: DEFAULT_PREVIEW_DIMENSIONS.width,
+	viewportHeight: DEFAULT_PREVIEW_DIMENSIONS.height,
+	source: STARTER_SOURCE,
+	propsSchema: JSON.stringify(DEFAULT_PROPS_SCHEMA, null, 2),
+	defaultProps: JSON.stringify(DEFAULT_DEFAULT_PROPS, null, 2),
+})
 
 const findSelectableTreeNode = (
 	node: SnippetComponentTreeNode,
@@ -123,7 +147,6 @@ function NewSnippetPage() {
 	const fileInputRef = useRef<HTMLInputElement>(null)
 	const templateAppliedRef = useRef(false)
 	const fileMigrationRef = useRef(false)
-	const editAppliedRef = useRef<string | null>(null)
 	const [error, setError] = useState<string | null>(null)
 	const [isSubmitting, setIsSubmitting] = useState(false)
 	const [layoutMode, setLayoutMode] = useState(false)
@@ -138,6 +161,8 @@ function NewSnippetPage() {
 		useState<PreviewSourceLocation | null>(null)
 	const [componentTreeSelectionToken, setComponentTreeSelectionToken] = useState(0)
 	const [selectedTemplateId, setSelectedTemplateId] = useState<SnippetTemplateId>("single")
+	const [snippetSearch, setSnippetSearch] = useState("")
+	const [snippetSwitcherOpen, setSnippetSwitcherOpen] = useState(false)
 	const [deleteTarget, setDeleteTarget] = useState<{
 		exportName: string
 		label: string
@@ -164,6 +189,8 @@ function NewSnippetPage() {
 	const [isExamplePreviewActive, setIsExamplePreviewActive] = useState(false)
 	const { exampleFilters, importsFilters, handleExampleFilterClick, handleImportsFilterClick } =
 		useSnippetFilters()
+	const { draftIds, loadDraft, saveDraft, deleteDraft } = useSnippetDrafts()
+	const currentDraftId = getSnippetDraftId(editAssetId)
 	const splitContainerRef = useRef<HTMLDivElement>(null)
 	const editorPanelRef = useRef<HTMLDivElement>(null)
 	const previewContainerRef = useRef<HTMLDivElement>(null)
@@ -175,28 +202,13 @@ function NewSnippetPage() {
 	} = useSnippetComponentTreePanel({ containerRef: previewContainerRef })
 	const [componentTreeSelectedId, setComponentTreeSelectedId] = useState<string | null>(null)
 	const screenGate = useScreenGuard()
+	const defaultSnippetValues = useMemo(() => getDefaultSnippetValues(), [])
 	const form = useForm<CustomSnippetValues>({
 		resolver: zodResolver(customSnippetSchema),
 		mode: "onChange",
-		defaultValues: {
-			title: "",
-			description: "",
-			scope: "personal",
-			licenseName: "",
-			licenseId: "",
-			licenseUrl: "",
-			attributionRequired: false,
-			attributionText: "",
-			attributionUrl: "",
-			viewportPreset: CUSTOM_PRESET_ID,
-			viewportWidth: DEFAULT_PREVIEW_DIMENSIONS.width,
-			viewportHeight: DEFAULT_PREVIEW_DIMENSIONS.height,
-			source: STARTER_SOURCE,
-			propsSchema: JSON.stringify(DEFAULT_PROPS_SCHEMA, null, 2),
-			defaultProps: JSON.stringify(DEFAULT_DEFAULT_PROPS, null, 2),
-		},
+		defaultValues: defaultSnippetValues,
 	})
-	const watchedSource = form.watch("source") ?? ""
+	const watchedSource = useWatch({ control: form.control, name: "source" }) ?? ""
 	const includeInspect = true
 	const {
 		analysis,
@@ -240,6 +252,22 @@ function NewSnippetPage() {
 			) ?? null
 		)
 	}, [assets, editAssetId])
+	const editableSnippets = useMemo(
+		() =>
+			assets.filter(
+				(asset): asset is SnippetAsset =>
+					asset.type === "snippet" &&
+					Boolean(asset.snippet.source) &&
+					asset.scope.scope !== "global",
+			),
+		[assets],
+	)
+	const editableSnippetById = useMemo(
+		() => new Map(editableSnippets.map((asset) => [asset.id, asset])),
+		[editableSnippets],
+	)
+	const hasNewSnippetDraft = draftIds.has(NEW_SNIPPET_DRAFT_ID)
+	const isSnippetListLoading = isLibraryLoading
 	const disabledScopes = useMemo<AssetScope[]>(() => {
 		if (!isEditing || !editAsset) return []
 		const order: AssetScope[] = ["personal", "event", "org"]
@@ -251,6 +279,26 @@ function NewSnippetPage() {
 		if (!editAsset) return []
 		return editAsset.metadata.tags.map((tagId) => tagNameById.get(tagId) ?? tagId).filter(Boolean)
 	}, [editAsset, tagNameById])
+	const snippetSearchTerm = snippetSearch.trim().toLowerCase()
+	const snippetItems = useMemo<SnippetExplorerItem[]>(() => {
+		const sorted = [...editableSnippets].sort(
+			(left, right) =>
+				new Date(right.metadata.updatedAt).getTime() - new Date(left.metadata.updatedAt).getTime(),
+		)
+		const items = sorted.map((asset) => ({
+			id: asset.id,
+			title: asset.metadata.title?.trim() || "Untitled snippet",
+			description: asset.metadata.description ?? null,
+			scope: asset.scope.scope,
+			updatedLabel: new Date(asset.metadata.updatedAt).toLocaleDateString(),
+			hasDraft: draftIds.has(asset.id),
+		}))
+		if (!snippetSearchTerm) return items
+		return items.filter((item) => {
+			const haystack = `${item.title} ${item.description ?? ""}`.toLowerCase()
+			return haystack.includes(snippetSearchTerm)
+		})
+	}, [draftIds, editableSnippets, snippetSearchTerm])
 	const mainComponentLabel = useMemo(() => {
 		const defaultExport = componentExports.find((component) => component.isDefault)
 		if (!defaultExport) return "Main component"
@@ -525,74 +573,6 @@ function NewSnippetPage() {
 	}, [loadLibrary])
 
 	useEffect(() => {
-		if (!isEditing) {
-			editAppliedRef.current = null
-			return
-		}
-		if (isLibraryLoading) return
-		if (!editAsset || !editAsset.snippet.source) {
-			setError("Snippet not found or not editable.")
-			return
-		}
-		const editScope = editAsset.scope.scope
-		if (editScope === "global") {
-			setError("Global snippets are not editable.")
-			return
-		}
-		if (editAppliedRef.current === editAsset.id) return
-
-		const license = editAsset.metadata.license
-		const attribution = editAsset.metadata.attribution
-		const viewport = editAsset.snippet.viewport ?? DEFAULT_PREVIEW_DIMENSIONS
-		const propsSchema = editAsset.snippet.propsSchema ?? DEFAULT_PROPS_SCHEMA
-		const defaultProps = editAsset.defaultProps ?? DEFAULT_DEFAULT_PROPS
-
-		setError(null)
-		resetAutoOpenComponents()
-		fileMigrationRef.current = false
-		resetComponentExports()
-		resetAnalysis()
-		form.reset(
-			{
-				title: editAsset.metadata.title ?? "",
-				description: editAsset.metadata.description ?? "",
-				scope: editScope,
-				licenseName: license.name ?? "",
-				licenseId: license.id ?? "",
-				licenseUrl: license.url ?? "",
-				attributionRequired: license.attributionRequired ?? false,
-				attributionText: attribution?.text ?? "",
-				attributionUrl: attribution?.url ?? "",
-				viewportPreset: CUSTOM_PRESET_ID,
-				viewportWidth: viewport.width,
-				viewportHeight: viewport.height,
-				source: editAsset.snippet.source ?? "",
-				propsSchema: JSON.stringify(propsSchema, null, 2),
-				defaultProps: JSON.stringify(defaultProps, null, 2),
-			},
-			{ keepDirty: false, keepTouched: false },
-		)
-		resetHistory(editAsset.snippet.source ?? "", "Loaded snippet")
-		setOpenFiles(SNIPPET_FILES.map((file) => file.id))
-		setActiveFile("source")
-		setActiveComponentExport(editAsset.snippet.entryExport ?? DEFAULT_SNIPPET_EXPORT)
-		setIsExamplePreviewActive(false)
-		editAppliedRef.current = editAsset.id
-	}, [
-		editAsset,
-		form,
-		isEditing,
-		isLibraryLoading,
-		resetAnalysis,
-		resetAutoOpenComponents,
-		resetComponentExports,
-		resetHistory,
-		setActiveComponentExport,
-		setActiveFile,
-		setOpenFiles,
-	])
-
-	useEffect(() => {
 		if (!examplesOpen) {
 			setIsExamplePreviewActive(false)
 		}
@@ -615,6 +595,40 @@ function NewSnippetPage() {
 		}
 	}, [activeExampleId, filteredExamples])
 
+	const { autoCompile, handleSnippetSelect } = useSnippetSelection({
+		isEditing,
+		editAssetId,
+		isLibraryLoading,
+		assetsLength: assets.length,
+		editableSnippetById,
+		currentDraftId,
+		defaultSnippetValues,
+		watchedSource,
+		form,
+		activeComponentExport,
+		openFiles,
+		activeFile,
+		selectedTemplateId,
+		setActiveComponentExport,
+		setOpenFiles,
+		setActiveFile,
+		setSelectedTemplateId,
+		setIsExamplePreviewActive,
+		resetAutoOpenComponents,
+		resetComponentExports,
+		resetAnalysis,
+		resetHistory,
+		fileMigrationRef,
+		templateAppliedRef,
+		loadDraft,
+		saveDraft,
+		setError,
+		navigate,
+		setComponentTreeSelectedId,
+		setComponentTreeSelection,
+		setComponentTreeSelectionToken,
+	})
+
 	// Compile snippet for preview
 	const {
 		status: compileStatus,
@@ -628,9 +642,11 @@ function NewSnippetPage() {
 		defaultProps: derivedProps.defaultProps,
 		entryExport: resolvedEntryExport,
 		debounceMs: 500,
+		autoCompile,
 		enableTailwindCss: true,
 		analysis,
 		engineKey: "snippet-compile-main",
+		resetKey: currentDraftId,
 	})
 	const previewProps = useMemo(() => parsedProps ?? {}, [parsedProps])
 	const { compiledCode: exampleCompiledCode, tailwindCss: exampleTailwindCss } = useSnippetCompiler(
@@ -725,6 +741,10 @@ function NewSnippetPage() {
 		selectFile,
 	})
 
+	const handleSnippetSearchChange = useCallback((value: string) => {
+		setSnippetSearch(value)
+	}, [])
+
 	const handleLayersSnapshot = useCallback((snapshot: PreviewLayerSnapshot) => {
 		setLayersSnapshot(snapshot)
 		setLayersError(null)
@@ -775,6 +795,9 @@ function NewSnippetPage() {
 		registerCustomSnippetAsset,
 		updateCustomSnippetAsset,
 		navigate,
+		onSuccess: () => {
+			void deleteDraft(currentDraftId)
+		},
 	})
 
 	const isExamplePreviewing = Boolean(isExamplePreviewActive && activeExample)
@@ -910,6 +933,18 @@ function NewSnippetPage() {
 						isSubmitting={isSubmitting}
 						isEditing={isEditing}
 						onSubmit={form.handleSubmit(handleSubmit)}
+						onOpenSnippetSwitcher={() => setSnippetSwitcherOpen(true)}
+					/>
+					<SnippetSwitcherDialog
+						open={snippetSwitcherOpen}
+						onOpenChange={setSnippetSwitcherOpen}
+						snippetItems={snippetItems}
+						activeSnippetId={editAssetId}
+						hasNewSnippetDraft={hasNewSnippetDraft}
+						snippetSearch={snippetSearch}
+						onSnippetSearchChange={handleSnippetSearchChange}
+						onSelectSnippet={handleSnippetSelect}
+						isSnippetListLoading={isSnippetListLoading}
 					/>
 
 					{/* Main content - fills remaining height */}

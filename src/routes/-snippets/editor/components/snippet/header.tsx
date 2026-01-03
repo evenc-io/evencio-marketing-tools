@@ -8,6 +8,7 @@ interface SnippetHeaderProps {
 	isSubmitting: boolean
 	isEditing?: boolean
 	onSubmit: () => void
+	onOpenSnippetSwitcher?: () => void
 }
 
 export function SnippetHeader({
@@ -15,6 +16,7 @@ export function SnippetHeader({
 	isSubmitting,
 	isEditing = false,
 	onSubmit,
+	onOpenSnippetSwitcher,
 }: SnippetHeaderProps) {
 	const primaryLabel = isEditing
 		? isSubmitting
@@ -40,6 +42,11 @@ export function SnippetHeader({
 					</Link>
 				</div>
 				<div className="flex items-center gap-2">
+					{onOpenSnippetSwitcher && (
+						<Button variant="outline" size="sm" onClick={onOpenSnippetSwitcher}>
+							Switch snippet
+						</Button>
+					)}
 					<Button variant="outline" size="sm" asChild>
 						<Link to="/library">{secondaryLabel}</Link>
 					</Button>

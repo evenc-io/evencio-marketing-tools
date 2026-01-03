@@ -9,6 +9,7 @@ import type {
 } from "@/types/asset-library"
 import type { Project, StorageMetadata } from "@/types/project"
 import { CURRENT_SCHEMA_VERSION } from "@/types/project"
+import type { SnippetDraftRecord } from "@/types/snippet-drafts"
 import { runMigrations } from "./migrations"
 
 export const DATABASE_NAME = "evencio-studio"
@@ -22,6 +23,7 @@ const STORE_NAMES = [
 	"assetFavorites",
 	"assetVersions",
 	"assetStorage",
+	"snippetDrafts",
 ] as const
 type StoreName = (typeof STORE_NAMES)[number]
 
@@ -78,6 +80,13 @@ interface EvencioDBSchema extends DBSchema {
 	assetStorage: {
 		key: string
 		value: AssetStorageRecord
+	}
+	snippetDrafts: {
+		key: string
+		value: SnippetDraftRecord
+		indexes: {
+			updatedAt: string
+		}
 	}
 	metadata: {
 		key: string
