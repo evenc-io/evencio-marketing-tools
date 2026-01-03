@@ -77,6 +77,7 @@ const getAlignmentClassX = (alignX?: "left" | "center" | "right" | null) => {
 const getAlignmentClassY = (alignY?: "top" | "center" | "bottom" | null) => {
 	if (alignY === "center") return "my-auto"
 	if (alignY === "bottom") return "mt-auto"
+	if (alignY === "top") return "mb-auto"
 	return null
 }
 
