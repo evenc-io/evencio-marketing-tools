@@ -40,6 +40,8 @@ export type LayoutTranslateRequest = {
 	column: number
 	translateX: number
 	translateY: number
+	alignX?: "left" | "center" | "right" | null
+	alignY?: "top" | "center" | "bottom" | null
 }
 
 export type LayoutTranslateResponse = {

@@ -991,6 +991,67 @@ export function generatePreviewSrcdoc(
         };
       };
 
+      const parentSupportsAutoMargin = (element) => {
+        if (!element || !(element instanceof Element)) return false;
+        const parent = element.parentElement;
+        if (!parent) return false;
+        const display = window.getComputedStyle(parent).display;
+        return display.includes("flex") || display.includes("grid");
+      };
+
+      const resolveAlignmentX = (translate, bounds) => {
+        if (!snapState.enabled || snapState.altHeld || !bounds) return null;
+        const parentRect = bounds.parentRect;
+        const elementRect = bounds.elementRect;
+        if (!parentRect || !elementRect) return null;
+        const scaleForSnap = snapState.scaleForSnap > 0 ? snapState.scaleForSnap : 1;
+        const threshold = Math.max(1, snapState.baseThreshold / scaleForSnap);
+        const deltaX = translate.x - layoutState.baseTranslate.x;
+        const elemLeft = elementRect.left + deltaX;
+        const elemRight = elemLeft + elementRect.width;
+        const elemCenter = elemLeft + elementRect.width / 2;
+        const parentLeft = parentRect.left;
+        const parentRight = parentRect.right;
+        const parentCenter = parentLeft + parentRect.width / 2;
+        const widthDiff = Math.abs(parentRect.width - elementRect.width);
+        if (widthDiff <= threshold) return null;
+        const leftDiff = Math.abs(elemLeft - parentLeft);
+        const rightDiff = Math.abs(elemRight - parentRight);
+        const centerDiff = Math.abs(elemCenter - parentCenter);
+        const minDiff = Math.min(leftDiff, rightDiff, centerDiff);
+        if (minDiff > threshold) return null;
+        if (minDiff === centerDiff) return "center";
+        if (minDiff === leftDiff) return "left";
+        return "right";
+      };
+
+      const resolveAlignmentY = (translate, bounds, element) => {
+        if (!snapState.enabled || snapState.altHeld || !bounds) return null;
+        if (!parentSupportsAutoMargin(element)) return null;
+        const parentRect = bounds.parentRect;
+        const elementRect = bounds.elementRect;
+        if (!parentRect || !elementRect) return null;
+        const scaleForSnap = snapState.scaleForSnap > 0 ? snapState.scaleForSnap : 1;
+        const threshold = Math.max(1, snapState.baseThreshold / scaleForSnap);
+        const deltaY = translate.y - layoutState.baseTranslate.y;
+        const elemTop = elementRect.top + deltaY;
+        const elemBottom = elemTop + elementRect.height;
+        const elemCenter = elemTop + elementRect.height / 2;
+        const parentTop = parentRect.top;
+        const parentBottom = parentRect.bottom;
+        const parentCenter = parentTop + parentRect.height / 2;
+        const heightDiff = Math.abs(parentRect.height - elementRect.height);
+        if (heightDiff <= threshold) return null;
+        const topDiff = Math.abs(elemTop - parentTop);
+        const bottomDiff = Math.abs(elemBottom - parentBottom);
+        const centerDiff = Math.abs(elemCenter - parentCenter);
+        const minDiff = Math.min(topDiff, bottomDiff, centerDiff);
+        if (minDiff > threshold) return null;
+        if (minDiff === centerDiff) return "center";
+        if (minDiff === topDiff) return "top";
+        return "bottom";
+      };
+
       const buildLayoutDebugEntry = (kind, event, target, extra) => {
         const { dx, dy } = computeDragDelta();
         const rect = target && typeof target.getBoundingClientRect === "function"
@@ -1101,6 +1162,7 @@ export function generatePreviewSrcdoc(
         const moved = Math.abs(dx) >= 0.5 || Math.abs(dy) >= 0.5;
         const target = layoutState.active;
         const translate = layoutState.currentTranslate;
+        const bounds = layoutState.bounds;
         layoutState.active = null;
         layoutState.pointerId = null;
         layoutState.bounds = null;
@@ -1120,6 +1182,8 @@ export function generatePreviewSrcdoc(
         const didCommit = Boolean(commit && moved && target);
         if (didCommit) {
           const source = elementSourceMap.get(target) ?? null;
+          const alignX = resolveAlignmentX(translate, bounds);
+          const alignY = resolveAlignmentY(translate, bounds, target);
           if (source) {
             setStoredSourceTranslate(source, translate);
           }
@@ -1141,6 +1205,8 @@ export function generatePreviewSrcdoc(
               commit: {
                 source,
                 translate,
+                alignX,
+                alignY,
               },
             },
             "*",

@@ -32,6 +32,8 @@ export interface PreviewLayerSnapshot {
 export interface PreviewLayoutCommit {
 	source: PreviewSourceLocation | null
 	translate: { x: number; y: number }
+	alignX?: "left" | "center" | "right" | null
+	alignY?: "top" | "center" | "bottom" | null
 }
 
 export interface PreviewLayoutDebugEvent {

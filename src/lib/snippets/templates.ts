@@ -1,7 +1,8 @@
+import { LAYOUT_SNAPPING_SOURCE } from "./demos/layout-snapping"
 import { serializeSnippetFiles } from "./source/files"
 import { STARTER_SNIPPET_SOURCE } from "./starter-snippet"
 
-export type SnippetTemplateId = "single" | "multi"
+export type SnippetTemplateId = "single" | "multi" | "layout-policy"
 
 export type SnippetTemplate = {
 	id: SnippetTemplateId
@@ -116,6 +117,12 @@ export const SNIPPET_TEMPLATES: Record<SnippetTemplateId, SnippetTemplate> = {
 		label: "Multi-component",
 		description: "Main component plus helper components for structure.",
 		source: MULTI_COMPONENT_SNIPPET_SOURCE,
+	},
+	"layout-policy": {
+		id: "layout-policy",
+		label: "Layout snapping demo",
+		description: "Shows the alignment-only snapping policy in action.",
+		source: LAYOUT_SNAPPING_SOURCE,
 	},
 }
 

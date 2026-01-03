@@ -66,6 +66,9 @@ export function Navbar({
 				<div className="flex items-center gap-2">
 					{variant === "dashboard" ? (
 						<>
+							<Button variant="ghost" size="sm" asChild>
+								<Link to="/docs">Docs</Link>
+							</Button>
 							<Button variant="ghost" size="icon" className="h-8 w-8" asChild>
 								<Link to="/settings">
 									<Settings className="h-4 w-4" />
@@ -78,6 +81,9 @@ export function Navbar({
 						</>
 					) : (
 						<>
+							<Button variant="ghost" size="sm" asChild>
+								<Link to="/docs">Docs</Link>
+							</Button>
 							{/* Save Button */}
 							<Button
 								variant="ghost"

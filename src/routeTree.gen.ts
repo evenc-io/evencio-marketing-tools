@@ -11,12 +11,15 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as LibraryRouteImport } from './routes/library'
+import { Route as DocsRouteImport } from './routes/docs'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
+import { Route as DocsIndexRouteImport } from './routes/docs/index'
 import { Route as SnippetsEditorRouteImport } from './routes/snippets.editor'
 import { Route as SettingsStorageRouteImport } from './routes/settings/storage'
 import { Route as SettingsIntegrationsRouteImport } from './routes/settings/integrations'
 import { Route as ProjectProjectIdRouteImport } from './routes/project/$projectId'
+import { Route as DocsLayoutSnappingRouteImport } from './routes/docs/layout-snapping'
 import { Route as ProjectProjectIdIndexRouteImport } from './routes/project/$projectId/index'
 import { Route as ProjectProjectIdSlideSlideIdRouteImport } from './routes/project/$projectId/slide/$slideId'
 
@@ -30,6 +33,11 @@ const LibraryRoute = LibraryRouteImport.update({
   path: '/library',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DocsRoute = DocsRouteImport.update({
+  id: '/docs',
+  path: '/docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -39,6 +47,11 @@ const SettingsIndexRoute = SettingsIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => SettingsRoute,
+} as any)
+const DocsIndexRoute = DocsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DocsRoute,
 } as any)
 const SnippetsEditorRoute = SnippetsEditorRouteImport.update({
   id: '/snippets/editor',
@@ -60,6 +73,11 @@ const ProjectProjectIdRoute = ProjectProjectIdRouteImport.update({
   path: '/project/$projectId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DocsLayoutSnappingRoute = DocsLayoutSnappingRouteImport.update({
+  id: '/layout-snapping',
+  path: '/layout-snapping',
+  getParentRoute: () => DocsRoute,
+} as any)
 const ProjectProjectIdIndexRoute = ProjectProjectIdIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -74,12 +92,15 @@ const ProjectProjectIdSlideSlideIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/docs': typeof DocsRouteWithChildren
   '/library': typeof LibraryRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/docs/layout-snapping': typeof DocsLayoutSnappingRoute
   '/project/$projectId': typeof ProjectProjectIdRouteWithChildren
   '/settings/integrations': typeof SettingsIntegrationsRoute
   '/settings/storage': typeof SettingsStorageRoute
   '/snippets/editor': typeof SnippetsEditorRoute
+  '/docs/': typeof DocsIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/project/$projectId/': typeof ProjectProjectIdIndexRoute
   '/project/$projectId/slide/$slideId': typeof ProjectProjectIdSlideSlideIdRoute
@@ -87,9 +108,11 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/library': typeof LibraryRoute
+  '/docs/layout-snapping': typeof DocsLayoutSnappingRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
   '/settings/storage': typeof SettingsStorageRoute
   '/snippets/editor': typeof SnippetsEditorRoute
+  '/docs': typeof DocsIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/project/$projectId': typeof ProjectProjectIdIndexRoute
   '/project/$projectId/slide/$slideId': typeof ProjectProjectIdSlideSlideIdRoute
@@ -97,12 +120,15 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/docs': typeof DocsRouteWithChildren
   '/library': typeof LibraryRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/docs/layout-snapping': typeof DocsLayoutSnappingRoute
   '/project/$projectId': typeof ProjectProjectIdRouteWithChildren
   '/settings/integrations': typeof SettingsIntegrationsRoute
   '/settings/storage': typeof SettingsStorageRoute
   '/snippets/editor': typeof SnippetsEditorRoute
+  '/docs/': typeof DocsIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/project/$projectId/': typeof ProjectProjectIdIndexRoute
   '/project/$projectId/slide/$slideId': typeof ProjectProjectIdSlideSlideIdRoute
@@ -111,12 +137,15 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/docs'
     | '/library'
     | '/settings'
+    | '/docs/layout-snapping'
     | '/project/$projectId'
     | '/settings/integrations'
     | '/settings/storage'
     | '/snippets/editor'
+    | '/docs/'
     | '/settings/'
     | '/project/$projectId/'
     | '/project/$projectId/slide/$slideId'
@@ -124,21 +153,26 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/library'
+    | '/docs/layout-snapping'
     | '/settings/integrations'
     | '/settings/storage'
     | '/snippets/editor'
+    | '/docs'
     | '/settings'
     | '/project/$projectId'
     | '/project/$projectId/slide/$slideId'
   id:
     | '__root__'
     | '/'
+    | '/docs'
     | '/library'
     | '/settings'
+    | '/docs/layout-snapping'
     | '/project/$projectId'
     | '/settings/integrations'
     | '/settings/storage'
     | '/snippets/editor'
+    | '/docs/'
     | '/settings/'
     | '/project/$projectId/'
     | '/project/$projectId/slide/$slideId'
@@ -146,6 +180,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DocsRoute: typeof DocsRouteWithChildren
   LibraryRoute: typeof LibraryRoute
   SettingsRoute: typeof SettingsRouteWithChildren
   ProjectProjectIdRoute: typeof ProjectProjectIdRouteWithChildren
@@ -168,6 +203,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LibraryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/docs': {
+      id: '/docs'
+      path: '/docs'
+      fullPath: '/docs'
+      preLoaderRoute: typeof DocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -181,6 +223,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/'
       preLoaderRoute: typeof SettingsIndexRouteImport
       parentRoute: typeof SettingsRoute
+    }
+    '/docs/': {
+      id: '/docs/'
+      path: '/'
+      fullPath: '/docs/'
+      preLoaderRoute: typeof DocsIndexRouteImport
+      parentRoute: typeof DocsRoute
     }
     '/snippets/editor': {
       id: '/snippets/editor'
@@ -210,6 +259,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectProjectIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/docs/layout-snapping': {
+      id: '/docs/layout-snapping'
+      path: '/layout-snapping'
+      fullPath: '/docs/layout-snapping'
+      preLoaderRoute: typeof DocsLayoutSnappingRouteImport
+      parentRoute: typeof DocsRoute
+    }
     '/project/$projectId/': {
       id: '/project/$projectId/'
       path: '/'
@@ -226,6 +282,18 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface DocsRouteChildren {
+  DocsLayoutSnappingRoute: typeof DocsLayoutSnappingRoute
+  DocsIndexRoute: typeof DocsIndexRoute
+}
+
+const DocsRouteChildren: DocsRouteChildren = {
+  DocsLayoutSnappingRoute: DocsLayoutSnappingRoute,
+  DocsIndexRoute: DocsIndexRoute,
+}
+
+const DocsRouteWithChildren = DocsRoute._addFileChildren(DocsRouteChildren)
 
 interface SettingsRouteChildren {
   SettingsIntegrationsRoute: typeof SettingsIntegrationsRoute
@@ -258,6 +326,7 @@ const ProjectProjectIdRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DocsRoute: DocsRouteWithChildren,
   LibraryRoute: LibraryRoute,
   SettingsRoute: SettingsRouteWithChildren,
   ProjectProjectIdRoute: ProjectProjectIdRouteWithChildren,

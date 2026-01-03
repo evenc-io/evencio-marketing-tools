@@ -2,6 +2,7 @@ import type { ComponentType } from "react"
 import type { SnippetProps, SnippetRuntime } from "@/types/asset-library"
 import LaunchHero from "./launch-hero"
 
+export { LAYOUT_SNAPPING_SOURCE } from "./demos/layout-snapping"
 // Re-export preview runtime and hook
 export * from "./preview/runtime"
 export {

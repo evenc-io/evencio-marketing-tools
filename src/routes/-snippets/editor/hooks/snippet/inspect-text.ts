@@ -346,6 +346,8 @@ export const useSnippetInspectText = ({
 			}
 			const translateX = commit.translate.x
 			const translateY = commit.translate.y
+			const alignX = commit.alignX ?? null
+			const alignY = commit.alignY ?? null
 
 			enqueueLayoutCommit(async () => {
 				const fileSource = getSourceForFile(target.fileId)
@@ -360,6 +362,8 @@ export const useSnippetInspectText = ({
 						column: target.column,
 						translateX,
 						translateY,
+						alignX,
+						alignY,
 					})
 					if (!result.changed) {
 						if (result.reason) {

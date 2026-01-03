@@ -6,6 +6,8 @@ export type SnippetLayoutTranslateRequest = {
 	column: number
 	translateX: number
 	translateY: number
+	alignX?: "left" | "center" | "right" | null
+	alignY?: "top" | "center" | "bottom" | null
 }
 
 export type SnippetLayoutTranslateResult = {
@@ -48,12 +50,58 @@ const formatNumber = (value: number) => {
 	return normalized.toFixed(2).replace(/\.?0+$/, "")
 }
 
+const normalizeTranslateValue = (value: number) => {
+	if (!Number.isFinite(value)) return 0
+	const rounded = Math.round(value * 100) / 100
+	return Math.abs(rounded) < 0.005 ? 0 : rounded
+}
+
 const formatTranslateValue = (x: number, y: number) => `${formatNumber(x)}px ${formatNumber(y)}px`
 
 const trimTrailingComma = (value: string) => value.replace(/\s*,\s*$/, "")
 
 const replaceRange = (source: string, start: number, end: number, replacement: string) =>
 	source.slice(0, start) + replacement + source.slice(end)
+
+const ALIGNMENT_X_CLASSES = new Set(["ml-auto", "mr-auto", "mx-auto"])
+const ALIGNMENT_Y_CLASSES = new Set(["mt-auto", "mb-auto", "my-auto"])
+const TRANSLATE_EPSILON = 0.5
+
+const getAlignmentClassX = (alignX?: "left" | "center" | "right" | null) => {
+	if (alignX === "center") return "mx-auto"
+	if (alignX === "right") return "ml-auto"
+	if (alignX === "left") return "mr-auto"
+	return null
+}
+
+const getAlignmentClassY = (alignY?: "top" | "center" | "bottom" | null) => {
+	if (alignY === "center") return "my-auto"
+	if (alignY === "bottom") return "mt-auto"
+	if (alignY === "top") return "mb-auto"
+	return null
+}
+
+const normalizeClassName = (
+	value: string,
+	updateX: boolean,
+	updateY: boolean,
+	alignClassX: string | null,
+	alignClassY: string | null,
+) => {
+	const tokens = value.split(/\s+/).filter(Boolean)
+	const next = tokens.filter((token) => {
+		if (updateX && ALIGNMENT_X_CLASSES.has(token)) return false
+		if (updateY && ALIGNMENT_Y_CLASSES.has(token)) return false
+		return true
+	})
+	if (alignClassX) {
+		next.push(alignClassX)
+	}
+	if (alignClassY) {
+		next.push(alignClassY)
+	}
+	return next.join(" ")
+}
 
 type JsxTarget = {
 	node: Record<string, unknown>
@@ -126,10 +174,12 @@ const buildUpdatedObjectExpression = (
 	source: string,
 	objectNode: Record<string, unknown>,
 	translateValue: string,
+	removeTranslate = false,
 ) => {
 	const properties = Array.isArray(objectNode.properties) ? objectNode.properties : []
 	const entries: string[] = []
 	let updated = false
+	let removedTranslate = false
 
 	for (const entry of properties) {
 		if (!entry || typeof entry !== "object") continue
@@ -140,8 +190,13 @@ const buildUpdatedObjectExpression = (
 		if (prop.type === "ObjectProperty") {
 			const key = getObjectPropertyKey(prop)
 			if (key === "translate") {
-				entries.push(`translate: "${translateValue}"`)
-				updated = true
+				if (!removeTranslate) {
+					entries.push(`translate: "${translateValue}"`)
+					updated = true
+				} else {
+					removedTranslate = true
+					updated = true
+				}
 				continue
 			}
 		}
@@ -151,8 +206,9 @@ const buildUpdatedObjectExpression = (
 		}
 	}
 
-	if (!updated) {
+	if (!updated && !removeTranslate) {
 		entries.push(`translate: "${translateValue}"`)
+		updated = true
 	}
 
 	const objectSource = source.slice(objectNode.start as number, objectNode.end as number)
@@ -162,8 +218,219 @@ const buildUpdatedObjectExpression = (
 	const joined = multiline
 		? entries.map((entry) => `${innerIndent}${entry}`).join(",\n")
 		: entries.join(", ")
+	if (entries.length === 0 && removedTranslate) {
+		return { updated, value: null as string | null, removedTranslate: true }
+	}
 	const value = multiline ? `{\n${joined}\n${indent}}` : `{ ${joined} }`
-	return { updated: true, value }
+	return { updated, value, removedTranslate }
+}
+
+type SourceUpdate = {
+	start: number
+	end: number
+	replacement: string
+}
+
+type ClassNameUpdateResult = {
+	update: SourceUpdate | null
+	applied: boolean
+}
+
+const readStaticClassNameValue = (valueNode: Record<string, unknown> | null | undefined) => {
+	if (!valueNode) return ""
+	if (valueNode.type === "StringLiteral") {
+		return typeof valueNode.value === "string" ? valueNode.value : ""
+	}
+	if (valueNode.type === "JSXExpressionContainer") {
+		const expression = valueNode.expression as Record<string, unknown> | null | undefined
+		if (expression?.type === "StringLiteral") {
+			return typeof expression.value === "string" ? expression.value : ""
+		}
+		if (expression?.type === "TemplateLiteral") {
+			const quasis = Array.isArray(expression.quasis) ? expression.quasis : []
+			const hasExpressions =
+				Array.isArray(expression.expressions) && expression.expressions.length > 0
+			if (hasExpressions) return null
+			if (quasis.length === 1) {
+				const cooked = (quasis[0] as Record<string, unknown>)?.value as
+					| { cooked?: string }
+					| undefined
+				return typeof cooked?.cooked === "string" ? cooked.cooked : ""
+			}
+		}
+		return null
+	}
+	return null
+}
+
+const buildClassNameUpdate = (
+	openingElement: Record<string, unknown>,
+	attributes: Record<string, unknown>[],
+	updateX: boolean,
+	updateY: boolean,
+	alignClassX: string | null,
+	alignClassY: string | null,
+): ClassNameUpdateResult => {
+	if (!updateX && !updateY) return { update: null, applied: false }
+	const classAttribute = attributes.find((attr) => {
+		const name = getAttributeName(attr)
+		return name === "className" || name === "class"
+	})
+
+	if (!classAttribute) {
+		const nextValue = normalizeClassName("", updateX, updateY, alignClassX, alignClassY)
+		if (!nextValue) {
+			return { update: null, applied: true }
+		}
+		const isSelfClosing = Boolean(openingElement.selfClosing)
+		const insertAt = isSelfClosing
+			? Math.max(0, (openingElement.end as number) - 2)
+			: Math.max(0, (openingElement.end as number) - 1)
+		return {
+			update: { start: insertAt, end: insertAt, replacement: ` className="${nextValue}"` },
+			applied: true,
+		}
+	}
+
+	if (!hasValidRange(classAttribute)) {
+		return { update: null, applied: false }
+	}
+
+	const valueNode = classAttribute.value as Record<string, unknown> | null | undefined
+	const currentValue = readStaticClassNameValue(valueNode)
+	if (currentValue === null) {
+		return { update: null, applied: false }
+	}
+
+	const nextValue = normalizeClassName(currentValue, updateX, updateY, alignClassX, alignClassY)
+	if (nextValue === currentValue) {
+		return { update: null, applied: true }
+	}
+
+	const attributeName = getAttributeName(classAttribute) ?? "className"
+	return {
+		update: {
+			start: classAttribute.start as number,
+			end: classAttribute.end as number,
+			replacement: nextValue ? `${attributeName}="${nextValue}"` : "",
+		},
+		applied: true,
+	}
+}
+
+const buildStyleUpdate = (
+	source: string,
+	openingElement: Record<string, unknown>,
+	attributes: Record<string, unknown>[],
+	translateValue: string,
+	removeTranslate: boolean,
+): SourceUpdate | null => {
+	const styleAttribute = attributes.find((attr) => getAttributeName(attr) === "style")
+	if (!styleAttribute) {
+		if (removeTranslate) return null
+		const isSelfClosing = Boolean(openingElement.selfClosing)
+		const insertAt = isSelfClosing
+			? Math.max(0, (openingElement.end as number) - 2)
+			: Math.max(0, (openingElement.end as number) - 1)
+		return {
+			start: insertAt,
+			end: insertAt,
+			replacement: ` style={{ translate: "${translateValue}" }}`,
+		}
+	}
+
+	if (!hasValidRange(styleAttribute)) {
+		return null
+	}
+
+	const styleValue = styleAttribute.value as Record<string, unknown> | null | undefined
+	if (!styleValue) {
+		if (removeTranslate) {
+			return {
+				start: styleAttribute.start as number,
+				end: styleAttribute.end as number,
+				replacement: "",
+			}
+		}
+		return {
+			start: styleAttribute.start as number,
+			end: styleAttribute.end as number,
+			replacement: `style={{ translate: "${translateValue}" }}`,
+		}
+	}
+
+	if (styleValue.type === "JSXExpressionContainer") {
+		const expression = styleValue.expression as Record<string, unknown> | null | undefined
+		if (expression?.type === "ObjectExpression" && hasValidRange(expression)) {
+			const { value, removedTranslate, updated } = buildUpdatedObjectExpression(
+				source,
+				expression,
+				translateValue,
+				removeTranslate,
+			)
+			if (!updated) {
+				return null
+			}
+			if (!value) {
+				if (removedTranslate) {
+					return {
+						start: styleAttribute.start as number,
+						end: styleAttribute.end as number,
+						replacement: "",
+					}
+				}
+				return null
+			}
+			return {
+				start: expression.start as number,
+				end: expression.end as number,
+				replacement: value,
+			}
+		}
+
+		if (expression?.type === "NullLiteral") {
+			if (removeTranslate) {
+				return {
+					start: styleAttribute.start as number,
+					end: styleAttribute.end as number,
+					replacement: "",
+				}
+			}
+			return {
+				start: styleAttribute.start as number,
+				end: styleAttribute.end as number,
+				replacement: `style={{ translate: "${translateValue}" }}`,
+			}
+		}
+
+		if (expression && hasValidRange(expression)) {
+			if (removeTranslate) {
+				return null
+			}
+			const expressionText = source
+				.slice(expression.start as number, expression.end as number)
+				.trim()
+			const mergedExpression = `{ ...${expressionText}, translate: "${translateValue}" }`
+			return {
+				start: expression.start as number,
+				end: expression.end as number,
+				replacement: mergedExpression,
+			}
+		}
+	}
+
+	if (removeTranslate) {
+		return {
+			start: styleAttribute.start as number,
+			end: styleAttribute.end as number,
+			replacement: "",
+		}
+	}
+	return {
+		start: styleAttribute.start as number,
+		end: styleAttribute.end as number,
+		replacement: `style={{ translate: "${translateValue}" }}`,
+	}
 }
 
 export const applySnippetTranslate = async ({
@@ -172,6 +439,8 @@ export const applySnippetTranslate = async ({
 	column,
 	translateX,
 	translateY,
+	alignX,
+	alignY,
 }: SnippetLayoutTranslateRequest): Promise<SnippetLayoutTranslateResult> => {
 	if (!source.trim()) {
 		return { source, changed: false, reason: "Source is empty." }
@@ -194,87 +463,67 @@ export const applySnippetTranslate = async ({
 		return { source, changed: false, reason: "Selected element is missing a JSX opening tag." }
 	}
 
-	const translateValue = formatTranslateValue(translateX, translateY)
 	const attributes = Array.isArray(openingElement.attributes)
 		? (openingElement.attributes as Record<string, unknown>[])
 		: []
-	const styleAttribute = attributes.find((attr) => getAttributeName(attr) === "style")
+	const updateX = alignX !== null && alignX !== undefined
+	const updateY = alignY !== null && alignY !== undefined
+	const alignClassX = getAlignmentClassX(alignX)
+	const alignClassY = getAlignmentClassY(alignY)
+	const normalizedX = normalizeTranslateValue(translateX)
+	const normalizedY = normalizeTranslateValue(translateY)
+	const xIsZero = Math.abs(normalizedX) <= TRANSLATE_EPSILON
+	const yIsZero = Math.abs(normalizedY) <= TRANSLATE_EPSILON
+	const shouldAlignX = updateX && xIsZero
+	const shouldAlignY = updateY && yIsZero
+	const classUpdateResult =
+		shouldAlignX || shouldAlignY
+			? buildClassNameUpdate(
+					openingElement,
+					attributes,
+					shouldAlignX,
+					shouldAlignY,
+					shouldAlignX ? alignClassX : null,
+					shouldAlignY ? alignClassY : null,
+				)
+			: { update: null, applied: false }
+	const alignXApplied = shouldAlignX && classUpdateResult.applied
+	const alignYApplied = shouldAlignY && classUpdateResult.applied
 
-	if (!styleAttribute) {
-		const isSelfClosing = Boolean(openingElement.selfClosing)
-		const insertAt = isSelfClosing
-			? Math.max(0, (openingElement.end as number) - 2)
-			: Math.max(0, (openingElement.end as number) - 1)
-		const insertion = ` style={{ translate: "${translateValue}" }}`
-		const updated = replaceRange(source, insertAt, insertAt, insertion)
-		return { source: updated, changed: updated !== source }
+	const nextTranslateX = alignXApplied || xIsZero ? 0 : translateX
+	const nextTranslateY = alignYApplied || yIsZero ? 0 : translateY
+	const nextNormalizedX = normalizeTranslateValue(nextTranslateX)
+	const nextNormalizedY = normalizeTranslateValue(nextTranslateY)
+	const removeTranslate = nextNormalizedX === 0 && nextNormalizedY === 0
+	const translateValue = formatTranslateValue(nextNormalizedX, nextNormalizedY)
+
+	const updates: SourceUpdate[] = []
+	if (classUpdateResult.update) {
+		updates.push(classUpdateResult.update)
 	}
 
-	if (!hasValidRange(styleAttribute)) {
-		return { source, changed: false, reason: "Style attribute location is unavailable." }
-	}
-
-	const styleValue = styleAttribute.value as Record<string, unknown> | null | undefined
-	if (!styleValue) {
-		const updated = replaceRange(
-			source,
-			styleAttribute.start as number,
-			styleAttribute.end as number,
-			`style={{ translate: "${translateValue}" }}`,
-		)
-		return { source: updated, changed: updated !== source }
-	}
-
-	if (styleValue.type === "JSXExpressionContainer") {
-		const expression = styleValue.expression as Record<string, unknown> | null | undefined
-		if (expression?.type === "ObjectExpression" && hasValidRange(expression)) {
-			const { value } = buildUpdatedObjectExpression(source, expression, translateValue)
-			if (!value) {
-				return {
-					source,
-					changed: false,
-					reason: "Unable to update style object expression.",
-				}
-			}
-			const updated = replaceRange(
-				source,
-				expression.start as number,
-				expression.end as number,
-				value,
-			)
-			return { source: updated, changed: updated !== source }
-		}
-
-		if (expression?.type === "NullLiteral") {
-			const updated = replaceRange(
-				source,
-				styleAttribute.start as number,
-				styleAttribute.end as number,
-				`style={{ translate: "${translateValue}" }}`,
-			)
-			return { source: updated, changed: updated !== source }
-		}
-
-		if (expression && hasValidRange(expression)) {
-			const expressionText = source
-				.slice(expression.start as number, expression.end as number)
-				.trim()
-			const mergedExpression = `{ ...${expressionText}, translate: "${translateValue}" }`
-			const updated = replaceRange(
-				source,
-				expression.start as number,
-				expression.end as number,
-				mergedExpression,
-			)
-			return { source: updated, changed: updated !== source }
-		}
-	}
-
-	const updated = replaceRange(
+	const styleUpdate = buildStyleUpdate(
 		source,
-		styleAttribute.start as number,
-		styleAttribute.end as number,
-		`style={{ translate: "${translateValue}" }}`,
+		openingElement,
+		attributes,
+		translateValue,
+		removeTranslate,
 	)
-	return { source: updated, changed: updated !== source }
+	if (styleUpdate) {
+		updates.push(styleUpdate)
+	}
+
+	if (updates.length === 0) {
+		if (!removeTranslate) {
+			return { source, changed: false, reason: "Unable to update layout styles." }
+		}
+		return { source, changed: false }
+	}
+
+	const orderedUpdates = updates.sort((a, b) => b.start - a.start)
+	const updatedSource = orderedUpdates.reduce(
+		(current, update) => replaceRange(current, update.start, update.end, update.replacement),
+		source,
+	)
+	return { source: updatedSource, changed: updatedSource !== source }
 }

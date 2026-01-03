@@ -1,3 +1,4 @@
+import { LAYOUT_SNAPPING_SOURCE } from "@/lib/snippets/demos/layout-snapping"
 import type { PreviewDimensions } from "@/lib/snippets/preview/runtime"
 import { serializeSnippetFiles } from "@/lib/snippets/source/files"
 
@@ -521,6 +522,20 @@ const EVENCIO_LOGO_SYSTEM_SOURCE = serializeSnippetFiles(
 )
 
 export const SNIPPET_EXAMPLES: SnippetExample[] = [
+	{
+		id: "layout-snapping-policy",
+		title: "Layout Snapping Policy",
+		description: "Demo snippet that matches the alignment-only snapping rules.",
+		category: "hero",
+		viewport: { width: 1400, height: 900 },
+		tags: ["docs", "layout", "snapping", "policy"],
+		source: LAYOUT_SNAPPING_SOURCE,
+		previewProps: {
+			title: "Layout Snapping Policy",
+			subtitle: "Alignment-only snaps remove translate. Offsets keep translate.",
+			note: "Toggle Layout mode and drag the cards to test snapping behavior.",
+		},
+	},
 	{
 		id: "evencio-hero-key-visual",
 		title: "Event Hero Key Visual",
