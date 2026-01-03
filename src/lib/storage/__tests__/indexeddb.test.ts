@@ -13,6 +13,7 @@ describe("indexeddb", () => {
 		"assetFavorites",
 		"assetVersions",
 		"assetStorage",
+		"snippetDrafts",
 	] as const
 
 	beforeEach(async () => {

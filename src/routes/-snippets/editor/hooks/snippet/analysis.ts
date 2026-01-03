@@ -51,6 +51,8 @@ export const useSnippetAnalysis = ({
 	const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 	const versionRef = useRef(0)
 	const isMountedRef = useRef(true)
+	const runImmediatelyRef = useRef(false)
+	const [resetToken, setResetToken] = useState(0)
 
 	const resetAnalysis = useCallback(() => {
 		if (timerRef.current) {
@@ -58,9 +60,11 @@ export const useSnippetAnalysis = ({
 			timerRef.current = null
 		}
 		versionRef.current += 1
+		runImmediatelyRef.current = true
 		setAnalysis(null)
 		setStatus("idle")
 		setError(null)
+		setResetToken((prev) => prev + 1)
 	}, [])
 
 	// React StrictMode mounts, unmounts, then remounts; re-arm to avoid stale false.
@@ -72,6 +76,7 @@ export const useSnippetAnalysis = ({
 	}, [])
 
 	useEffect(() => {
+		void resetToken
 		if (timerRef.current) {
 			clearTimeout(timerRef.current)
 		}
@@ -87,6 +92,10 @@ export const useSnippetAnalysis = ({
 		setStatus("loading")
 		setError(null)
 		const currentVersion = ++versionRef.current
+
+		const delayMs =
+			runImmediatelyRef.current || debounceMs <= 0 ? 0 : Math.max(0, Math.floor(debounceMs))
+		runImmediatelyRef.current = false
 
 		timerRef.current = setTimeout(() => {
 			void (async () => {
@@ -110,14 +119,14 @@ export const useSnippetAnalysis = ({
 					setError(err instanceof Error ? err.message : "Snippet analysis failed")
 				}
 			})()
-		}, debounceMs)
+		}, delayMs)
 
 		return () => {
 			if (timerRef.current) {
 				clearTimeout(timerRef.current)
 			}
 		}
-	}, [debounceMs, includeInspect, includeTailwind, key, source])
+	}, [debounceMs, includeInspect, includeTailwind, key, resetToken, source])
 
 	return { analysis, resetAnalysis, status, error }
 }

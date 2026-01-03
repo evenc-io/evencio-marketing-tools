@@ -33,6 +33,8 @@ export interface UseSnippetCompilerOptions {
 	analysis?: AnalyzeTsxResponse | null
 	/** Unique key to isolate engine stale tracking (default: "snippet-compile") */
 	engineKey?: string
+	/** Reset compiler state when this key changes (e.g. on snippet switch). */
+	resetKey?: string | number
 }
 
 export interface UseSnippetCompilerResult {
@@ -133,12 +135,15 @@ export function useSnippetCompiler({
 	enableTailwindCss = false,
 	analysis = null,
 	engineKey = "snippet-compile",
+	resetKey,
 }: UseSnippetCompilerOptions): UseSnippetCompilerResult {
 	const [status, setStatus] = useState<CompileStatus>("idle")
 	const [compiledCode, setCompiledCode] = useState<string | null>(null)
 	const [errors, setErrors] = useState<CompileError[]>([])
 	const [warnings, setWarnings] = useState<CompileError[]>([])
 	const [tailwindCss, setTailwindCss] = useState<string | null>(null)
+	const runImmediatelyRef = useRef(false)
+	const wasAutoCompileRef = useRef(autoCompile)
 
 	// Parse props
 	const { parsed: parsedProps, error: propsError } = useMemo(
@@ -150,6 +155,32 @@ export function useSnippetCompiler({
 	const sourceVersionRef = useRef(0)
 	const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 	const isMountedRef = useRef(true)
+	const resetKeyRef = useRef(resetKey)
+
+	useEffect(() => {
+		const wasAutoCompile = wasAutoCompileRef.current
+		wasAutoCompileRef.current = autoCompile
+		if (!wasAutoCompile && autoCompile) {
+			runImmediatelyRef.current = true
+		}
+	}, [autoCompile])
+
+	useEffect(() => {
+		if (resetKey === undefined) return
+		if (resetKeyRef.current === resetKey) return
+		resetKeyRef.current = resetKey
+		runImmediatelyRef.current = true
+		if (debounceTimerRef.current) {
+			clearTimeout(debounceTimerRef.current)
+			debounceTimerRef.current = null
+		}
+		sourceVersionRef.current += 1
+		setStatus("idle")
+		setCompiledCode(null)
+		setErrors([])
+		setWarnings([])
+		setTailwindCss(null)
+	}, [resetKey])
 
 	// Core compile function
 	const doCompile = useCallback(
@@ -247,6 +278,7 @@ export function useSnippetCompiler({
 							return
 						}
 						setStatus("error")
+						setCompiledCode(null)
 						setErrors([...result.errors, buildLimitError(tailwindErrorMessage)])
 						setWarnings(result.warnings)
 						setTailwindCss(null)
@@ -263,16 +295,15 @@ export function useSnippetCompiler({
 					setWarnings(result.warnings)
 					if (enableTailwindCss) {
 						const nextTailwind = effectiveAnalysis?.tailwindCss ?? null
-						if (nextTailwind !== null) {
-							setTailwindCss(nextTailwind)
-						}
+						setTailwindCss(nextTailwind)
 					}
 				} else {
 					if (!isMountedRef.current) return
 					setStatus("error")
-					// Keep last successful code for preview (shows last working version)
+					setCompiledCode(null)
 					setErrors(result.errors)
 					setWarnings(result.warnings)
+					setTailwindCss(null)
 				}
 			} catch (err) {
 				// Check if this is still the latest version
@@ -281,6 +312,8 @@ export function useSnippetCompiler({
 				}
 
 				setStatus("error")
+				setCompiledCode(null)
+				setTailwindCss(null)
 				setErrors([
 					{
 						message: err instanceof Error ? err.message : "Compilation failed",
@@ -303,26 +336,29 @@ export function useSnippetCompiler({
 	// Auto-compile with debounce
 	useEffect(() => {
 		if (!autoCompile) return
+		void resetKey
 
 		// Clear existing timer
 		if (debounceTimerRef.current) {
 			clearTimeout(debounceTimerRef.current)
 		}
 
-		// Increment version
-		const version = ++sourceVersionRef.current
+		const delayMs =
+			runImmediatelyRef.current || debounceMs <= 0 ? 0 : Math.max(0, Math.floor(debounceMs))
+		runImmediatelyRef.current = false
 
 		// Set up debounced compile
 		debounceTimerRef.current = setTimeout(() => {
+			const version = ++sourceVersionRef.current
 			doCompile(source, version)
-		}, debounceMs)
+		}, delayMs)
 
 		return () => {
 			if (debounceTimerRef.current) {
 				clearTimeout(debounceTimerRef.current)
 			}
 		}
-	}, [source, debounceMs, autoCompile, doCompile])
+	}, [source, debounceMs, autoCompile, doCompile, resetKey])
 
 	// React StrictMode mounts, unmounts, then remounts; re-arm to avoid stale false.
 	useEffect(() => {
