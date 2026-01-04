@@ -1,8 +1,9 @@
-import { Fragment, type ReactNode, useMemo } from "react"
+import { Fragment, type ReactNode, type PointerEvent as ReactPointerEvent, useMemo } from "react"
 import { Logo } from "@/components/brand/logo"
 import { AVAILABLE_FONTS, TRUSTED_FONT_PROVIDERS } from "@/lib/snippets/imports"
 import { cn } from "@/lib/utils"
 import type { ImportFilterId } from "@/routes/-snippets/editor/constants"
+import type { ImportAssetId } from "@/routes/-snippets/editor/import-assets"
 
 interface ImportSection {
 	id: string
@@ -13,9 +14,14 @@ interface ImportSection {
 interface SnippetImportsPanelProps {
 	open: boolean
 	filters: ImportFilterId[]
+	onAssetPointerDown?: (assetId: ImportAssetId, event: ReactPointerEvent<HTMLButtonElement>) => void
 }
 
-export function SnippetImportsPanel({ open, filters }: SnippetImportsPanelProps) {
+export function SnippetImportsPanel({
+	open,
+	filters,
+	onAssetPointerDown,
+}: SnippetImportsPanelProps) {
 	const sections = useMemo<ImportSection[]>(() => {
 		const items: ImportSection[] = [
 			{
@@ -76,17 +82,25 @@ export function SnippetImportsPanel({ open, filters }: SnippetImportsPanelProps)
 				node: (
 					<div className="space-y-2">
 						<p className="text-[10px] uppercase tracking-widest text-neutral-400">SVG assets</p>
-						<div className="rounded-md border border-neutral-200 bg-white p-3">
+						<button
+							type="button"
+							onPointerDown={(event) => onAssetPointerDown?.("evencio-mark", event)}
+							className="w-full rounded-md border border-neutral-200 bg-white p-3 text-left transition-colors hover:bg-neutral-50 cursor-grab active:cursor-grabbing"
+						>
 							<div className="flex items-center justify-between gap-3">
 								<span className="text-sm font-medium text-neutral-900">Evencio mark</span>
 								<span className="text-[10px] uppercase tracking-widest text-neutral-400">SVG</span>
 							</div>
 							<div className="mt-3 flex items-center gap-3">
 								<Logo size="xs" showWordmark={false} />
-								<span className="text-[11px] text-neutral-500">Icon only</span>
+								<span className="text-[11px] text-neutral-500">Drag into preview</span>
 							</div>
-						</div>
-						<div className="rounded-md border border-neutral-200 bg-white p-3">
+						</button>
+						<button
+							type="button"
+							onPointerDown={(event) => onAssetPointerDown?.("evencio-lockup", event)}
+							className="w-full rounded-md border border-neutral-200 bg-white p-3 text-left transition-colors hover:bg-neutral-50 cursor-grab active:cursor-grabbing"
+						>
 							<div className="flex items-center justify-between gap-3">
 								<span className="text-sm font-medium text-neutral-900">Evencio lockup</span>
 								<span className="text-[10px] uppercase tracking-widest text-neutral-400">
@@ -96,7 +110,8 @@ export function SnippetImportsPanel({ open, filters }: SnippetImportsPanelProps)
 							<div className="mt-3">
 								<Logo size="xs" showWordmark />
 							</div>
-						</div>
+							<div className="mt-2 text-[11px] text-neutral-500">Drag into preview</div>
+						</button>
 					</div>
 				),
 			},
@@ -128,7 +143,7 @@ export function SnippetImportsPanel({ open, filters }: SnippetImportsPanelProps)
 
 		if (filters.includes("all") || filters.length === 0) return items
 		return items.filter((section) => filters.includes(section.group as ImportFilterId))
-	}, [filters])
+	}, [filters, onAssetPointerDown])
 
 	return (
 		<aside

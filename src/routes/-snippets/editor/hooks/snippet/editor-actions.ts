@@ -136,7 +136,7 @@ export function useSnippetEditorActions({
 			const currentSource = form.getValues("source") ?? ""
 			const parsed = parseSnippetFiles(currentSource)
 			let nextSource = currentSource
-			if (deleteTarget.fileName && parsed.files[deleteTarget.fileName]) {
+			if (deleteTarget.fileName && Object.hasOwn(parsed.files, deleteTarget.fileName)) {
 				const nextFiles = { ...parsed.files }
 				delete nextFiles[deleteTarget.fileName]
 				const nextMain = syncImportBlock(parsed.mainSource, Object.keys(nextFiles))

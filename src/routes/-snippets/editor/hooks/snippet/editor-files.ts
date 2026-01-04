@@ -4,6 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { DEFAULT_SNIPPET_EXPORT, type SnippetComponentExport } from "@/lib/snippets"
 import type { SnippetTemplateId } from "@/lib/snippets/templates"
 import { SNIPPET_FILES } from "@/routes/-snippets/editor/constants"
+import {
+	getImportAssetsInFileSource,
+	IMPORT_ASSET_FILE_NAME,
+} from "@/routes/-snippets/editor/import-assets"
 import type {
 	SnippetEditorFile,
 	SnippetEditorFileId,
@@ -92,6 +96,10 @@ export const useSnippetEditorFiles = ({
 		() => Object.keys(parsedFiles.files).sort((a, b) => a.localeCompare(b)),
 		[parsedFiles.files],
 	)
+	const importAssetsFileSource = parsedFiles.files[IMPORT_ASSET_FILE_NAME] ?? ""
+	const canDeleteImportAssetsFile =
+		Object.hasOwn(parsedFiles.files, IMPORT_ASSET_FILE_NAME) &&
+		importAssetsFileSource.trim().length === 0
 	const editorFiles = useMemo<SnippetEditorFile[]>(() => {
 		const mainFile = SNIPPET_FILES.find((file) => file.id === "source")
 		const jsonFiles = SNIPPET_FILES.filter((file) => file.id !== "source")
@@ -111,6 +119,21 @@ export const useSnippetEditorFiles = ({
 		]
 
 		const componentFiles: SnippetEditorFile[] = componentFileNames.map((fileName) => {
+			if (fileName === IMPORT_ASSET_FILE_NAME) {
+				const canDelete = canDeleteImportAssetsFile
+				return {
+					id: toComponentFileId(fileName),
+					label: "Imports.assets.tsx",
+					description: canDelete
+						? "Auto-managed imports (assets) — empty"
+						: "Auto-managed imports (assets)",
+					kind: "component",
+					icon: FileCode,
+					exportName: getExportNameFromFile(fileName),
+					fileName,
+					deletable: canDelete,
+				}
+			}
 			const exportName = getExportNameFromFile(fileName)
 			return {
 				id: toComponentFileId(fileName),
@@ -136,7 +159,7 @@ export const useSnippetEditorFiles = ({
 				deletable: false,
 			})),
 		]
-	}, [componentFileNames, mainComponentLabel])
+	}, [canDeleteImportAssetsFile, componentFileNames, mainComponentLabel])
 
 	const editorFilesById = useMemo(
 		() => new Map(editorFiles.map((file) => [file.id, file])),
@@ -145,6 +168,20 @@ export const useSnippetEditorFiles = ({
 
 	const componentTypeLibs = useMemo(() => {
 		const libs: Array<{ content: string; filePath: string }> = []
+		if (Object.hasOwn(parsedFiles.files, IMPORT_ASSET_FILE_NAME)) {
+			const activeAssets = getImportAssetsInFileSource(
+				parsedFiles.files[IMPORT_ASSET_FILE_NAME] ?? "",
+			)
+			if (activeAssets.length) {
+				const declarations = activeAssets
+					.map((asset) => `declare const ${asset.componentName}: (props: any) => JSX.Element;`)
+					.join("\n")
+				libs.push({
+					filePath: "file:///snippets/imports/assets.d.ts",
+					content: declarations,
+				})
+			}
+		}
 		for (const [fileName, fileSource] of Object.entries(parsedFiles.files)) {
 			const exportNames = extractNamedExports(fileSource)
 			if (exportNames.length === 0) continue
@@ -162,6 +199,15 @@ export const useSnippetEditorFiles = ({
 	const componentDefinitionMap = useMemo(() => {
 		const map: Record<string, SnippetEditorFileId> = {}
 		for (const [fileName, fileSource] of Object.entries(parsedFiles.files)) {
+			if (fileName === IMPORT_ASSET_FILE_NAME) {
+				const fileId = toComponentFileId(fileName)
+				const activeAssets = getImportAssetsInFileSource(fileSource)
+				for (const asset of activeAssets) {
+					if (!map[asset.componentName]) {
+						map[asset.componentName] = fileId
+					}
+				}
+			}
 			const exportNames = extractNamedExports(fileSource)
 			if (exportNames.length === 0) continue
 			const fileId = toComponentFileId(fileName)
@@ -241,9 +287,12 @@ export const useSnippetEditorFiles = ({
 					if (nextActive) {
 						setActiveFile(nextActive)
 						if (isComponentFileId(nextActive)) {
-							const exportName = getComponentExportName(nextActive)
-							if (exportName) {
-								setActiveComponentExport(exportName)
+							const fileName = getComponentFileName(nextActive)
+							if (fileName !== IMPORT_ASSET_FILE_NAME) {
+								const exportName = getComponentExportName(nextActive)
+								if (exportName) {
+									setActiveComponentExport(exportName)
+								}
 							}
 						} else if (nextActive === "source") {
 							setActiveComponentExport(DEFAULT_SNIPPET_EXPORT)
@@ -260,9 +309,12 @@ export const useSnippetEditorFiles = ({
 		(fileId: SnippetEditorFileId) => {
 			openFileTab(fileId)
 			if (isComponentFileId(fileId)) {
-				const exportName = getComponentExportName(fileId)
-				if (exportName) {
-					setActiveComponentExport(exportName)
+				const fileName = getComponentFileName(fileId)
+				if (fileName !== IMPORT_ASSET_FILE_NAME) {
+					const exportName = getComponentExportName(fileId)
+					if (exportName) {
+						setActiveComponentExport(exportName)
+					}
 				}
 				return
 			}
@@ -326,6 +378,8 @@ export const useSnippetEditorFiles = ({
 
 	useEffect(() => {
 		if (!isComponentFileId(activeFile)) return
+		const activeFileName = getComponentFileName(activeFile)
+		if (activeFileName === IMPORT_ASSET_FILE_NAME) return
 		if (suppressComponentSyncRef.current) {
 			suppressComponentSyncRef.current = false
 			return

@@ -30,6 +30,8 @@ export interface SnippetPreviewProps {
 	tailwindCss?: string | null
 	/** Dimensions for the snippet viewport */
 	dimensions?: PreviewDimensions
+	/** How the preview should scale within the container */
+	fitMode?: "contain" | "width"
 	/** Called when the preview successfully renders */
 	onRenderSuccess?: () => void
 	/** Called when the preview encounters an error */
@@ -76,6 +78,8 @@ export interface SnippetPreviewProps {
 	onLayoutCommit?: (commit: PreviewLayoutCommit) => void
 	/** Trigger skipping the next render after a layout commit */
 	suppressNextRenderToken?: number
+	/** Called when the imports preview requests removing an asset */
+	onImportAssetRemove?: (assetId: string) => void
 }
 
 export type PreviewStatus = "idle" | "loading" | "success" | "error"
@@ -142,6 +146,7 @@ export function SnippetPreview({
 	props,
 	tailwindCss,
 	dimensions = DEFAULT_PREVIEW_DIMENSIONS,
+	fitMode = "contain",
 	onRenderSuccess,
 	onRenderError,
 	className,
@@ -163,6 +168,7 @@ export function SnippetPreview({
 	layoutSnapGrid = 8,
 	onLayoutCommit,
 	suppressNextRenderToken = 0,
+	onImportAssetRemove,
 }: SnippetPreviewProps) {
 	const iframeRef = useRef<HTMLIFrameElement>(null)
 	const containerRef = useRef<HTMLDivElement>(null)
@@ -189,6 +195,7 @@ export function SnippetPreview({
 	const onLayersErrorRef = useRef(onLayersError)
 	const layersEnabledRef = useRef(Boolean(layersEnabled))
 	const onLayoutCommitRef = useRef(onLayoutCommit)
+	const onImportAssetRemoveRef = useRef(onImportAssetRemove)
 	const layoutEnabledRef = useRef(Boolean(layoutEnabled))
 	const scaleRef = useRef(1)
 	const suppressRenderStateRef = useRef<PreviewSuppressRenderState>({
@@ -258,6 +265,7 @@ export function SnippetPreview({
 		onLayersErrorRef.current = onLayersError
 		layersEnabledRef.current = Boolean(layersEnabled)
 		onLayoutCommitRef.current = onLayoutCommit
+		onImportAssetRemoveRef.current = onImportAssetRemove
 		layoutEnabledRef.current = Boolean(layoutEnabled)
 		layoutDebugEnabledRef.current = Boolean(layoutDebugEnabled)
 		traceEnabledRef.current = Boolean(layoutDebugEnabled)
@@ -274,6 +282,7 @@ export function SnippetPreview({
 		onLayersError,
 		layersEnabled,
 		onLayoutCommit,
+		onImportAssetRemove,
 		layoutEnabled,
 		layoutDebugEnabled,
 		layoutSnapEnabled,
@@ -416,6 +425,9 @@ export function SnippetPreview({
 						}
 						return next
 					})
+					break
+				case "import-assets-remove":
+					onImportAssetRemoveRef.current?.(data.assetId)
 					break
 			}
 		},
@@ -658,12 +670,13 @@ export function SnippetPreview({
 	const scale = useMemo(() => {
 		const availableWidth = containerSize.width
 		const availableHeight = containerSize.height
-		if (!availableWidth || !availableHeight) return 1
+		if (!availableWidth) return 1
+		if (fitMode !== "width" && !availableHeight) return 1
 		const widthRatio = availableWidth / dimensions.width
 		const heightRatio = availableHeight / dimensions.height
-		const nextScale = Math.min(widthRatio, heightRatio)
+		const nextScale = fitMode === "width" ? widthRatio : Math.min(widthRatio, heightRatio)
 		return Math.min(1, Math.max(0.01, nextScale))
-	}, [containerSize.height, containerSize.width, dimensions.height, dimensions.width])
+	}, [containerSize.height, containerSize.width, dimensions.height, dimensions.width, fitMode])
 
 	// Keep scaleRef in sync for use in message handler
 	useEffect(() => {
@@ -765,7 +778,15 @@ export function SnippetPreview({
 						</div>
 					</div>
 				)}
-				<div ref={containerRef} className="relative flex h-full w-full items-center justify-center">
+				<div
+					ref={containerRef}
+					className={cn(
+						"relative w-full",
+						fitMode === "contain"
+							? "flex h-full items-center justify-center"
+							: "flex justify-center",
+					)}
+				>
 					<div
 						className="relative overflow-hidden rounded-md border border-neutral-200 bg-white"
 						style={{
@@ -807,6 +828,7 @@ export function SnippetPreview({
 									ref={iframeRef}
 									title="Snippet Preview"
 									sandbox="allow-scripts"
+									data-snippet-preview="iframe"
 									className="block"
 									style={{
 										width: dimensions.width,

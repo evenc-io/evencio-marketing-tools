@@ -60,6 +60,20 @@ export type LayoutTranslateResponse = {
 	reason?: string
 }
 
+export type InsertChildRequest = {
+	source: string
+	line: number
+	column: number
+	jsx: string
+}
+
+export type InsertChildResponse = {
+	source: string
+	changed: boolean
+	insertedAt?: { line: number; column: number }
+	reason?: string
+}
+
 export type EngineRequest =
 	| {
 			id: string
@@ -85,6 +99,11 @@ export type EngineRequest =
 			id: string
 			type: "layout-translate"
 			payload: LayoutTranslateRequest
+	  }
+	| {
+			id: string
+			type: "insert-child"
+			payload: InsertChildRequest
 	  }
 
 export type EngineResponse =
@@ -112,6 +131,11 @@ export type EngineResponse =
 			id: string
 			type: "layout-translate"
 			payload: LayoutTranslateResponse
+	  }
+	| {
+			id: string
+			type: "insert-child"
+			payload: InsertChildResponse
 	  }
 	| {
 			id: string

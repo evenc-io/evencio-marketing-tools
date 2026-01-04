@@ -572,6 +572,7 @@ export function SnippetEditorPanel({
 										onChange={onComponentSourceChange}
 										language="typescript"
 										path={activeComponentFileName ?? "Component.tsx"}
+										extraLibs={componentTypeLibs}
 										onMount={handleMonacoMount}
 										height="100%"
 										className="h-full"

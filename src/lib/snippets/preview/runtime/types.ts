@@ -82,3 +82,4 @@ export type PreviewMessage =
 	| { type: "layers-error"; error: string }
 	| { type: "layout-commit"; commit: PreviewLayoutCommit }
 	| { type: "layout-debug"; entry: PreviewLayoutDebugEvent }
+	| { type: "import-assets-remove"; assetId: string }

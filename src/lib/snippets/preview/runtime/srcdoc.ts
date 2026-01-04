@@ -314,10 +314,160 @@ export function generatePreviewSrcdoc(
 
       window.React = React;
 
+      const IMPORTS_SELECTORS = {
+        root: "[data-snippet-imports-preview]",
+        tile: "[data-snippet-imports-tile]",
+        viewport: "[data-snippet-imports-viewport]",
+        frame: "[data-snippet-imports-frame]",
+        content: "[data-snippet-imports-content]",
+        remove: "[data-snippet-imports-remove]",
+      };
+
+      const importsScaleState = {
+        active: false,
+        raf: 0,
+        observer: null,
+      };
+
+      const resetImportsTileScale = () => {
+        importsScaleState.active = false;
+        if (importsScaleState.raf) {
+          window.cancelAnimationFrame(importsScaleState.raf);
+          importsScaleState.raf = 0;
+        }
+        if (importsScaleState.observer) {
+          importsScaleState.observer.disconnect();
+          importsScaleState.observer = null;
+        }
+      };
+
+      const clampPositiveNumber = (value) => {
+        const next = Number(value);
+        return Number.isFinite(next) && next > 0 ? next : 0;
+      };
+
+      const getImportsTileDesignSize = (tile) => {
+        if (!tile || typeof tile.getAttribute !== "function") return { width: 0, height: 0 };
+        return {
+          width: clampPositiveNumber(tile.getAttribute("data-snippet-imports-design-width")),
+          height: clampPositiveNumber(tile.getAttribute("data-snippet-imports-design-height")),
+        };
+      };
+
+      const measureUnscaledBox = (element) => {
+        if (!element) return { width: 0, height: 0 };
+        const prevTransform = element.style.transform;
+        element.style.transform = "none";
+        const rect = element.getBoundingClientRect();
+        const width = Math.max(rect.width, Number(element.scrollWidth) || 0);
+        const height = Math.max(rect.height, Number(element.scrollHeight) || 0);
+        element.style.transform = prevTransform;
+        return {
+          width: Number.isFinite(width) ? width : 0,
+          height: Number.isFinite(height) ? height : 0,
+        };
+      };
+
+      const applyImportsTileScale = () => {
+        const root = document.querySelector(IMPORTS_SELECTORS.root);
+        if (!root) return false;
+        const tiles = root.querySelectorAll(IMPORTS_SELECTORS.tile);
+        if (!tiles.length) return false;
+
+        tiles.forEach((tile) => {
+          const viewport = tile.querySelector(IMPORTS_SELECTORS.viewport);
+          const frame = tile.querySelector(IMPORTS_SELECTORS.frame);
+          const content = tile.querySelector(IMPORTS_SELECTORS.content);
+          if (!viewport || !frame || !content) return;
+
+          const viewportRect = viewport.getBoundingClientRect();
+          const availableWidth = viewportRect.width;
+          const availableHeight = viewportRect.height;
+          if (!availableWidth || !availableHeight) return;
+
+          frame.style.width = "";
+          frame.style.height = "";
+          content.style.transform = "";
+          content.style.transformOrigin = "";
+
+          const contentBox = measureUnscaledBox(content);
+          const design = getImportsTileDesignSize(tile);
+          const naturalWidth = contentBox.width || design.width;
+          const naturalHeight = contentBox.height || design.height;
+          if (!naturalWidth || !naturalHeight) return;
+
+          const scale = Math.min(availableWidth / naturalWidth, availableHeight / naturalHeight);
+          const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
+          const scaledWidth = naturalWidth * safeScale;
+          const scaledHeight = naturalHeight * safeScale;
+
+          frame.style.width = scaledWidth + "px";
+          frame.style.height = scaledHeight + "px";
+          content.style.transformOrigin = "top left";
+          content.style.transform = "scale(" + safeScale + ")";
+        });
+
+        return true;
+      };
+
+      const scheduleImportsTileScale = () => {
+        if (!importsScaleState.active) return;
+        if (importsScaleState.raf) return;
+        importsScaleState.raf = window.requestAnimationFrame(() => {
+          importsScaleState.raf = 0;
+          applyImportsTileScale();
+        });
+      };
+
+      const setupImportsTileScale = () => {
+        const root = document.querySelector(IMPORTS_SELECTORS.root);
+        if (!root) return;
+        const tiles = root.querySelectorAll(IMPORTS_SELECTORS.tile);
+        if (!tiles.length) return;
+
+        importsScaleState.active = true;
+        applyImportsTileScale();
+
+        if (typeof ResizeObserver !== "undefined") {
+          const observer = new ResizeObserver(() => {
+            scheduleImportsTileScale();
+          });
+          tiles.forEach((tile) => {
+            const viewport = tile.querySelector(IMPORTS_SELECTORS.viewport);
+            if (viewport) observer.observe(viewport);
+            const content = tile.querySelector(IMPORTS_SELECTORS.content);
+            if (content) observer.observe(content);
+          });
+          importsScaleState.observer = observer;
+        }
+
+        const fonts = document.fonts;
+        if (fonts && typeof fonts.ready?.then === "function") {
+          fonts.ready.then(() => scheduleImportsTileScale()).catch(() => {});
+        }
+      };
+
+      const handleImportsRemoveClick = (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const button = typeof target.closest === "function" ? target.closest(IMPORTS_SELECTORS.remove) : null;
+        if (!button) return;
+        const root = document.querySelector(IMPORTS_SELECTORS.root);
+        if (!root || !(root instanceof Element) || !root.contains(button)) return;
+        const assetId = button.getAttribute("data-snippet-imports-remove");
+        if (!assetId) return;
+        event.preventDefault();
+        event.stopPropagation();
+        parent.postMessage({ type: "import-assets-remove", assetId }, "*");
+      };
+
+      document.addEventListener("click", handleImportsRemoveClick);
+
       const tailwindStyle = document.getElementById("snippet-tailwind");
       const setTailwindCss = (css) => {
         if (!tailwindStyle) return;
         tailwindStyle.textContent = typeof css === "string" ? css : "";
+        scheduleImportsTileScale();
       };
 
       const INSPECT_HOVER = "#FF0066";
@@ -335,8 +485,25 @@ export function generatePreviewSrcdoc(
         if (!(target instanceof Element)) return null;
         if (!container.contains(target)) return null;
 
+        const importWrapper = typeof target.closest === "function"
+          ? target.closest("[data-snippet-asset]")
+          : null;
+        if (
+          importWrapper &&
+          importWrapper instanceof Element &&
+          importWrapper !== container &&
+          container.contains(importWrapper) &&
+          elementSourceMap.has(importWrapper)
+        ) {
+          return importWrapper;
+        }
+
         let current = target;
         while (current && current !== container) {
+          if (current.getAttribute && current.getAttribute("data-snippet-inspect") === "ignore") {
+            current = current.parentElement;
+            continue;
+          }
           if (elementSourceMap.has(current)) return current;
           current = current.parentElement;
         }
@@ -600,6 +767,10 @@ export function generatePreviewSrcdoc(
         hovered: null,
         selected: null,
       };
+      const dragHighlightState = {
+        enabled: false,
+        hovered: null,
+      };
 
       let inspectListenersAttached = false;
       const attachInspectListeners = () => {
@@ -643,15 +814,16 @@ export function generatePreviewSrcdoc(
       };
 
       const updateInspectOverlay = () => {
-        const showOverlay = inspectState.enabled || layoutState.enabled;
+        const showOverlay = inspectState.enabled || layoutState.enabled || dragHighlightState.enabled;
         if (!showOverlay) {
           inspectOverlay.setEnabled(false);
           return;
         }
         inspectOverlay.setEnabled(true);
         const layoutTarget = resolveLayoutTarget();
+        const externalHover = dragHighlightState.enabled ? dragHighlightState.hovered : null;
         inspectOverlay.update({
-          hovered: inspectState.enabled ? inspectState.hovered : null,
+          hovered: inspectState.enabled ? inspectState.hovered : externalHover,
           selected: inspectState.enabled ? inspectState.selected : null,
           parent: resolveLayoutParentTarget(),
         });
@@ -803,6 +975,7 @@ export function generatePreviewSrcdoc(
         container: null,
         vLine: null,
         hLine: null,
+        ghost: null,
         ensure() {
           if (this.container) return;
           const container = document.createElement("div");
@@ -824,12 +997,19 @@ export function generatePreviewSrcdoc(
           hLine.style.height = "1px";
           hLine.style.background = "#00ff00";
           hLine.style.display = "none";
+          const ghost = document.createElement("div");
+          ghost.style.position = "absolute";
+          ghost.style.border = "1px dashed rgba(0, 255, 0, 0.75)";
+          ghost.style.background = "rgba(0, 255, 0, 0.06)";
+          ghost.style.display = "none";
           container.appendChild(vLine);
           container.appendChild(hLine);
+          container.appendChild(ghost);
           document.body.appendChild(container);
           this.container = container;
           this.vLine = vLine;
           this.hLine = hLine;
+          this.ghost = ghost;
         },
         showVertical(x, thickness = 1) {
           this.ensure();
@@ -847,9 +1027,23 @@ export function generatePreviewSrcdoc(
           this.hLine.style.height = String(height) + "px";
           this.hLine.style.top = String(Math.round(y - height / 2)) + "px";
         },
+        showGhost(rect) {
+          this.ensure();
+          if (!this.ghost) return;
+          if (!rect) {
+            this.ghost.style.display = "none";
+            return;
+          }
+          this.ghost.style.display = "block";
+          this.ghost.style.left = String(Math.round(rect.left)) + "px";
+          this.ghost.style.top = String(Math.round(rect.top)) + "px";
+          this.ghost.style.width = String(Math.max(0, Math.round(rect.width))) + "px";
+          this.ghost.style.height = String(Math.max(0, Math.round(rect.height))) + "px";
+        },
         hide() {
           if (this.vLine) this.vLine.style.display = "none";
           if (this.hLine) this.hLine.style.display = "none";
+          if (this.ghost) this.ghost.style.display = "none";
         },
       };
 
@@ -1056,6 +1250,324 @@ export function generatePreviewSrcdoc(
       };
       let pendingCodeUpdate = null;
       let pendingPropsRender = false;
+      const importDndState = {
+        active: false,
+        lastSourcesKey: "",
+        lastSentAt: 0,
+        cachedEdgeTarget: null,
+        cachedEdgeWidth: 0,
+        cachedEdgeHeight: 0,
+        cachedSiblingEdges: null,
+      };
+      const IMPORT_DND_SEND_INTERVAL_MS = 60;
+
+      const resetImportDndCache = () => {
+        importDndState.cachedEdgeTarget = null;
+        importDndState.cachedEdgeWidth = 0;
+        importDndState.cachedEdgeHeight = 0;
+        importDndState.cachedSiblingEdges = null;
+      };
+
+      const buildImportDndSourceChain = (element) => {
+        const container = document.getElementById("snippet-container");
+        if (!container || !element) return [];
+        const sources = [];
+        const seen = new Set();
+        let current = element;
+        while (current && current !== container) {
+          const source = elementSourceMap.get(current) ?? null;
+          if (source) {
+            const key = getSourceKey(source);
+            if (key && !seen.has(key)) {
+              seen.add(key);
+              sources.push(source);
+            }
+          }
+          current = current.parentElement;
+        }
+        return sources;
+      };
+
+      const resolveImportDndInsertTarget = (target) => {
+        const container = document.getElementById("snippet-container");
+        if (!container || !target) return null;
+        if (!(target instanceof Element)) return null;
+        if (!container.contains(target)) return null;
+
+        let current = target.parentElement;
+        while (current && current !== container) {
+          if (elementSourceMap.has(current)) return current;
+          current = current.parentElement;
+        }
+
+        return target;
+      };
+
+      const sendImportDndHover = (sources) => {
+        parent.postMessage({ type: "import-dnd-hover", sources: sources ?? [] }, "*");
+      };
+
+      const buildImportDndEdges = (referenceElement, containerRect) => {
+        if (!containerRect) {
+          return { xEdges: [], yEdges: [], xCenters: [], yCenters: [] };
+        }
+        snapState.scaleForSnap = inspectScale > 0 ? inspectScale : 1;
+        snapState.altHeld = false;
+        if (snapState.enabled && referenceElement) {
+          const bounds = buildLayoutBounds(referenceElement);
+          if (bounds) {
+            return collectSiblingEdges(referenceElement, bounds);
+          }
+        }
+        return {
+          xEdges: [0, containerRect.width],
+          yEdges: [0, containerRect.height],
+          xCenters: [containerRect.width / 2],
+          yCenters: [containerRect.height / 2],
+        };
+      };
+
+      const applyImportDndGuides = (position, ghost, containerRect, siblingEdges) => {
+        snapGuides.hide();
+        if (!containerRect) {
+          snapGuides.showGhost(null);
+          return null;
+        }
+        const ghostWidth = ghost?.width ?? 0;
+        const ghostHeight = ghost?.height ?? 0;
+        if (!Number.isFinite(ghostWidth) || !Number.isFinite(ghostHeight) || ghostWidth <= 0 || ghostHeight <= 0) {
+          snapGuides.showGhost(null);
+          return null;
+        }
+        if (!position || !Number.isFinite(position.x) || !Number.isFinite(position.y)) {
+          snapGuides.showGhost(null);
+          return null;
+        }
+
+        const scaleForSnap = snapState.scaleForSnap > 0 ? snapState.scaleForSnap : 1;
+        const grid = snapState.baseGridSize / scaleForSnap;
+        const threshold = snapState.baseThreshold / scaleForSnap;
+        const desiredLeft = position.x - ghostWidth / 2;
+        const desiredTop = position.y - ghostHeight / 2;
+
+        const elemLeft = desiredLeft;
+        const elemRight = elemLeft + ghostWidth;
+        const elemCenterX = (elemLeft + elemRight) / 2;
+        const elemTop = desiredTop;
+        const elemBottom = elemTop + ghostHeight;
+        const elemCenterY = (elemTop + elemBottom) / 2;
+
+        let left = desiredLeft;
+        let top = desiredTop;
+        let snappedX = false;
+        let snappedY = false;
+        let snapXValue = null;
+        let snapYValue = null;
+        const xEdges = siblingEdges?.xEdges ?? [];
+        const yEdges = siblingEdges?.yEdges ?? [];
+        const xCenters = siblingEdges?.xCenters ?? [];
+        const yCenters = siblingEdges?.yCenters ?? [];
+
+        const leftSnap = snapToEdges(elemLeft, xEdges, threshold);
+        const rightSnap = snapToEdges(elemRight, xEdges, threshold);
+        const centerXSnap = snapToEdges(elemCenterX, xCenters, threshold);
+        const leftDiff = leftSnap.dist;
+        const rightDiff = rightSnap.dist;
+        const centerXDiff = centerXSnap.dist;
+
+        if (leftDiff <= threshold || rightDiff <= threshold) {
+          if (leftDiff <= rightDiff) {
+            left = desiredLeft + (leftSnap.value - elemLeft);
+            snappedX = true;
+            snapXValue = leftSnap.value;
+          } else {
+            left = desiredLeft + (rightSnap.value - elemRight);
+            snappedX = true;
+            snapXValue = rightSnap.value;
+          }
+        } else if (centerXDiff <= threshold) {
+          left = desiredLeft + (centerXSnap.value - elemCenterX);
+          snappedX = true;
+          snapXValue = centerXSnap.value;
+        }
+
+        const topSnap = snapToEdges(elemTop, yEdges, threshold);
+        const bottomSnap = snapToEdges(elemBottom, yEdges, threshold);
+        const centerYSnap = snapToEdges(elemCenterY, yCenters, threshold);
+        const topDiff = topSnap.dist;
+        const bottomDiff = bottomSnap.dist;
+        const centerYDiff = centerYSnap.dist;
+
+        if (topDiff <= threshold || bottomDiff <= threshold) {
+          if (topDiff <= bottomDiff) {
+            top = desiredTop + (topSnap.value - elemTop);
+            snappedY = true;
+            snapYValue = topSnap.value;
+          } else {
+            top = desiredTop + (bottomSnap.value - elemBottom);
+            snappedY = true;
+            snapYValue = bottomSnap.value;
+          }
+        } else if (centerYDiff <= threshold) {
+          top = desiredTop + (centerYSnap.value - elemCenterY);
+          snappedY = true;
+          snapYValue = centerYSnap.value;
+        }
+
+        if (!snappedX && Number.isFinite(grid) && grid > 0) {
+          left = Math.round(left / grid) * grid;
+        }
+        if (!snappedY && Number.isFinite(grid) && grid > 0) {
+          top = Math.round(top / grid) * grid;
+        }
+
+        const guideThickness = Math.max(1, Math.round(1 / scaleForSnap));
+        if (snappedX && Number.isFinite(snapXValue)) {
+          snapGuides.showVertical(containerRect.left + snapXValue, guideThickness);
+        }
+        if (snappedY && Number.isFinite(snapYValue)) {
+          snapGuides.showHorizontal(containerRect.top + snapYValue, guideThickness);
+        }
+
+        snapGuides.showGhost({
+          left: containerRect.left + left,
+          top: containerRect.top + top,
+          width: ghostWidth,
+          height: ghostHeight,
+        });
+
+        return { left, top, width: ghostWidth, height: ghostHeight };
+      };
+
+      const handleImportDndMove = (data) => {
+        if (!data) return;
+        const container = document.getElementById("snippet-container");
+        if (!container) return;
+        const x = typeof data.x === "number" ? data.x : NaN;
+        const y = typeof data.y === "number" ? data.y : NaN;
+        const ghost = data.ghost && typeof data.ghost === "object" ? data.ghost : null;
+        const containerRect = container.getBoundingClientRect();
+        if (!Number.isFinite(x) || !Number.isFinite(y) || !containerRect) {
+          snapGuides.hide();
+          snapGuides.showGhost(null);
+          dragHighlightState.enabled = false;
+          dragHighlightState.hovered = null;
+          updateInspectOverlay();
+          return;
+        }
+
+        importDndState.active = true;
+
+        const hit = document.elementFromPoint(containerRect.left + x, containerRect.top + y);
+        const target = resolveInspectableTarget(hit);
+        const insertTarget = resolveImportDndInsertTarget(target);
+        dragHighlightState.enabled = Boolean(insertTarget);
+        dragHighlightState.hovered = insertTarget;
+        updateInspectOverlay();
+        let siblingEdges = null;
+        if (target) {
+          const width = containerRect.width;
+          const height = containerRect.height;
+          const canReuse =
+            importDndState.cachedEdgeTarget === target &&
+            importDndState.cachedSiblingEdges &&
+            importDndState.cachedEdgeWidth === width &&
+            importDndState.cachedEdgeHeight === height;
+          if (canReuse) {
+            siblingEdges = importDndState.cachedSiblingEdges;
+          } else {
+            siblingEdges = buildImportDndEdges(target, containerRect);
+            importDndState.cachedEdgeTarget = target;
+            importDndState.cachedEdgeWidth = width;
+            importDndState.cachedEdgeHeight = height;
+            importDndState.cachedSiblingEdges = siblingEdges;
+          }
+        } else {
+          resetImportDndCache();
+          siblingEdges = buildImportDndEdges(null, containerRect);
+        }
+        applyImportDndGuides({ x, y }, ghost, containerRect, siblingEdges);
+
+        const sources = target ? buildImportDndSourceChain(target) : [];
+        const sourcesKey = sources.map((entry) => getSourceKey(entry)).filter(Boolean).join("|");
+        const now = Date.now();
+        const shouldSend =
+          sourcesKey !== importDndState.lastSourcesKey ||
+          now - importDndState.lastSentAt >= IMPORT_DND_SEND_INTERVAL_MS;
+        if (shouldSend) {
+          importDndState.lastSourcesKey = sourcesKey;
+          importDndState.lastSentAt = now;
+          sendImportDndHover(sources);
+        }
+      };
+
+      const handleImportDndEnd = () => {
+        if (!importDndState.active && !importDndState.lastSourcesKey) return;
+        importDndState.active = false;
+        importDndState.lastSourcesKey = "";
+        importDndState.lastSentAt = 0;
+        resetImportDndCache();
+        dragHighlightState.enabled = false;
+        dragHighlightState.hovered = null;
+        updateInspectOverlay();
+        snapGuides.hide();
+        snapGuides.showGhost(null);
+        sendImportDndHover([]);
+      };
+
+      const handleImportDndCommit = (data) => {
+        if (!data || !data.source) return;
+        const x = typeof data.x === "number" ? data.x : NaN;
+        const y = typeof data.y === "number" ? data.y : NaN;
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+
+        const element = resolveElementFromSource(data.source);
+        if (!element) return;
+        const bounds = buildLayoutBounds(element);
+        if (!bounds) return;
+
+        snapState.altHeld = false;
+        snapState.scaleForSnap = inspectScale > 0 ? inspectScale : 1;
+        if (snapState.enabled) {
+          snapState.siblingEdges = collectSiblingEdges(element, bounds);
+        } else {
+          snapState.siblingEdges = { xEdges: [], yEdges: [], xCenters: [], yCenters: [] };
+        }
+
+        const baseTranslate = getElementTranslate(element);
+        layoutState.baseTranslate = baseTranslate;
+        layoutState.currentTranslate = baseTranslate;
+        layoutState.bounds = bounds;
+
+        const elementRect = bounds.elementRect;
+        const containerRect = bounds.containerRect;
+        const elemCenterX = elementRect.left - containerRect.left + elementRect.width / 2;
+        const elemCenterY = elementRect.top - containerRect.top + elementRect.height / 2;
+        const desiredTranslate = {
+          x: baseTranslate.x + (x - elemCenterX),
+          y: baseTranslate.y + (y - elemCenterY),
+        };
+        const snappedTranslate = applySnapping(desiredTranslate, elementRect, containerRect);
+        const alignX = resolveAlignmentX(snappedTranslate, bounds);
+        const alignY = resolveAlignmentY(snappedTranslate, bounds, element);
+
+        const source = elementSourceMap.get(element) ?? data.source ?? null;
+        if (source) {
+          setStoredSourceTranslate(source, snappedTranslate);
+        }
+        parent.postMessage(
+          {
+            type: "layout-commit",
+            commit: {
+              source,
+              translate: snappedTranslate,
+              alignX,
+              alignY,
+            },
+          },
+          "*",
+        );
+      };
 
       const getElementTranslate = (element) => {
         if (!element) return { x: 0, y: 0 };
@@ -2182,6 +2694,8 @@ export function generatePreviewSrcdoc(
           }
           const container = document.getElementById('snippet-container');
           if (!container) return;
+          resetImportsTileScale();
+          resetImportDndCache();
           resetSourceElementMap();
           container.innerHTML = "";
           const props = normalizeProps(nextProps);
@@ -2189,6 +2703,7 @@ export function generatePreviewSrcdoc(
             ? SnippetComponent(props)
             : SnippetComponent;
           renderNode(output, container);
+          setupImportsTileScale();
           parent.postMessage({ type: 'render-success' }, '*');
           scheduleLayerSnapshot();
         } catch (error) {
@@ -2258,6 +2773,18 @@ export function generatePreviewSrcdoc(
           scheduleLayerSnapshot();
           return;
         }
+        if (data.type === "import-dnd-move") {
+          handleImportDndMove(data);
+          return;
+        }
+        if (data.type === "import-dnd-end") {
+          handleImportDndEnd();
+          return;
+        }
+        if (data.type === "import-dnd-commit") {
+          handleImportDndCommit(data);
+          return;
+        }
         if (data.type === "code-update") {
           if (typeof data.propsJson === "string" || typeof data.props === "string" || typeof data.props === "object") {
             latestPropsPayload = data.propsJson ?? data.props;
@@ -2309,6 +2836,9 @@ export function generatePreviewSrcdoc(
       });
 
       window.addEventListener("beforeunload", () => {
+        resetImportsTileScale();
+        resetImportDndCache();
+        document.removeEventListener("click", handleImportsRemoveClick);
         if (layersState.raf) {
           window.cancelAnimationFrame(layersState.raf);
           layersState.raf = 0;

@@ -4,12 +4,15 @@ import type {
 	ComponentTreeResponse,
 	EngineRequest,
 	EngineResponse,
+	InsertChildRequest,
+	InsertChildResponse,
 	LayoutTranslateRequest,
 	LayoutTranslateResponse,
 } from "@/lib/engine/protocol"
 import { analyzeSnippetTsx } from "@/lib/snippets/analyze-tsx"
 import { compileSnippet } from "@/lib/snippets/compiler"
 import { buildSnippetComponentTree } from "@/lib/snippets/component-tree"
+import { insertSnippetChild } from "@/lib/snippets/source/insert-child"
 import { applySnippetTranslate } from "@/lib/snippets/source/layout"
 
 const isBrowser = typeof window !== "undefined" || typeof self !== "undefined"
@@ -156,6 +159,10 @@ const runInProcess = async <T extends EngineResponse>(payload: EngineRequest): P
 		const result = await applySnippetTranslate(payload.payload)
 		return { id: payload.id, type: "layout-translate", payload: result } as T
 	}
+	if (payload.type === "insert-child") {
+		const result = await insertSnippetChild(payload.payload)
+		return { id: payload.id, type: "insert-child", payload: result } as T
+	}
 	const result = await compileSnippet(payload.payload.source, payload.payload.entryExport)
 	return { id: payload.id, type: "compile", payload: result } as T
 }
@@ -267,6 +274,21 @@ export const applySnippetLayoutInEngine = async (
 		payload,
 	})
 	if (response.type !== "layout-translate") {
+		throw new Error("Engine returned unexpected response")
+	}
+	return response.payload
+}
+
+export const insertSnippetChildInEngine = async (
+	payload: InsertChildRequest,
+): Promise<InsertChildResponse> => {
+	const id = `insert-child-${++requestCounter}`
+	const response = await requestEngine<EngineResponse>({
+		id,
+		type: "insert-child",
+		payload,
+	})
+	if (response.type !== "insert-child") {
 		throw new Error("Engine returned unexpected response")
 	}
 	return response.payload

@@ -5,6 +5,7 @@ import {
 	buildComponentTreeFromSource,
 	buildSnippetComponentTree,
 } from "@/lib/snippets/component-tree"
+import { insertSnippetChild } from "@/lib/snippets/source/insert-child"
 import { applySnippetTranslate } from "@/lib/snippets/source/layout"
 
 const send = (message: EngineResponse) => {
@@ -52,6 +53,12 @@ self.onmessage = async (event: MessageEvent<EngineRequest>) => {
 		if (data.type === "layout-translate") {
 			const result = await applySnippetTranslate(data.payload)
 			send({ id: data.id, type: "layout-translate", payload: result })
+			return
+		}
+
+		if (data.type === "insert-child") {
+			const result = await insertSnippetChild(data.payload)
+			send({ id: data.id, type: "insert-child", payload: result })
 			return
 		}
 	} catch (err) {

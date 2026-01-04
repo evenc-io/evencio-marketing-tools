@@ -172,3 +172,6 @@ When changing preview-related code, keep these invariants:
    - Tailwind styling is applied without typing.
 3) Switch snippets inside the editor and confirm the same.
 
+## Related Docs
+
+- `docs/snippet-import-assets.md` — Import assets (Imports panel), drag-and-drop insertion, and the Imports gallery preview.

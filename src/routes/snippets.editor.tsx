@@ -29,6 +29,7 @@ import { SnippetComponentTreeResizer } from "@/routes/-snippets/editor/component
 import { SnippetDetailsPanel } from "@/routes/-snippets/editor/components/details-panel"
 import { SnippetEditorPanel } from "@/routes/-snippets/editor/components/editor-panel"
 import { SnippetExamplesPanel } from "@/routes/-snippets/editor/components/examples-panel"
+import { SnippetImportDndOverlay } from "@/routes/-snippets/editor/components/import-dnd-overlay"
 import { SnippetImportsPanel } from "@/routes/-snippets/editor/components/imports-panel"
 import { PanelRail } from "@/routes/-snippets/editor/components/panel-rail"
 import { SnippetPreviewHeaderActions } from "@/routes/-snippets/editor/components/preview-header-actions"
@@ -57,6 +58,8 @@ import { useSnippetEditorActions } from "@/routes/-snippets/editor/hooks/snippet
 import { useSnippetEditorFiles } from "@/routes/-snippets/editor/hooks/snippet/editor-files"
 import { useSnippetFilters } from "@/routes/-snippets/editor/hooks/snippet/filters"
 import { useSnippetHistory } from "@/routes/-snippets/editor/hooks/snippet/history"
+import { useSnippetImportAssetsRemove } from "@/routes/-snippets/editor/hooks/snippet/import-assets-remove"
+import { useSnippetImportDnd } from "@/routes/-snippets/editor/hooks/snippet/import-dnd"
 import { useSnippetInspect } from "@/routes/-snippets/editor/hooks/snippet/inspect"
 import { useSnippetInspectText } from "@/routes/-snippets/editor/hooks/snippet/inspect-text"
 import { useSnippetPanels } from "@/routes/-snippets/editor/hooks/snippet/panels"
@@ -71,6 +74,11 @@ const LazySnippetLayers3DView = lazy(() =>
 	})),
 )
 
+import {
+	buildImportAssetsPreviewSource,
+	getImportAssetsPreviewDimensions,
+	IMPORT_ASSET_FILE_NAME,
+} from "@/routes/-snippets/editor/import-assets"
 import { getSnippetDraftId, NEW_SNIPPET_DRAFT_ID } from "@/routes/-snippets/editor/snippet-drafts"
 import type {
 	SnippetEditorFileId,
@@ -345,6 +353,8 @@ function NewSnippetPage() {
 		mainComponentLabel,
 		selectedTemplateId,
 	})
+	const isImportAssetsFileActive =
+		isComponentEditorActive && activeComponentFileName === IMPORT_ASSET_FILE_NAME
 	const componentCount = componentExports.length
 	const overSoftComponentLimit = componentCount > SNIPPET_COMPONENT_LIMITS.soft
 	const overHardComponentLimit = componentCount > SNIPPET_COMPONENT_LIMITS.hard
@@ -562,6 +572,7 @@ function NewSnippetPage() {
 			}),
 		[viewportHeight, viewportWidth],
 	)
+	const importAssetsPreviewDimensions = useMemo(() => getImportAssetsPreviewDimensions(), [])
 	const examplePreviewDimensions = activeExample?.viewport ?? DEFAULT_PREVIEW_DIMENSIONS
 	const examplePreviewProps = useMemo(() => activeExample?.previewProps ?? {}, [activeExample])
 	const exampleSource = activeExample?.source ?? ""
@@ -570,6 +581,19 @@ function NewSnippetPage() {
 		includeTailwind: isExamplePreviewActive,
 		debounceMs: 300,
 		key: "snippet-analyze-example",
+	})
+	const importAssetsFileSource = parsedFiles.files[IMPORT_ASSET_FILE_NAME] ?? ""
+	const importAssetsPreviewSource = useMemo(() => {
+		if (!isImportAssetsFileActive) return ""
+		if (!importAssetsFileSource.trim()) return ""
+		return buildImportAssetsPreviewSource(importAssetsFileSource)
+	}, [importAssetsFileSource, isImportAssetsFileActive])
+	const { analysis: importAssetsPreviewAnalysis } = useSnippetAnalysis({
+		source: isImportAssetsFileActive ? importAssetsPreviewSource : "",
+		includeTailwind: isImportAssetsFileActive,
+		includeInspect: false,
+		debounceMs: 200,
+		key: "snippet-analyze-import-assets-preview",
 	})
 
 	useEffect(() => {
@@ -664,6 +688,16 @@ function NewSnippetPage() {
 			engineKey: "snippet-compile-example",
 		},
 	)
+	const { compiledCode: importAssetsCompiledCode, tailwindCss: importAssetsTailwindCss } =
+		useSnippetCompiler({
+			source: isImportAssetsFileActive ? importAssetsPreviewSource : "",
+			defaultProps: {},
+			debounceMs: 200,
+			autoCompile: isImportAssetsFileActive,
+			enableTailwindCss: isImportAssetsFileActive,
+			analysis: importAssetsPreviewAnalysis,
+			engineKey: "snippet-compile-import-assets-preview",
+		})
 	const {
 		inspectMode,
 		setInspectMode,
@@ -714,6 +748,24 @@ function NewSnippetPage() {
 		inspectEnabled,
 		onLayoutCommitApplied: handleLayoutCommitApplied,
 	})
+
+	const setSnippetSource = useCallback(
+		(nextSource: string) => {
+			form.setValue("source", nextSource, { shouldValidate: true, shouldDirty: true })
+		},
+		[form],
+	)
+
+	const importDnd = useSnippetImportDnd({
+		enabled:
+			Boolean(compiledCode) && !isExamplePreviewActive && !layoutMode && !isImportAssetsFileActive,
+		form,
+		setSource: setSnippetSource,
+		commitHistoryNow,
+		previewContainerRef,
+		resolvePreviewSource: resolvePreviewSourceForInspect,
+	})
+	const { handleImportAssetRemove } = useSnippetImportAssetsRemove({ form, commitHistoryNow })
 	const {
 		applySnippetTemplate,
 		handleConfirmDeleteComponent,
@@ -809,12 +861,29 @@ function NewSnippetPage() {
 	})
 
 	const isExamplePreviewing = Boolean(isExamplePreviewActive && activeExample)
-	const previewCompiledCode = isExamplePreviewing ? exampleCompiledCode : compiledCode
-	const previewPropsToUse = isExamplePreviewing ? examplePreviewProps : previewProps
-	const previewTailwindCss = isExamplePreviewing ? exampleTailwindCss : tailwindCss
-	const previewDimensionsToUse = isExamplePreviewing
-		? examplePreviewDimensions
-		: snippetPreviewDimensions
+	const isImportsPreviewing = Boolean(isImportAssetsFileActive)
+	const previewMode = isExamplePreviewing ? "example" : isImportsPreviewing ? "imports" : "snippet"
+	const previewCompiledCode =
+		previewMode === "example"
+			? exampleCompiledCode
+			: previewMode === "imports"
+				? importAssetsCompiledCode
+				: compiledCode
+	const previewPropsToUse =
+		previewMode === "example" ? examplePreviewProps : previewMode === "imports" ? {} : previewProps
+	const previewTailwindCss =
+		previewMode === "example"
+			? exampleTailwindCss
+			: previewMode === "imports"
+				? importAssetsTailwindCss
+				: tailwindCss
+	const previewDimensionsToUse =
+		previewMode === "example"
+			? examplePreviewDimensions
+			: previewMode === "imports"
+				? importAssetsPreviewDimensions
+				: snippetPreviewDimensions
+	const previewFitMode = previewMode === "imports" ? "width" : "contain"
 
 	const handleToggleLayout = useCallback(() => {
 		setLayoutMode((prev) => {
@@ -842,22 +911,27 @@ function NewSnippetPage() {
 			setLayersSnapshot(null)
 		}
 	}, [layers3dOpen, previewCompiledCode])
-	const previewHeaderActions = (
-		<SnippetPreviewHeaderActions
-			isExamplePreviewing={isExamplePreviewing}
-			activeExampleTitle={activeExample?.title}
-			onExitExamplePreview={() => setIsExamplePreviewActive(false)}
-			inspectEnabled={inspectMode}
-			onToggleInspect={() => setInspectMode((prev) => !prev)}
-			layoutEnabled={layoutMode}
-			onToggleLayout={handleToggleLayout}
-			layoutDebugEnabled={layoutDebugEnabled}
-			onToggleLayoutDebug={handleToggleLayoutDebug}
-			layers3dEnabled={layers3dOpen}
-			onToggleLayers3d={() => setLayers3dOpen((prev) => !prev)}
-		/>
-	)
-	const isPreviewSelectable = Boolean(previewCompiledCode) && !isExamplePreviewing
+	const previewHeaderActions =
+		previewMode === "imports" ? (
+			<span className="rounded-full border border-neutral-200 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-neutral-500">
+				Imports · Assets
+			</span>
+		) : (
+			<SnippetPreviewHeaderActions
+				isExamplePreviewing={isExamplePreviewing}
+				activeExampleTitle={activeExample?.title}
+				onExitExamplePreview={() => setIsExamplePreviewActive(false)}
+				inspectEnabled={inspectMode}
+				onToggleInspect={() => setInspectMode((prev) => !prev)}
+				layoutEnabled={layoutMode}
+				onToggleLayout={handleToggleLayout}
+				layoutDebugEnabled={layoutDebugEnabled}
+				onToggleLayoutDebug={handleToggleLayoutDebug}
+				layers3dEnabled={layers3dOpen}
+				onToggleLayers3d={() => setLayers3dOpen((prev) => !prev)}
+			/>
+		)
+	const isPreviewSelectable = Boolean(previewCompiledCode) && previewMode === "snippet"
 	const handleComponentTreeSelect = useCallback(
 		(node: SnippetComponentTreeNode) => {
 			if (!isPreviewSelectable) return
@@ -936,6 +1010,7 @@ function NewSnippetPage() {
 						onEditorChange={handleInspectTextChange}
 						onEditorClose={closeInspectTextEdit}
 					/>
+					<SnippetImportDndOverlay drag={importDnd.dragOverlay} />
 					<SnippetHeader
 						canSubmit={canSubmit}
 						isSubmitting={isSubmitting}
@@ -1025,7 +1100,11 @@ function NewSnippetPage() {
 								onApplyExample={applyExampleToEditor}
 							/>
 
-							<SnippetImportsPanel open={importsOpen} filters={importsFilters} />
+							<SnippetImportsPanel
+								open={importsOpen}
+								filters={importsFilters}
+								onAssetPointerDown={importDnd.handleAssetPointerDown}
+							/>
 
 							{/* Center - Editor and Preview split */}
 							<section ref={splitContainerRef} className="flex flex-1 overflow-hidden">
@@ -1113,29 +1192,50 @@ function NewSnippetPage() {
 												props={previewPropsToUse}
 												tailwindCss={previewTailwindCss}
 												dimensions={previewDimensionsToUse}
+												fitMode={previewFitMode}
 												className="h-full"
 												headerActions={previewHeaderActions}
-												inspectEnabled={inspectEnabled}
-												onInspectHover={onPreviewInspectHover}
-												onInspectSelect={handlePreviewInspectSelect}
-												onInspectContext={handleInspectContext}
-												onInspectEscape={handleInspectEscape}
-												inspectSelectionRequest={componentTreeSelection}
-												inspectSelectionRequestToken={componentTreeSelectionToken}
-												layoutEnabled={layoutMode && !isExamplePreviewing}
+												inspectEnabled={previewMode === "imports" ? false : inspectEnabled}
+												onInspectHover={
+													previewMode === "imports" ? undefined : onPreviewInspectHover
+												}
+												onInspectSelect={
+													previewMode === "imports" ? undefined : handlePreviewInspectSelect
+												}
+												onInspectContext={
+													previewMode === "imports" ? undefined : handleInspectContext
+												}
+												onInspectEscape={
+													previewMode === "imports" ? undefined : handleInspectEscape
+												}
+												inspectSelectionRequest={
+													previewMode === "imports" ? null : componentTreeSelection
+												}
+												inspectSelectionRequestToken={
+													previewMode === "imports" ? 0 : componentTreeSelectionToken
+												}
+												layoutEnabled={
+													previewMode === "snippet" && layoutMode && !isExamplePreviewing
+												}
 												layoutDebugEnabled={
-													layoutDebugEnabled && layoutMode && !isExamplePreviewing
+													previewMode === "snippet" &&
+													layoutDebugEnabled &&
+													layoutMode &&
+													!isExamplePreviewing
 												}
 												layoutSnapEnabled={layoutSnapEnabled}
 												layoutSnapGrid={layoutSnapGrid}
 												onLayoutCommit={handleLayoutCommit}
 												suppressNextRenderToken={suppressNextRenderToken}
-												layersEnabled={layers3dOpen}
+												onImportAssetRemove={
+													previewMode === "imports" ? handleImportAssetRemove : undefined
+												}
+												layersEnabled={previewMode === "imports" ? false : layers3dOpen}
 												layersRequestToken={layersRequestToken}
 												onLayersSnapshot={handleLayersSnapshot}
 												onLayersError={handleLayersError}
 											/>
-											{layers3dOpen && (
+											{layers3dOpen && previewMode !== "imports" && (
 												<div className="absolute inset-0 z-30">
 													<Suspense
 														fallback={
