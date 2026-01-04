@@ -16,7 +16,7 @@ export function AddSnippetButton() {
 				<Button size="sm" className="rounded-r-none" asChild>
 					<Link to="/snippets/editor" search={{ template: "single" }}>
 						<FileCode2 className="h-4 w-4" />
-						Add snippet
+						Add Snippet
 					</Link>
 				</Button>
 				<DropdownMenuTrigger asChild>
