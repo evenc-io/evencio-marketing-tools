@@ -63,6 +63,7 @@ import { useSnippetImportDnd } from "@/routes/-snippets/editor/hooks/snippet/imp
 import { useSnippetInspect } from "@/routes/-snippets/editor/hooks/snippet/inspect"
 import { useSnippetInspectText } from "@/routes/-snippets/editor/hooks/snippet/inspect-text"
 import { useSnippetPanels } from "@/routes/-snippets/editor/hooks/snippet/panels"
+import { usePreviewCameraHotkey } from "@/routes/-snippets/editor/hooks/snippet/preview-camera"
 import { useSnippetSelection } from "@/routes/-snippets/editor/hooks/snippet/selection"
 import { useSnippetSplitView } from "@/routes/-snippets/editor/hooks/snippet/split-view"
 import { useSnippetSubmit } from "@/routes/-snippets/editor/hooks/snippet/submit"
@@ -884,6 +885,22 @@ function NewSnippetPage() {
 				? importAssetsPreviewDimensions
 				: snippetPreviewDimensions
 	const previewFitMode = previewMode === "imports" ? "width" : "contain"
+	const previewCameraAvailable = previewMode !== "imports"
+	const [previewCameraEnabled, setPreviewCameraEnabled] = useState(false)
+	const [previewCameraResetToken, setPreviewCameraResetToken] = useState(0)
+	const [isPreviewHovering, setIsPreviewHovering] = useState(false)
+
+	usePreviewCameraHotkey({
+		enabled: previewCameraEnabled,
+		setEnabled: setPreviewCameraEnabled,
+		scopeEnabled: previewCameraAvailable && isPreviewHovering,
+	})
+
+	useEffect(() => {
+		if (!previewCameraAvailable && previewCameraEnabled) {
+			setPreviewCameraEnabled(false)
+		}
+	}, [previewCameraAvailable, previewCameraEnabled])
 
 	const handleToggleLayout = useCallback(() => {
 		setLayoutMode((prev) => {
@@ -921,6 +938,9 @@ function NewSnippetPage() {
 				isExamplePreviewing={isExamplePreviewing}
 				activeExampleTitle={activeExample?.title}
 				onExitExamplePreview={() => setIsExamplePreviewActive(false)}
+				cameraEnabled={previewCameraEnabled}
+				onToggleCamera={() => setPreviewCameraEnabled((prev) => !prev)}
+				onResetCamera={() => setPreviewCameraResetToken((prev) => prev + 1)}
 				inspectEnabled={inspectMode}
 				onToggleInspect={() => setInspectMode((prev) => !prev)}
 				layoutEnabled={layoutMode}
@@ -1195,6 +1215,10 @@ function NewSnippetPage() {
 												fitMode={previewFitMode}
 												className="h-full"
 												headerActions={previewHeaderActions}
+												cameraAvailable={previewCameraAvailable}
+												cameraEnabled={previewCameraAvailable && previewCameraEnabled}
+												cameraResetToken={previewCameraResetToken}
+												onCameraHoverChange={setIsPreviewHovering}
 												inspectEnabled={previewMode === "imports" ? false : inspectEnabled}
 												onInspectHover={
 													previewMode === "imports" ? undefined : onPreviewInspectHover
