@@ -97,27 +97,31 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> => {
 }
 
 const stableStringify = (value: unknown) => {
-	const seen = new WeakSet<object>()
+	const stack = new WeakSet<object>()
 
 	const normalize = (input: unknown): unknown => {
 		if (!input || typeof input !== "object") return input
-		if (seen.has(input)) return null
-		seen.add(input)
+		if (stack.has(input)) return null
 
-		if (Array.isArray(input)) {
-			return input.map((entry) => normalize(entry))
-		}
-
-		if (isPlainObject(input)) {
-			const sortedKeys = Object.keys(input).sort()
-			const next: Record<string, unknown> = {}
-			for (const key of sortedKeys) {
-				next[key] = normalize(input[key])
+		stack.add(input)
+		try {
+			if (Array.isArray(input)) {
+				return input.map((entry) => normalize(entry))
 			}
-			return next
-		}
 
-		return input
+			if (isPlainObject(input)) {
+				const sortedKeys = Object.keys(input).sort()
+				const next: Record<string, unknown> = {}
+				for (const key of sortedKeys) {
+					next[key] = normalize(input[key])
+				}
+				return next
+			}
+
+			return input
+		} finally {
+			stack.delete(input)
+		}
 	}
 
 	try {
