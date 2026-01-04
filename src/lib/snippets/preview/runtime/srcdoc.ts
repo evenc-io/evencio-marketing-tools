@@ -325,6 +325,10 @@ export function generatePreviewSrcdoc(
       const INSPECT_PARENT = "#00B37E";
       const INSPECT_LABEL_BG = "#FFFFFF";
       const INSPECT_LABEL_TEXT = "#1E1E1E";
+      const RESIZE_HANDLE_SIZE = 8;
+      const RESIZE_HANDLE_BG = "#FFFFFF";
+      const RESIZE_HANDLE_BORDER = INSPECT_SELECTED;
+      const RESIZE_MIN_SIZE = 8;
       const resolveInspectableTarget = (target) => {
         const container = document.getElementById("snippet-container");
         if (!container) return null;
@@ -349,7 +353,7 @@ export function generatePreviewSrcdoc(
         updateInspectOverlay();
       };
 
-      const createInspectOverlay = () => {
+      const createInspectOverlay = (onResizeHandlePointerDown) => {
         const overlay = document.createElement("div");
         overlay.style.position = "fixed";
         overlay.style.inset = "0";
@@ -411,6 +415,42 @@ export function generatePreviewSrcdoc(
           return { container, prefix, info, baseHeight: 0 };
         };
 
+        const createHandle = (cursor) => {
+          const handle = document.createElement("div");
+          handle.style.position = "fixed";
+          handle.style.width = RESIZE_HANDLE_SIZE + "px";
+          handle.style.height = RESIZE_HANDLE_SIZE + "px";
+          handle.style.border = "1px solid " + RESIZE_HANDLE_BORDER;
+          handle.style.background = RESIZE_HANDLE_BG;
+          handle.style.boxSizing = "border-box";
+          handle.style.borderRadius = "2px";
+          handle.style.pointerEvents = "auto";
+          handle.style.cursor = cursor;
+          handle.style.display = "none";
+          handle.style.transform = "translate(-50%, -50%)";
+          handle.style.zIndex = "10001";
+          handle.style.touchAction = "none";
+          return handle;
+        };
+
+        const handles = {
+          nw: createHandle("nwse-resize"),
+          n: createHandle("ns-resize"),
+          ne: createHandle("nesw-resize"),
+          e: createHandle("ew-resize"),
+          se: createHandle("nwse-resize"),
+          s: createHandle("ns-resize"),
+          sw: createHandle("nesw-resize"),
+          w: createHandle("ew-resize"),
+        };
+
+        const attachHandleListener = (handle, name) => {
+          handle.addEventListener("pointerdown", (event) => {
+            if (typeof onResizeHandlePointerDown !== "function") return;
+            onResizeHandlePointerDown(event, name);
+          });
+        };
+
         const hoverBox = createBox(INSPECT_HOVER);
         const hoverLabel = createLabel(INSPECT_HOVER);
         const selectedBox = createBox(INSPECT_SELECTED);
@@ -428,6 +468,10 @@ export function generatePreviewSrcdoc(
         overlay.appendChild(selectedLabel.container);
         overlay.appendChild(hoverBox);
         overlay.appendChild(hoverLabel.container);
+        for (const [name, handle] of Object.entries(handles)) {
+          attachHandleListener(handle, name);
+          overlay.appendChild(handle);
+        }
         document.body.appendChild(overlay);
 
         const measureLabelHeight = (label) => {
@@ -510,6 +554,11 @@ export function generatePreviewSrcdoc(
           label.container.style.top = labelTop + "px";
         };
 
+        const setHandlePosition = (handle, x, y) => {
+          handle.style.left = Math.round(x) + "px";
+          handle.style.top = Math.round(y) + "px";
+        };
+
         return {
           setEnabled(enabled) {
             overlay.style.display = enabled ? "block" : "none";
@@ -520,10 +569,32 @@ export function generatePreviewSrcdoc(
             const hoverTarget = hovered && hovered !== selected ? hovered : null;
             updateBox(hoverBox, hoverLabel, hoverTarget, "");
           },
+          updateHandles({ target, enabled }) {
+            const show = Boolean(enabled && target);
+            for (const handle of Object.values(handles)) {
+              handle.style.display = show ? "block" : "none";
+            }
+            if (!show || !target) return;
+            const rect = target.getBoundingClientRect();
+            const left = rect.left;
+            const right = rect.right;
+            const top = rect.top;
+            const bottom = rect.bottom;
+            const midX = left + rect.width / 2;
+            const midY = top + rect.height / 2;
+            setHandlePosition(handles.nw, left, top);
+            setHandlePosition(handles.n, midX, top);
+            setHandlePosition(handles.ne, right, top);
+            setHandlePosition(handles.e, right, midY);
+            setHandlePosition(handles.se, right, bottom);
+            setHandlePosition(handles.s, midX, bottom);
+            setHandlePosition(handles.sw, left, bottom);
+            setHandlePosition(handles.w, left, midY);
+          },
         };
       };
 
-      const inspectOverlay = createInspectOverlay();
+      const inspectOverlay = createInspectOverlay(handleResizePointerDown);
       const inspectState = {
         enabled: false,
         hovered: null,
@@ -556,9 +627,13 @@ export function generatePreviewSrcdoc(
         parent.postMessage({ type, source: source ?? null, ...(payload ?? {}) }, "*");
       };
 
-      const resolveLayoutParentTarget = () => {
+      const resolveLayoutTarget = () => {
         if (!layoutState.enabled) return null;
-        const target = layoutState.active ?? inspectState.selected;
+        return resizeState.active ?? layoutState.active ?? inspectState.selected;
+      };
+
+      const resolveLayoutParentTarget = () => {
+        const target = resolveLayoutTarget();
         if (!target) return null;
         const parent = target.parentElement;
         if (!parent) return null;
@@ -574,10 +649,15 @@ export function generatePreviewSrcdoc(
           return;
         }
         inspectOverlay.setEnabled(true);
+        const layoutTarget = resolveLayoutTarget();
         inspectOverlay.update({
           hovered: inspectState.enabled ? inspectState.hovered : null,
           selected: inspectState.enabled ? inspectState.selected : null,
           parent: resolveLayoutParentTarget(),
+        });
+        inspectOverlay.updateHandles({
+          target: layoutTarget,
+          enabled: layoutState.enabled,
         });
       };
 
@@ -622,7 +702,7 @@ export function generatePreviewSrcdoc(
 
       const handleMouseMove = (event) => {
         if (!inspectState.enabled) return;
-        if (layoutState.dragging) return;
+        if (layoutState.dragging || resizeState.resizing) return;
         const target = resolveInspectableTarget(event.target);
         if (target === inspectState.hovered) return;
         inspectState.hovered = target;
@@ -679,6 +759,30 @@ export function generatePreviewSrcdoc(
         bodyUserSelect: "",
         commitPending: false,
         commitTimeout: 0,
+      };
+
+      const resizeState = {
+        resizing: false,
+        handle: null,
+        active: null,
+        captureTarget: null,
+        pointerId: null,
+        startX: 0,
+        startY: 0,
+        latestX: 0,
+        latestY: 0,
+        baseTranslate: { x: 0, y: 0 },
+        currentTranslate: { x: 0, y: 0 },
+        baseRect: null,
+        baseWidth: 0,
+        baseHeight: 0,
+        currentWidth: 0,
+        currentHeight: 0,
+        bounds: null,
+        raf: 0,
+        bodyUserSelect: "",
+        bodyCursor: "",
+        lockAspect: false,
       };
 
       const snapState = {
@@ -996,6 +1100,13 @@ export function generatePreviewSrcdoc(
         container.style.cursor = isDragging ? "grabbing" : "grab";
       };
 
+      const getResizeCursor = (handle) => {
+        if (handle === "n" || handle === "s") return "ns-resize";
+        if (handle === "e" || handle === "w") return "ew-resize";
+        if (handle === "ne" || handle === "sw") return "nesw-resize";
+        return "nwse-resize";
+      };
+
       const computeDragDelta = () => {
         // Mouse events in iframes ARE scaled by the parent's CSS transform.
         // At scale=0.25, dragging 10 visual pixels reports delta=40 design pixels.
@@ -1003,6 +1114,13 @@ export function generatePreviewSrcdoc(
         return {
           dx: layoutState.latestX - layoutState.startX,
           dy: layoutState.latestY - layoutState.startY,
+        };
+      };
+
+      const computeResizeDelta = () => {
+        return {
+          dx: resizeState.latestX - resizeState.startX,
+          dy: resizeState.latestY - resizeState.startY,
         };
       };
 
@@ -1055,6 +1173,181 @@ export function generatePreviewSrcdoc(
           return null;
         }
         return { elementRect, parentRect, containerRect };
+      };
+
+      const normalizeResizeRect = (left, top, right, bottom) => {
+        return {
+          left,
+          top,
+          right,
+          bottom,
+          width: right - left,
+          height: bottom - top,
+        };
+      };
+
+      const clampResizeSize = (value, min, max) => {
+        if (Number.isFinite(max)) {
+          return clampValue(value, min, max);
+        }
+        return Math.max(min, value);
+      };
+
+      const clampResizeRect = (rect, handle, bounds) => {
+        if (!rect) return rect;
+        const moveLeft = handle && handle.includes("w");
+        const moveRight = handle && handle.includes("e");
+        const moveTop = handle && handle.includes("n");
+        const moveBottom = handle && handle.includes("s");
+        let { left, right, top, bottom } = rect;
+
+        if (moveLeft || moveRight) {
+          const rawWidth = right - left;
+          const maxWidth = bounds?.parentRect
+            ? (moveLeft ? right - bounds.parentRect.left : bounds.parentRect.right - left)
+            : Infinity;
+          const safeMaxWidth = Number.isFinite(maxWidth) ? Math.max(0, maxWidth) : Infinity;
+          const minWidth = Number.isFinite(safeMaxWidth)
+            ? Math.min(RESIZE_MIN_SIZE, safeMaxWidth)
+            : RESIZE_MIN_SIZE;
+          const nextWidth = clampResizeSize(rawWidth, minWidth, safeMaxWidth);
+          if (moveLeft && !moveRight) {
+            left = right - nextWidth;
+          } else if (moveRight && !moveLeft) {
+            right = left + nextWidth;
+          }
+        }
+
+        if (moveTop || moveBottom) {
+          const rawHeight = bottom - top;
+          const maxHeight = bounds?.parentRect
+            ? (moveTop ? bottom - bounds.parentRect.top : bounds.parentRect.bottom - top)
+            : Infinity;
+          const safeMaxHeight = Number.isFinite(maxHeight) ? Math.max(0, maxHeight) : Infinity;
+          const minHeight = Number.isFinite(safeMaxHeight)
+            ? Math.min(RESIZE_MIN_SIZE, safeMaxHeight)
+            : RESIZE_MIN_SIZE;
+          const nextHeight = clampResizeSize(rawHeight, minHeight, safeMaxHeight);
+          if (moveTop && !moveBottom) {
+            top = bottom - nextHeight;
+          } else if (moveBottom && !moveTop) {
+            bottom = top + nextHeight;
+          }
+        }
+
+        return normalizeResizeRect(left, top, right, bottom);
+      };
+
+      const applyResizeAspectRatio = (rect, handle, baseRect, dx, dy, lockAspect) => {
+        if (!lockAspect || !rect || !baseRect) return rect;
+        const moveLeft = handle && handle.includes("w");
+        const moveRight = handle && handle.includes("e");
+        const moveTop = handle && handle.includes("n");
+        const moveBottom = handle && handle.includes("s");
+        if (!(moveLeft || moveRight) || !(moveTop || moveBottom)) return rect;
+        const ratio = baseRect.height ? baseRect.width / baseRect.height : 0;
+        if (!Number.isFinite(ratio) || ratio <= 0) return rect;
+        const useWidth = Math.abs(dx) >= Math.abs(dy);
+        let { left, right, top, bottom } = rect;
+        if (useWidth) {
+          const nextWidth = Math.max(RESIZE_MIN_SIZE, Math.abs(right - left));
+          const nextHeight = nextWidth / ratio;
+          if (moveTop && !moveBottom) {
+            top = bottom - nextHeight;
+          } else {
+            bottom = top + nextHeight;
+          }
+        } else {
+          const nextHeight = Math.max(RESIZE_MIN_SIZE, Math.abs(bottom - top));
+          const nextWidth = nextHeight * ratio;
+          if (moveLeft && !moveRight) {
+            left = right - nextWidth;
+          } else {
+            right = left + nextWidth;
+          }
+        }
+        return normalizeResizeRect(left, top, right, bottom);
+      };
+
+      const applyResizeSnapping = (rect, handle, bounds) => {
+        snapGuides.hide();
+        if (!rect || !bounds || !snapState.enabled || snapState.altHeld) {
+          return rect;
+        }
+        const containerRect = bounds.containerRect;
+        if (!containerRect) return rect;
+        const scaleForSnap = snapState.scaleForSnap > 0 ? snapState.scaleForSnap : 1;
+        const grid = snapState.baseGridSize / scaleForSnap;
+        const threshold = snapState.baseThreshold / scaleForSnap;
+        const moveLeft = handle && handle.includes("w");
+        const moveRight = handle && handle.includes("e");
+        const moveTop = handle && handle.includes("n");
+        const moveBottom = handle && handle.includes("s");
+
+        let left = rect.left - containerRect.left;
+        let right = rect.right - containerRect.left;
+        let top = rect.top - containerRect.top;
+        let bottom = rect.bottom - containerRect.top;
+
+        let snappedX = false;
+        let snappedY = false;
+        let snapXValue = null;
+        let snapYValue = null;
+
+        if (moveLeft) {
+          const leftSnap = snapToEdges(left, snapState.siblingEdges.xEdges || [], threshold);
+          if (leftSnap.dist <= threshold) {
+            left = leftSnap.value;
+            snappedX = true;
+            snapXValue = leftSnap.value;
+          } else if (Number.isFinite(grid) && grid > 0) {
+            left = Math.round(left / grid) * grid;
+          }
+        } else if (moveRight) {
+          const rightSnap = snapToEdges(right, snapState.siblingEdges.xEdges || [], threshold);
+          if (rightSnap.dist <= threshold) {
+            right = rightSnap.value;
+            snappedX = true;
+            snapXValue = rightSnap.value;
+          } else if (Number.isFinite(grid) && grid > 0) {
+            right = Math.round(right / grid) * grid;
+          }
+        }
+
+        if (moveTop) {
+          const topSnap = snapToEdges(top, snapState.siblingEdges.yEdges || [], threshold);
+          if (topSnap.dist <= threshold) {
+            top = topSnap.value;
+            snappedY = true;
+            snapYValue = topSnap.value;
+          } else if (Number.isFinite(grid) && grid > 0) {
+            top = Math.round(top / grid) * grid;
+          }
+        } else if (moveBottom) {
+          const bottomSnap = snapToEdges(bottom, snapState.siblingEdges.yEdges || [], threshold);
+          if (bottomSnap.dist <= threshold) {
+            bottom = bottomSnap.value;
+            snappedY = true;
+            snapYValue = bottomSnap.value;
+          } else if (Number.isFinite(grid) && grid > 0) {
+            bottom = Math.round(bottom / grid) * grid;
+          }
+        }
+
+        const guideThickness = Math.max(1, Math.round(1 / scaleForSnap));
+        if (snappedX && Number.isFinite(snapXValue)) {
+          snapGuides.showVertical(containerRect.left + snapXValue, guideThickness);
+        }
+        if (snappedY && Number.isFinite(snapYValue)) {
+          snapGuides.showHorizontal(containerRect.top + snapYValue, guideThickness);
+        }
+
+        return normalizeResizeRect(
+          left + containerRect.left,
+          top + containerRect.top,
+          right + containerRect.left,
+          bottom + containerRect.top,
+        );
       };
 
       const constrainTranslateToParent = (translate) => {
@@ -1232,6 +1525,47 @@ export function generatePreviewSrcdoc(
         });
       };
 
+      const applyResize = () => {
+        if (!resizeState.resizing || !resizeState.active || !resizeState.baseRect) return;
+        const bounds = resizeState.bounds;
+        const baseRect = resizeState.baseRect;
+        const handle = resizeState.handle;
+        const { dx, dy } = computeResizeDelta();
+        let rect = normalizeResizeRect(
+          baseRect.left + (handle && handle.includes("w") ? dx : 0),
+          baseRect.top + (handle && handle.includes("n") ? dy : 0),
+          baseRect.right + (handle && handle.includes("e") ? dx : 0),
+          baseRect.bottom + (handle && handle.includes("s") ? dy : 0),
+        );
+        rect = applyResizeAspectRatio(rect, handle, baseRect, dx, dy, resizeState.lockAspect);
+        rect = clampResizeRect(rect, handle, bounds);
+        rect = applyResizeSnapping(rect, handle, bounds);
+        rect = clampResizeRect(rect, handle, bounds);
+        if (!rect) return;
+        const width = Math.max(0, rect.right - rect.left);
+        const height = Math.max(0, rect.bottom - rect.top);
+        const nextTranslate = {
+          x: resizeState.baseTranslate.x + (rect.left - baseRect.left),
+          y: resizeState.baseTranslate.y + (rect.top - baseRect.top),
+        };
+        resizeState.currentTranslate = nextTranslate;
+        resizeState.currentWidth = width;
+        resizeState.currentHeight = height;
+        resizeState.active.style.width = width + "px";
+        resizeState.active.style.height = height + "px";
+        resizeState.active.style.translate = nextTranslate.x + "px " + nextTranslate.y + "px";
+        elementTranslateMap.set(resizeState.active, nextTranslate);
+        updateInspectOverlay();
+      };
+
+      const scheduleResize = () => {
+        if (resizeState.raf) return;
+        resizeState.raf = window.requestAnimationFrame(() => {
+          resizeState.raf = 0;
+          applyResize();
+        });
+      };
+
       const stopLayoutDrag = (commit) => {
         if (!layoutState.dragging) return;
         layoutState.dragging = false;
@@ -1312,9 +1646,15 @@ export function generatePreviewSrcdoc(
           const next = pendingCodeUpdate;
           pendingCodeUpdate = null;
           pendingPropsRender = false;
-          resetInspectState();
+          if (!next.skipRender) {
+            resetInspectState();
+          }
           applyCompiledCode(next.code);
-          renderWithProps(next.propsPayload);
+          if (next.skipRender) {
+            scheduleLayerSnapshot();
+          } else {
+            renderWithProps(next.propsPayload);
+          }
           return;
         }
         if (pendingPropsRender) {
@@ -1322,6 +1662,195 @@ export function generatePreviewSrcdoc(
           renderWithProps(latestPropsPayload);
         }
       };
+
+      const stopResize = (commit) => {
+        if (!resizeState.resizing) return;
+        resizeState.resizing = false;
+        snapGuides.hide();
+        const activeTarget = resizeState.active;
+        const activePointerId = resizeState.pointerId;
+        const captureTarget = resizeState.captureTarget;
+        if (resizeState.raf) {
+          window.cancelAnimationFrame(resizeState.raf);
+          resizeState.raf = 0;
+        }
+        const target = resizeState.active;
+        const translate = resizeState.currentTranslate;
+        const width = resizeState.currentWidth;
+        const height = resizeState.currentHeight;
+        const moved =
+          Math.abs(width - resizeState.baseWidth) >= 0.5 ||
+          Math.abs(height - resizeState.baseHeight) >= 0.5 ||
+          Math.abs(translate.x - resizeState.baseTranslate.x) >= 0.5 ||
+          Math.abs(translate.y - resizeState.baseTranslate.y) >= 0.5;
+
+        resizeState.active = null;
+        resizeState.handle = null;
+        resizeState.pointerId = null;
+        resizeState.bounds = null;
+        resizeState.baseRect = null;
+        resizeState.captureTarget = null;
+        document.removeEventListener("pointermove", handleResizePointerMove);
+        document.removeEventListener("pointerup", handleResizePointerUp);
+        document.removeEventListener("pointercancel", handleResizePointerCancel);
+        document.body.style.userSelect = resizeState.bodyUserSelect;
+        document.body.style.cursor = resizeState.bodyCursor;
+        updateInspectOverlay();
+        if (captureTarget && activePointerId !== null && typeof captureTarget.releasePointerCapture === "function") {
+          try {
+            captureTarget.releasePointerCapture(activePointerId);
+          } catch {
+            // Ignore release failures for cross-browser safety.
+          }
+        }
+
+        const didCommit = Boolean(commit && moved && target);
+        if (didCommit) {
+          const source = elementSourceMap.get(target) ?? null;
+          if (source) {
+            setStoredSourceTranslate(source, translate);
+          }
+          layoutState.commitPending = true;
+          if (layoutState.commitTimeout) {
+            window.clearTimeout(layoutState.commitTimeout);
+          }
+          layoutState.commitTimeout = window.setTimeout(() => {
+            layoutState.commitPending = false;
+            layoutState.commitTimeout = 0;
+            if (pendingPropsRender) {
+              pendingPropsRender = false;
+              renderWithProps(latestPropsPayload);
+            }
+          }, 1200);
+          parent.postMessage(
+            {
+              type: "layout-commit",
+              commit: {
+                source,
+                translate,
+                alignX: null,
+                alignY: null,
+                width,
+                height,
+              },
+            },
+            "*",
+          );
+        }
+
+        if (didCommit) {
+          pendingCodeUpdate = null;
+          return;
+        }
+        if (pendingCodeUpdate) {
+          const next = pendingCodeUpdate;
+          pendingCodeUpdate = null;
+          pendingPropsRender = false;
+          if (!next.skipRender) {
+            resetInspectState();
+          }
+          applyCompiledCode(next.code);
+          if (next.skipRender) {
+            scheduleLayerSnapshot();
+          } else {
+            renderWithProps(next.propsPayload);
+          }
+          return;
+        }
+        if (pendingPropsRender) {
+          pendingPropsRender = false;
+          renderWithProps(latestPropsPayload);
+        }
+      };
+
+      const handleResizePointerMove = (event) => {
+        if (!resizeState.resizing) return;
+        if (resizeState.pointerId !== null && event.pointerId !== resizeState.pointerId) return;
+        resizeState.latestX = event.clientX;
+        resizeState.latestY = event.clientY;
+        resizeState.lockAspect = Boolean(event.shiftKey);
+        snapState.altHeld = Boolean(event.altKey);
+        scheduleResize();
+      };
+
+      const handleResizePointerUp = (event) => {
+        if (resizeState.pointerId !== null && event.pointerId !== resizeState.pointerId) return;
+        stopResize(true);
+      };
+
+      const handleResizePointerCancel = (event) => {
+        if (resizeState.pointerId !== null && event.pointerId !== resizeState.pointerId) return;
+        stopResize(false);
+      };
+
+      function handleResizePointerDown(event, handle) {
+        if (!layoutState.enabled) return;
+        if (!handle) return;
+        if (event.button !== 0) return;
+        const target = layoutState.active ?? inspectState.selected;
+        if (!target) return;
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (resizeState.resizing) {
+          stopResize(false);
+        }
+        if (layoutState.dragging) {
+          stopLayoutDrag(false);
+        }
+
+        inspectState.selected = target;
+        inspectState.hovered = null;
+        updateInspectOverlay();
+        sendInspectMessage("inspect-select", target);
+
+        resizeState.resizing = true;
+        resizeState.handle = handle;
+        resizeState.active = target;
+        resizeState.captureTarget = event.target instanceof Element ? event.target : null;
+        resizeState.pointerId = event.pointerId;
+        resizeState.startX = event.clientX;
+        resizeState.startY = event.clientY;
+        resizeState.latestX = event.clientX;
+        resizeState.latestY = event.clientY;
+        resizeState.baseTranslate = getElementTranslate(target);
+        resizeState.currentTranslate = resizeState.baseTranslate;
+        resizeState.baseRect = snapshotRect(target.getBoundingClientRect());
+        if (!resizeState.baseRect) {
+          resizeState.resizing = false;
+          resizeState.active = null;
+          resizeState.handle = null;
+          return;
+        }
+        resizeState.baseWidth = resizeState.baseRect.width;
+        resizeState.baseHeight = resizeState.baseRect.height;
+        resizeState.currentWidth = resizeState.baseWidth;
+        resizeState.currentHeight = resizeState.baseHeight;
+        resizeState.bounds = buildLayoutBounds(target);
+        resizeState.lockAspect = Boolean(event.shiftKey);
+        snapState.altHeld = Boolean(event.altKey);
+        snapState.scaleForSnap = inspectScale > 0 ? inspectScale : 1;
+        if (snapState.enabled && resizeState.bounds) {
+          snapState.siblingEdges = collectSiblingEdges(target, resizeState.bounds);
+        } else {
+          snapState.siblingEdges = { xEdges: [], yEdges: [], xCenters: [], yCenters: [] };
+        }
+        resizeState.bodyUserSelect = document.body.style.userSelect;
+        resizeState.bodyCursor = document.body.style.cursor;
+        document.body.style.userSelect = "none";
+        document.body.style.cursor = getResizeCursor(handle);
+        if (resizeState.captureTarget && typeof resizeState.captureTarget.setPointerCapture === "function") {
+          try {
+            resizeState.captureTarget.setPointerCapture(event.pointerId);
+          } catch {
+            // Ignore capture failures for cross-browser safety.
+          }
+        }
+        document.addEventListener("pointermove", handleResizePointerMove);
+        document.addEventListener("pointerup", handleResizePointerUp);
+        document.addEventListener("pointercancel", handleResizePointerCancel);
+        scheduleResize();
+      }
 
       const handleLayoutPointerMove = (event) => {
         if (!layoutState.dragging) return;
@@ -1424,6 +1953,7 @@ export function generatePreviewSrcdoc(
         if (!layoutState.enabled) {
           detachLayoutListeners();
           stopLayoutDrag(false);
+          stopResize(false);
           snapGuides.hide();
           layoutState.commitPending = false;
           layoutState.bounds = null;
@@ -1677,9 +2207,10 @@ export function generatePreviewSrcdoc(
 
       runInitialCode();
 
-      window.addEventListener("message", (event) => {
-        const data = event.data;
-        if (!data || typeof data.type !== "string") return;
+	      window.addEventListener("message", (event) => {
+	        if (event.source !== parent) return;
+	        const data = event.data;
+	        if (!data || typeof data.type !== "string") return;
         if (data.type === "inspect-toggle") {
           setInspectEnabled(Boolean(data.enabled));
           return;
@@ -1731,18 +2262,25 @@ export function generatePreviewSrcdoc(
           if (typeof data.propsJson === "string" || typeof data.props === "string" || typeof data.props === "object") {
             latestPropsPayload = data.propsJson ?? data.props;
           }
+          const skipRender = Boolean(data.skipRender);
           if (layoutState.commitTimeout) {
             window.clearTimeout(layoutState.commitTimeout);
             layoutState.commitTimeout = 0;
           }
           layoutState.commitPending = false;
-          if (layoutState.dragging) {
-            pendingCodeUpdate = { code: data.code, propsPayload: latestPropsPayload };
+          if (layoutState.dragging || resizeState.resizing) {
+            pendingCodeUpdate = { code: data.code, propsPayload: latestPropsPayload, skipRender };
             return;
           }
-          resetInspectState();
+          if (!skipRender) {
+            resetInspectState();
+          }
           applyCompiledCode(data.code);
-          renderWithProps(latestPropsPayload);
+          if (skipRender) {
+            scheduleLayerSnapshot();
+          } else {
+            renderWithProps(latestPropsPayload);
+          }
           pendingPropsRender = false;
           pendingCodeUpdate = null;
           return;
@@ -1753,7 +2291,12 @@ export function generatePreviewSrcdoc(
         }
         if (data.type === "props-update") {
           latestPropsPayload = data.propsJson ?? data.props;
-          if (layoutState.dragging) {
+          const skipRender = Boolean(data.skipRender);
+          if (skipRender) {
+            scheduleLayerSnapshot();
+            return;
+          }
+          if (layoutState.dragging || resizeState.resizing) {
             pendingPropsRender = true;
             return;
           }
@@ -1774,11 +2317,18 @@ export function generatePreviewSrcdoc(
           window.cancelAnimationFrame(layoutState.raf);
           layoutState.raf = 0;
         }
+        if (resizeState.raf) {
+          window.cancelAnimationFrame(resizeState.raf);
+          resizeState.raf = 0;
+        }
         if (layoutState.commitTimeout) {
           window.clearTimeout(layoutState.commitTimeout);
           layoutState.commitTimeout = 0;
         }
         layoutState.commitPending = false;
+        if (resizeState.resizing) {
+          stopResize(false);
+        }
         detachLayoutListeners();
       });
 

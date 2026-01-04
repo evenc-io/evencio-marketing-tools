@@ -26,7 +26,7 @@ type UseSnippetInspectTextOptions = {
 		fileId: SnippetEditorFileId,
 		nextFileSource: string,
 		label: string,
-	) => void
+	) => boolean
 	resolvePreviewSource: (source: PreviewSourceLocation | null) => SnippetInspectTarget | null
 	onPreviewInspectSelect: (source: PreviewSourceLocation | null) => void
 	onPreviewInspectContext: (
@@ -35,6 +35,7 @@ type UseSnippetInspectTextOptions = {
 	layoutMode: boolean
 	isExamplePreviewActive: boolean
 	inspectEnabled: boolean
+	onLayoutCommitApplied?: () => void
 }
 
 type UseSnippetInspectTextResult = {
@@ -71,6 +72,7 @@ export const useSnippetInspectText = ({
 	layoutMode,
 	isExamplePreviewActive,
 	inspectEnabled,
+	onLayoutCommitApplied,
 }: UseSnippetInspectTextOptions): UseSnippetInspectTextResult => {
 	const inspectTextEditRef = useRef<HTMLDivElement>(null)
 	const inspectTextEditStateRef = useRef<InspectTextEditState | null>(null)
@@ -348,6 +350,11 @@ export const useSnippetInspectText = ({
 			const translateY = commit.translate.y
 			const alignX = commit.alignX ?? null
 			const alignY = commit.alignY ?? null
+			const width =
+				typeof commit.width === "number" && Number.isFinite(commit.width) ? commit.width : null
+			const height =
+				typeof commit.height === "number" && Number.isFinite(commit.height) ? commit.height : null
+			const historyLabel = width !== null || height !== null ? "Resize element" : "Move element"
 
 			enqueueLayoutCommit(async () => {
 				const fileSource = getSourceForFile(target.fileId)
@@ -364,6 +371,8 @@ export const useSnippetInspectText = ({
 						translateY,
 						alignX,
 						alignY,
+						width: width ?? undefined,
+						height: height ?? undefined,
 					})
 					if (!result.changed) {
 						if (result.reason) {
@@ -371,7 +380,10 @@ export const useSnippetInspectText = ({
 						}
 						return
 					}
-					applyLayoutSourceForFile(target.fileId, result.source, "Move element")
+					const applied = applyLayoutSourceForFile(target.fileId, result.source, historyLabel)
+					if (applied) {
+						onLayoutCommitApplied?.()
+					}
 				} catch (err) {
 					toast.error(err instanceof Error ? err.message : "Failed to update layout.")
 				}
@@ -383,6 +395,7 @@ export const useSnippetInspectText = ({
 			getSourceForFile,
 			isExamplePreviewActive,
 			layoutMode,
+			onLayoutCommitApplied,
 			resolvePreviewSource,
 		],
 	)

@@ -50,6 +50,8 @@ export type LayoutTranslateRequest = {
 	translateY: number
 	alignX?: "left" | "center" | "right" | null
 	alignY?: "top" | "center" | "bottom" | null
+	width?: number
+	height?: number
 }
 
 export type LayoutTranslateResponse = {

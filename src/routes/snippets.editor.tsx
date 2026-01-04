@@ -157,6 +157,7 @@ function NewSnippetPage() {
 	const [layersSnapshot, setLayersSnapshot] = useState<PreviewLayerSnapshot | null>(null)
 	const [layersError, setLayersError] = useState<string | null>(null)
 	const [layersRequestToken, setLayersRequestToken] = useState(0)
+	const [suppressNextRenderToken, setSuppressNextRenderToken] = useState(0)
 	const [componentTreeSelection, setComponentTreeSelection] =
 		useState<PreviewSourceLocation | null>(null)
 	const [componentTreeSelectionToken, setComponentTreeSelectionToken] = useState(0)
@@ -496,20 +497,23 @@ function NewSnippetPage() {
 				if (nextSource !== currentSource) {
 					form.setValue("source", nextSource, { shouldValidate: true, shouldDirty: true })
 					commitHistoryNow(label, nextSource)
+					return true
 				}
-				return
+				return false
 			}
 
-			if (!isComponentFileId(fileId)) return
+			if (!isComponentFileId(fileId)) return false
 			const fileName = getComponentFileName(fileId)
-			if (!fileName) return
+			if (!fileName) return false
 			const nextFiles = { ...parsed.files, [fileName]: sanitizedValue }
 			const nextMain = syncImportBlock(parsed.mainSource, Object.keys(nextFiles))
 			const nextSource = serializeSnippetFiles(nextMain, nextFiles)
 			if (nextSource !== currentSource) {
 				form.setValue("source", nextSource, { shouldValidate: true, shouldDirty: true })
 				commitHistoryNow(label, nextSource)
+				return true
 			}
+			return false
 		},
 		[commitHistoryNow, form],
 	)
@@ -680,6 +684,9 @@ function NewSnippetPage() {
 		lineMapSegments,
 		forceEnabled: layoutMode,
 	})
+	const handleLayoutCommitApplied = useCallback(() => {
+		setSuppressNextRenderToken((prev) => prev + 1)
+	}, [])
 	const {
 		inspectTextEdit,
 		inspectContextMenu,
@@ -705,6 +712,7 @@ function NewSnippetPage() {
 		layoutMode,
 		isExamplePreviewActive,
 		inspectEnabled,
+		onLayoutCommitApplied: handleLayoutCommitApplied,
 	})
 	const {
 		applySnippetTemplate,
@@ -1121,6 +1129,7 @@ function NewSnippetPage() {
 												layoutSnapEnabled={layoutSnapEnabled}
 												layoutSnapGrid={layoutSnapGrid}
 												onLayoutCommit={handleLayoutCommit}
+												suppressNextRenderToken={suppressNextRenderToken}
 												layersEnabled={layers3dOpen}
 												layersRequestToken={layersRequestToken}
 												onLayersSnapshot={handleLayersSnapshot}

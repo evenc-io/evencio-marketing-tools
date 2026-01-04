@@ -74,11 +74,64 @@ export interface SnippetPreviewProps {
 	layoutSnapGrid?: number
 	/** Called when the preview commits a layout change */
 	onLayoutCommit?: (commit: PreviewLayoutCommit) => void
+	/** Trigger skipping the next render after a layout commit */
+	suppressNextRenderToken?: number
 }
 
 export type PreviewStatus = "idle" | "loading" | "success" | "error"
 
 const MAX_LAYOUT_DEBUG_ENTRIES = 200
+const MAX_MESSAGE_TRACE_ENTRIES = 250
+
+type PreviewMessageTraceEntry = {
+	timestamp: number
+	direction: "in" | "out"
+	type: string
+	detail?: string
+}
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> => {
+	if (!value || typeof value !== "object") return false
+	const proto = Object.getPrototypeOf(value)
+	return proto === Object.prototype || proto === null
+}
+
+const stableStringify = (value: unknown) => {
+	const seen = new WeakSet<object>()
+
+	const normalize = (input: unknown): unknown => {
+		if (!input || typeof input !== "object") return input
+		if (seen.has(input)) return null
+		seen.add(input)
+
+		if (Array.isArray(input)) {
+			return input.map((entry) => normalize(entry))
+		}
+
+		if (isPlainObject(input)) {
+			const sortedKeys = Object.keys(input).sort()
+			const next: Record<string, unknown> = {}
+			for (const key of sortedKeys) {
+				next[key] = normalize(input[key])
+			}
+			return next
+		}
+
+		return input
+	}
+
+	try {
+		return JSON.stringify(normalize(value) ?? {})
+	} catch {
+		return "{}"
+	}
+}
+
+type PreviewSuppressRenderState = {
+	token: number
+	codeRendersRemaining: number
+	deadline: number
+}
 
 export function SnippetPreview({
 	compiledCode,
@@ -105,6 +158,7 @@ export function SnippetPreview({
 	layoutSnapEnabled = true,
 	layoutSnapGrid = 8,
 	onLayoutCommit,
+	suppressNextRenderToken = 0,
 }: SnippetPreviewProps) {
 	const iframeRef = useRef<HTMLIFrameElement>(null)
 	const containerRef = useRef<HTMLDivElement>(null)
@@ -112,6 +166,7 @@ export function SnippetPreview({
 	const [status, setStatus] = useState<PreviewStatus>("idle")
 	const [error, setError] = useState<string | null>(null)
 	const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
+	const traceStartRef = useRef(Date.now())
 	const lastCompiledCodeRef = useRef<string | null>(null)
 	const lastDimensionsRef = useRef<PreviewDimensions>(dimensions)
 	const lastTailwindCssRef = useRef<string | null>(null)
@@ -132,7 +187,61 @@ export function SnippetPreview({
 	const onLayoutCommitRef = useRef(onLayoutCommit)
 	const layoutEnabledRef = useRef(Boolean(layoutEnabled))
 	const scaleRef = useRef(1)
+	const suppressRenderStateRef = useRef<PreviewSuppressRenderState>({
+		token: suppressNextRenderToken,
+		codeRendersRemaining: 0,
+		deadline: 0,
+	})
+	const suppressRenderResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 	const [layoutDebugEntries, setLayoutDebugEntries] = useState<PreviewLayoutDebugEvent[]>([])
+	const [messageTraceEntries, setMessageTraceEntries] = useState<PreviewMessageTraceEntry[]>([])
+	const [debugView, setDebugView] = useState<"trace" | "layout">("trace")
+
+	const traceEnabledRef = useRef(Boolean(layoutDebugEnabled))
+	const canAppendTrace = useCallback(() => {
+		return traceEnabledRef.current
+	}, [])
+
+	const appendTrace = useCallback(
+		(entry: Omit<PreviewMessageTraceEntry, "timestamp">) => {
+			if (!canAppendTrace()) return
+			setMessageTraceEntries((prev) => {
+				const next = [...prev, { ...entry, timestamp: Date.now() }]
+				if (next.length > MAX_MESSAGE_TRACE_ENTRIES) {
+					next.splice(0, next.length - MAX_MESSAGE_TRACE_ENTRIES)
+				}
+				return next
+			})
+		},
+		[canAppendTrace],
+	)
+
+	useEffect(() => {
+		const state = suppressRenderStateRef.current
+		if (suppressNextRenderToken === state.token) return
+		state.token = suppressNextRenderToken
+		state.codeRendersRemaining = 1
+		state.deadline = Date.now() + 4_000
+
+		if (suppressRenderResetTimerRef.current) {
+			clearTimeout(suppressRenderResetTimerRef.current)
+		}
+		suppressRenderResetTimerRef.current = setTimeout(() => {
+			const current = suppressRenderStateRef.current
+			if (current.token !== suppressNextRenderToken) return
+			current.codeRendersRemaining = 0
+			current.deadline = 0
+		}, 4_250)
+	}, [suppressNextRenderToken])
+
+	useEffect(() => {
+		return () => {
+			if (suppressRenderResetTimerRef.current) {
+				clearTimeout(suppressRenderResetTimerRef.current)
+				suppressRenderResetTimerRef.current = null
+			}
+		}
+	}, [])
 
 	useEffect(() => {
 		onInspectHoverRef.current = onInspectHover
@@ -147,6 +256,7 @@ export function SnippetPreview({
 		onLayoutCommitRef.current = onLayoutCommit
 		layoutEnabledRef.current = Boolean(layoutEnabled)
 		layoutDebugEnabledRef.current = Boolean(layoutDebugEnabled)
+		traceEnabledRef.current = Boolean(layoutDebugEnabled)
 		layoutSnapEnabledRef.current = Boolean(layoutSnapEnabled)
 		layoutSnapGridRef.current = layoutSnapGrid
 	}, [
@@ -169,16 +279,16 @@ export function SnippetPreview({
 	useEffect(() => {
 		if (!layoutDebugEnabled) {
 			setLayoutDebugEntries([])
+			setMessageTraceEntries([])
+			setDebugView("trace")
 		}
 	}, [layoutDebugEnabled])
 
 	// Handle messages from the iframe
 	const handleMessage = useCallback(
 		(event: MessageEvent<PreviewMessage>) => {
-			// Only accept messages from our iframe
-			if (iframeRef.current && event.source !== iframeRef.current.contentWindow) {
-				return
-			}
+			const iframeWindow = iframeRef.current?.contentWindow
+			if (!iframeWindow || event.source !== iframeWindow) return
 
 			const data = event.data
 			if (!data || typeof data.type !== "string") {
@@ -187,6 +297,7 @@ export function SnippetPreview({
 
 			switch (data.type) {
 				case "ready":
+					appendTrace({ direction: "in", type: "ready" })
 					iframeReadyRef.current = true
 					// Send scale immediately so inspect overlay sizing is correct,
 					// especially for high-res templates with small scale factors.
@@ -231,11 +342,17 @@ export function SnippetPreview({
 					)
 					break
 				case "render-success":
+					appendTrace({ direction: "in", type: "render-success" })
 					setStatus("success")
 					setError(null)
 					onRenderSuccessRef.current?.()
 					break
 				case "render-error":
+					appendTrace({
+						direction: "in",
+						type: "render-error",
+						detail: data.error ? String(data.error).slice(0, 120) : undefined,
+					})
 					setStatus("error")
 					setError(data.error ?? "Unknown render error")
 					onRenderErrorRef.current?.(data.error ?? "Unknown error", data.stack)
@@ -273,6 +390,16 @@ export function SnippetPreview({
 					break
 				case "layout-commit":
 					if (data.commit) {
+						appendTrace({
+							direction: "in",
+							type: "layout-commit",
+							detail:
+								data.commit.width || data.commit.height
+									? `resize w=${data.commit.width ?? "?"} h=${data.commit.height ?? "?"}`
+									: `move x=${Math.round(data.commit.translate.x)} y=${Math.round(
+											data.commit.translate.y,
+										)}`,
+						})
 						onLayoutCommitRef.current?.(data.commit)
 					}
 					break
@@ -288,7 +415,7 @@ export function SnippetPreview({
 					break
 			}
 		},
-		[dimensions],
+		[appendTrace, dimensions],
 	)
 
 	// Set up message listener
@@ -297,13 +424,7 @@ export function SnippetPreview({
 		return () => window.removeEventListener("message", handleMessage)
 	}, [handleMessage])
 
-	const propsJson = useMemo(() => {
-		try {
-			return JSON.stringify(props ?? {})
-		} catch {
-			return "{}"
-		}
-	}, [props])
+	const propsJson = useMemo(() => stableStringify(props), [props])
 
 	// Update iframe srcdoc when code or dimensions change
 	useEffect(() => {
@@ -313,6 +434,15 @@ export function SnippetPreview({
 			lastCompiledCodeRef.current = null
 			lastTailwindCssRef.current = null
 			lastPropsJsonRef.current = null
+			if (suppressRenderResetTimerRef.current) {
+				clearTimeout(suppressRenderResetTimerRef.current)
+				suppressRenderResetTimerRef.current = null
+			}
+			suppressRenderStateRef.current = {
+				token: suppressNextRenderToken,
+				codeRendersRemaining: 0,
+				deadline: 0,
+			}
 			iframeReadyRef.current = false
 			onInspectHoverRef.current?.(null)
 			onInspectSelectRef.current?.(null, { reason: "reset" })
@@ -336,11 +466,25 @@ export function SnippetPreview({
 			Boolean(iframe?.contentWindow) && iframeReadyRef.current && !dimensionsChanged
 
 		if (canHotSwap) {
+			const suppressState = suppressRenderStateRef.current
+			const shouldSkipRender =
+				suppressState.codeRendersRemaining > 0 && Date.now() <= suppressState.deadline
+
 			lastCompiledCodeRef.current = compiledCode
 			lastDimensionsRef.current = dimensions
-			lastPropsJsonRef.current = propsJson
+			if (!shouldSkipRender) {
+				lastPropsJsonRef.current = propsJson
+			}
+			if (shouldSkipRender) {
+				suppressState.codeRendersRemaining = Math.max(0, suppressState.codeRendersRemaining - 1)
+			}
+			appendTrace({
+				direction: "out",
+				type: "code-update",
+				detail: `skipRender=${shouldSkipRender} codeLen=${compiledCode.length} propsLen=${propsJson.length}`,
+			})
 			iframe?.contentWindow?.postMessage(
-				{ type: "code-update", code: compiledCode, propsJson },
+				{ type: "code-update", code: compiledCode, propsJson, skipRender: shouldSkipRender },
 				"*",
 			)
 			return
@@ -353,6 +497,11 @@ export function SnippetPreview({
 		iframeReadyRef.current = false
 		setStatus("loading")
 		setError(null)
+		appendTrace({
+			direction: "out",
+			type: "srcdoc-reload",
+			detail: `codeChanged=${codeChanged} dimensionsChanged=${dimensionsChanged} codeLen=${compiledCode.length}`,
+		})
 
 		// Generate new srcdoc
 		const srcdoc = generatePreviewSrcdoc(
@@ -367,7 +516,15 @@ export function SnippetPreview({
 		if (iframe) {
 			iframe.srcdoc = srcdoc
 		}
-	}, [compiledCode, dimensions, props, propsJson, tailwindCss])
+	}, [
+		appendTrace,
+		compiledCode,
+		dimensions,
+		props,
+		propsJson,
+		suppressNextRenderToken,
+		tailwindCss,
+	])
 
 	useEffect(() => {
 		if (!compiledCode || status !== "success") return
@@ -376,8 +533,13 @@ export function SnippetPreview({
 		const nextCss = tailwindCss ?? null
 		if (lastTailwindCssRef.current === nextCss) return
 		lastTailwindCssRef.current = nextCss
+		appendTrace({
+			direction: "out",
+			type: "tailwind-update",
+			detail: `cssLen=${nextCss ? nextCss.length : 0}`,
+		})
 		iframeWindow.postMessage({ type: "tailwind-update", css: nextCss }, "*")
-	}, [compiledCode, status, tailwindCss])
+	}, [appendTrace, compiledCode, status, tailwindCss])
 
 	useEffect(() => {
 		if (!compiledCode || status !== "success") return
@@ -385,8 +547,13 @@ export function SnippetPreview({
 		if (!iframeWindow) return
 		if (propsJson === lastPropsJsonRef.current) return
 		lastPropsJsonRef.current = propsJson
+		appendTrace({
+			direction: "out",
+			type: "props-update",
+			detail: `propsLen=${propsJson.length}`,
+		})
 		iframeWindow.postMessage({ type: "props-update", propsJson }, "*")
-	}, [compiledCode, propsJson, status])
+	}, [appendTrace, compiledCode, propsJson, status])
 
 	useEffect(() => {
 		const iframe = iframeRef.current
@@ -523,9 +690,9 @@ export function SnippetPreview({
 
 	const previewHint = useMemo(() => {
 		if (layoutEnabled && inspectEnabled) {
-			return "Drag to reposition · Right-click to edit"
+			return "Drag to reposition or resize · Right-click to edit"
 		}
-		if (layoutEnabled) return "Drag to reposition"
+		if (layoutEnabled) return "Drag to reposition or resize"
 		if (inspectEnabled) return "Right-click to edit"
 		return null
 	}, [inspectEnabled, layoutEnabled])
@@ -541,14 +708,27 @@ export function SnippetPreview({
 		[layoutDebugEntries],
 	)
 
-	const handleCopyLayoutDebug = useCallback(async () => {
-		if (!layoutDebugText) return
+	const messageTraceText = useMemo(() => {
+		const base = traceStartRef.current
+		return messageTraceEntries
+			.map((entry) => {
+				const deltaMs = Math.max(0, entry.timestamp - base)
+				const prefix = entry.direction === "in" ? "←" : "→"
+				const detail = entry.detail ? ` ${entry.detail}` : ""
+				return `${String(deltaMs).padStart(5, " ")}ms ${prefix} ${entry.type}${detail}`
+			})
+			.join("\n")
+	}, [messageTraceEntries])
+
+	const debugText = debugView === "layout" ? layoutDebugText : messageTraceText
+	const handleCopyDebug = useCallback(async () => {
+		if (!debugText) return
 		try {
-			await navigator.clipboard.writeText(layoutDebugText)
+			await navigator.clipboard.writeText(debugText)
 		} catch {
 			// Ignore clipboard errors; user can still select manually.
 		}
-	}, [layoutDebugText])
+	}, [debugText])
 
 	return (
 		<div className={`relative flex flex-col ${className ?? ""}`}>
@@ -637,20 +817,47 @@ export function SnippetPreview({
 							<div className="absolute bottom-3 right-3 z-30 w-[360px] rounded-md border border-neutral-200 bg-white/95 text-[10px] text-neutral-700 shadow-sm">
 								<div className="flex items-center justify-between border-b border-neutral-200 px-2 py-1">
 									<span className="font-semibold uppercase tracking-widest text-neutral-500">
-										Layout debug ({layoutDebugEntries.length})
+										Debug · Layout {layoutDebugEntries.length} · Trace {messageTraceEntries.length}
 									</span>
 									<div className="flex items-center gap-1">
 										<button
 											type="button"
+											className={cn(
+												"rounded border border-neutral-200 px-1.5 py-0.5 text-[10px] text-neutral-600 hover:bg-neutral-50",
+												debugView === "trace" ? "bg-neutral-100" : null,
+											)}
+											onClick={() => setDebugView("trace")}
+										>
+											Trace
+										</button>
+										<button
+											type="button"
+											className={cn(
+												"rounded border border-neutral-200 px-1.5 py-0.5 text-[10px] text-neutral-600 hover:bg-neutral-50",
+												debugView === "layout" ? "bg-neutral-100" : null,
+											)}
+											onClick={() => setDebugView("layout")}
+										>
+											Layout
+										</button>
+										<button
+											type="button"
 											className="rounded border border-neutral-200 px-1.5 py-0.5 text-[10px] text-neutral-600 hover:bg-neutral-50"
-											onClick={handleCopyLayoutDebug}
+											onClick={handleCopyDebug}
 										>
 											Copy
 										</button>
 										<button
 											type="button"
 											className="rounded border border-neutral-200 px-1.5 py-0.5 text-[10px] text-neutral-600 hover:bg-neutral-50"
-											onClick={() => setLayoutDebugEntries([])}
+											onClick={() => {
+												if (debugView === "layout") {
+													setLayoutDebugEntries([])
+													return
+												}
+												setMessageTraceEntries([])
+												traceStartRef.current = Date.now()
+											}}
 										>
 											Clear
 										</button>
@@ -658,7 +865,7 @@ export function SnippetPreview({
 								</div>
 								<textarea
 									readOnly
-									value={layoutDebugText}
+									value={debugText}
 									className="h-40 w-full resize-none border-0 bg-transparent p-2 font-mono text-[10px] text-neutral-700 focus:outline-none"
 								/>
 							</div>

@@ -294,8 +294,14 @@ export function useSnippetCompiler({
 					setErrors([])
 					setWarnings(result.warnings)
 					if (enableTailwindCss) {
-						const nextTailwind = effectiveAnalysis?.tailwindCss ?? null
-						setTailwindCss(nextTailwind)
+						// Avoid FOUC/flashing in the preview: compilation can finish before the debounced
+						// analysis pipeline (tailwind CSS). If analysis is stale, keep the previous CSS
+						// until the matching analysis arrives (effect below will reconcile).
+						if (!analysis) {
+							setTailwindCss(null)
+						} else if (analysisMatches) {
+							setTailwindCss(analysis.tailwindCss ?? null)
+						}
 					}
 				} else {
 					if (!isMountedRef.current) return
