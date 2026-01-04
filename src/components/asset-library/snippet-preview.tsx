@@ -7,7 +7,7 @@
  */
 
 import { AlertCircle, Loader2 } from "lucide-react"
-import type { ReactNode } from "react"
+import type { ReactNode, PointerEvent as ReactPointerEvent } from "react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
 	DEFAULT_PREVIEW_DIMENSIONS,
@@ -40,6 +40,12 @@ export interface SnippetPreviewProps {
 	className?: string
 	/** Optional actions rendered in the preview header */
 	headerActions?: ReactNode
+	/** Enable camera mode (pan/zoom) for the preview viewport */
+	cameraEnabled?: boolean
+	/** Triggers resetting the camera pan/zoom back to the default view */
+	cameraResetToken?: number
+	/** Notifies when the pointer enters/leaves the preview viewport (useful for scoped hotkeys) */
+	onCameraHoverChange?: (hovered: boolean) => void
 	/** Enable inspect mode in the preview iframe */
 	inspectEnabled?: boolean
 	/** Called when the preview reports a hovered element source location */
@@ -93,6 +99,25 @@ type PreviewMessageTraceEntry = {
 	type: string
 	detail?: string
 }
+
+type PreviewCameraState = {
+	scale: number
+	translateX: number
+	translateY: number
+}
+
+const CAMERA_DEFAULT_STATE: PreviewCameraState = {
+	scale: 1,
+	translateX: 0,
+	translateY: 0,
+}
+
+const CAMERA_MIN_SCALE = 0.1
+const CAMERA_MAX_SCALE = 8
+const CAMERA_TRACKPAD_DELTA_THRESHOLD = 50
+const CAMERA_WHEEL_ZOOM_BASE = 1.0015
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> => {
 	if (!value || typeof value !== "object") return false
@@ -151,6 +176,9 @@ export function SnippetPreview({
 	onRenderError,
 	className,
 	headerActions,
+	cameraEnabled = false,
+	cameraResetToken = 0,
+	onCameraHoverChange,
 	inspectEnabled = false,
 	onInspectHover,
 	onInspectSelect,
@@ -172,6 +200,7 @@ export function SnippetPreview({
 }: SnippetPreviewProps) {
 	const iframeRef = useRef<HTMLIFrameElement>(null)
 	const containerRef = useRef<HTMLDivElement>(null)
+	const viewportRef = useRef<HTMLDivElement>(null)
 	const iframeReadyRef = useRef(false)
 	const [status, setStatus] = useState<PreviewStatus>("idle")
 	const [error, setError] = useState<string | null>(null)
@@ -197,6 +226,17 @@ export function SnippetPreview({
 	const onLayoutCommitRef = useRef(onLayoutCommit)
 	const onImportAssetRemoveRef = useRef(onImportAssetRemove)
 	const layoutEnabledRef = useRef(Boolean(layoutEnabled))
+	const cameraEnabledRef = useRef(Boolean(cameraEnabled))
+	const onCameraHoverChangeRef = useRef(onCameraHoverChange)
+	const lastCameraResetTokenRef = useRef(cameraResetToken)
+	const [camera, setCamera] = useState<PreviewCameraState>(() => ({ ...CAMERA_DEFAULT_STATE }))
+	const cameraRef = useRef(camera)
+	const pendingCameraRef = useRef<PreviewCameraState | null>(null)
+	const cameraAnimationFrameRef = useRef<number | null>(null)
+	const cameraHoverRef = useRef(false)
+	const [isCameraPanning, setIsCameraPanning] = useState(false)
+	const cameraPanRef = useRef<{ pointerId: number; clientX: number; clientY: number } | null>(null)
+	const baseTranslateRef = useRef({ x: 0, y: 0 })
 	const scaleRef = useRef(1)
 	const suppressRenderStateRef = useRef<PreviewSuppressRenderState>({
 		token: suppressNextRenderToken,
@@ -245,8 +285,65 @@ export function SnippetPreview({
 		}, 4_250)
 	}, [suppressNextRenderToken])
 
+	const setCameraHovered = useCallback((hovered: boolean) => {
+		if (cameraHoverRef.current === hovered) return
+		cameraHoverRef.current = hovered
+		onCameraHoverChangeRef.current?.(hovered)
+	}, [])
+
+	const scheduleCameraUpdate = useCallback(
+		(updater: (prev: PreviewCameraState) => PreviewCameraState) => {
+			const prev = pendingCameraRef.current ?? cameraRef.current
+			const next = updater(prev)
+			if (next === prev) return
+
+			pendingCameraRef.current = next
+			cameraRef.current = next
+
+			if (cameraAnimationFrameRef.current !== null) return
+			cameraAnimationFrameRef.current = requestAnimationFrame(() => {
+				cameraAnimationFrameRef.current = null
+				const value = pendingCameraRef.current
+				pendingCameraRef.current = null
+				if (!value) return
+				setCamera(value)
+			})
+		},
+		[],
+	)
+
+	useEffect(() => {
+		if (cameraResetToken === lastCameraResetTokenRef.current) return
+		lastCameraResetTokenRef.current = cameraResetToken
+		if (cameraAnimationFrameRef.current !== null) {
+			cancelAnimationFrame(cameraAnimationFrameRef.current)
+			cameraAnimationFrameRef.current = null
+		}
+		pendingCameraRef.current = null
+		const next = { ...CAMERA_DEFAULT_STATE }
+		cameraRef.current = next
+		setCamera(next)
+	}, [cameraResetToken])
+
+	useEffect(() => {
+		if (cameraEnabled) return
+		cameraPanRef.current = null
+		setIsCameraPanning(false)
+		if (cameraAnimationFrameRef.current !== null) {
+			cancelAnimationFrame(cameraAnimationFrameRef.current)
+			cameraAnimationFrameRef.current = null
+		}
+		pendingCameraRef.current = null
+	}, [cameraEnabled])
+
 	useEffect(() => {
 		return () => {
+			if (cameraAnimationFrameRef.current !== null) {
+				cancelAnimationFrame(cameraAnimationFrameRef.current)
+				cameraAnimationFrameRef.current = null
+			}
+			pendingCameraRef.current = null
+			cameraHoverRef.current = false
 			if (suppressRenderResetTimerRef.current) {
 				clearTimeout(suppressRenderResetTimerRef.current)
 				suppressRenderResetTimerRef.current = null
@@ -271,7 +368,11 @@ export function SnippetPreview({
 		traceEnabledRef.current = Boolean(layoutDebugEnabled)
 		layoutSnapEnabledRef.current = Boolean(layoutSnapEnabled)
 		layoutSnapGridRef.current = layoutSnapGrid
+		cameraEnabledRef.current = Boolean(cameraEnabled)
+		onCameraHoverChangeRef.current = onCameraHoverChange
 	}, [
+		cameraEnabled,
+		onCameraHoverChange,
 		onInspectHover,
 		onInspectSelect,
 		onInspectContext,
@@ -667,6 +768,59 @@ export function SnippetPreview({
 		return () => observer.disconnect()
 	}, [])
 
+	useEffect(() => {
+		const viewport = viewportRef.current
+		if (!viewport) return
+
+		const handleWheel = (event: WheelEvent) => {
+			if (!cameraEnabledRef.current) return
+			event.preventDefault()
+
+			const rect = viewport.getBoundingClientRect()
+			const pointerX = event.clientX - rect.left
+			const pointerY = event.clientY - rect.top
+
+			const isPinch = event.ctrlKey
+			const isTrackpad =
+				event.deltaMode === 0 &&
+				(Math.abs(event.deltaX) > 0 || Math.abs(event.deltaY) < CAMERA_TRACKPAD_DELTA_THRESHOLD)
+
+			if (!isPinch && isTrackpad) {
+				const dx = event.deltaX
+				const dy = event.deltaY
+				if (!dx && !dy) return
+				scheduleCameraUpdate((prev) => ({
+					...prev,
+					translateX: prev.translateX - dx,
+					translateY: prev.translateY - dy,
+				}))
+				return
+			}
+
+			const zoomFactor = CAMERA_WHEEL_ZOOM_BASE ** -event.deltaY
+			if (!Number.isFinite(zoomFactor) || zoomFactor === 1) return
+
+			scheduleCameraUpdate((prev) => {
+				const base = baseTranslateRef.current
+				const nextScale = clamp(prev.scale * zoomFactor, CAMERA_MIN_SCALE, CAMERA_MAX_SCALE)
+				if (nextScale === prev.scale) return prev
+				const ratio = nextScale / prev.scale
+				const prevOriginX = base.x + prev.translateX
+				const prevOriginY = base.y + prev.translateY
+				const nextOriginX = pointerX - (pointerX - prevOriginX) * ratio
+				const nextOriginY = pointerY - (pointerY - prevOriginY) * ratio
+				return {
+					scale: nextScale,
+					translateX: nextOriginX - base.x,
+					translateY: nextOriginY - base.y,
+				}
+			})
+		}
+
+		viewport.addEventListener("wheel", handleWheel, { passive: false })
+		return () => viewport.removeEventListener("wheel", handleWheel)
+	}, [scheduleCameraUpdate])
+
 	const scale = useMemo(() => {
 		const availableWidth = containerSize.width
 		const availableHeight = containerSize.height
@@ -678,17 +832,48 @@ export function SnippetPreview({
 		return Math.min(1, Math.max(0.01, nextScale))
 	}, [containerSize.height, containerSize.width, dimensions.height, dimensions.width, fitMode])
 
+	const previewScale = scale * camera.scale
+	const baseTranslate = useMemo(() => {
+		if (fitMode !== "contain") return { x: 0, y: 0 }
+		const availableWidth = containerSize.width
+		const availableHeight = containerSize.height
+		if (!availableWidth || !availableHeight) return { x: 0, y: 0 }
+		const contentWidth = dimensions.width * scale
+		const contentHeight = dimensions.height * scale
+		const x = (availableWidth - contentWidth) / 2
+		const y = (availableHeight - contentHeight) / 2
+		return {
+			x: Number.isFinite(x) ? x : 0,
+			y: Number.isFinite(y) ? y : 0,
+		}
+	}, [
+		containerSize.height,
+		containerSize.width,
+		dimensions.height,
+		dimensions.width,
+		fitMode,
+		scale,
+	])
+
+	useEffect(() => {
+		baseTranslateRef.current = baseTranslate
+	}, [baseTranslate])
+
 	// Keep scaleRef in sync for use in message handler
 	useEffect(() => {
-		scaleRef.current = scale
-	}, [scale])
+		scaleRef.current = previewScale
+	}, [previewScale])
+
+	useEffect(() => {
+		cameraRef.current = camera
+	}, [camera])
 
 	const scaledWidth = Math.max(0, Math.round(dimensions.width * scale))
 	const scaledHeight = Math.max(0, Math.round(dimensions.height * scale))
-	const scalePercent = Math.round(scale * 100)
+	const scalePercent = Math.round(previewScale * 100)
 	const dimensionsLabel = `${dimensions.width} x ${dimensions.height}`
 	const scaleLabel = `${scalePercent}%`
-	const showScaleLabel = scalePercent < 100
+	const showScaleLabel = scalePercent !== 100
 	const [metaOverride, setMetaOverride] = useState<"dimensions" | "scale" | null>(null)
 	const previewMetaMode = showScaleLabel ? (metaOverride ?? "scale") : "dimensions"
 	const previewMetaLabel = previewMetaMode === "scale" ? scaleLabel : dimensionsLabel
@@ -705,20 +890,87 @@ export function SnippetPreview({
 		setMetaOverride((prev) => (prev === "dimensions" ? "scale" : "dimensions"))
 	}, [showScaleLabel])
 
+	const handleViewportPointerEnter = useCallback(() => {
+		setCameraHovered(true)
+	}, [setCameraHovered])
+
+	const handleViewportPointerLeave = useCallback(() => {
+		setCameraHovered(false)
+	}, [setCameraHovered])
+
+	const handleCameraPointerDown = useCallback(
+		(event: ReactPointerEvent<HTMLDivElement>) => {
+			if (!cameraEnabled) return
+			if (event.pointerType === "mouse" && event.button !== 0) return
+			const target = event.currentTarget
+			target.setPointerCapture(event.pointerId)
+			cameraPanRef.current = {
+				pointerId: event.pointerId,
+				clientX: event.clientX,
+				clientY: event.clientY,
+			}
+			setCameraHovered(true)
+			setIsCameraPanning(true)
+			event.preventDefault()
+		},
+		[cameraEnabled, setCameraHovered],
+	)
+
+	const handleCameraPointerMove = useCallback(
+		(event: ReactPointerEvent<HTMLDivElement>) => {
+			if (!cameraEnabled) return
+			const pan = cameraPanRef.current
+			if (!pan || pan.pointerId !== event.pointerId) return
+
+			const dx = event.clientX - pan.clientX
+			const dy = event.clientY - pan.clientY
+			if (!dx && !dy) return
+			pan.clientX = event.clientX
+			pan.clientY = event.clientY
+
+			scheduleCameraUpdate((prev) => ({
+				...prev,
+				translateX: prev.translateX + dx,
+				translateY: prev.translateY + dy,
+			}))
+		},
+		[cameraEnabled, scheduleCameraUpdate],
+	)
+
+	const handleCameraPointerEnd = useCallback(
+		(event: ReactPointerEvent<HTMLDivElement>) => {
+			if (!cameraEnabled) return
+			const pan = cameraPanRef.current
+			if (!pan || pan.pointerId !== event.pointerId) return
+
+			cameraPanRef.current = null
+			setIsCameraPanning(false)
+			const target = event.currentTarget
+			if (target.hasPointerCapture(event.pointerId)) {
+				target.releasePointerCapture(event.pointerId)
+			}
+			const viewport = viewportRef.current
+			setCameraHovered(viewport ? viewport.matches(":hover") : false)
+			event.preventDefault()
+		},
+		[cameraEnabled, setCameraHovered],
+	)
+
 	const previewHint = useMemo(() => {
+		if (cameraEnabled) return "Drag to pan · Scroll/pinch to zoom"
 		if (layoutEnabled && inspectEnabled) {
 			return "Drag to reposition or resize · Right-click to edit"
 		}
 		if (layoutEnabled) return "Drag to reposition or resize"
 		if (inspectEnabled) return "Right-click to edit"
 		return null
-	}, [inspectEnabled, layoutEnabled])
+	}, [cameraEnabled, inspectEnabled, layoutEnabled])
 
 	useEffect(() => {
 		const iframe = iframeRef.current
 		if (!iframe?.contentWindow || !iframeReadyRef.current) return
-		iframe.contentWindow.postMessage({ type: "inspect-scale", scale }, "*")
-	}, [scale])
+		iframe.contentWindow.postMessage({ type: "inspect-scale", scale: previewScale }, "*")
+	}, [previewScale])
 
 	const layoutDebugText = useMemo(
 		() => layoutDebugEntries.map((entry) => JSON.stringify(entry)).join("\n"),
@@ -788,55 +1040,91 @@ export function SnippetPreview({
 					)}
 				>
 					<div
-						className="relative overflow-hidden rounded-md border border-neutral-200 bg-white"
+						ref={viewportRef}
+						onPointerEnter={handleViewportPointerEnter}
+						onPointerLeave={handleViewportPointerLeave}
+						className={cn(
+							"relative overflow-hidden rounded-md border border-neutral-200",
+							layoutEnabled ? "bg-neutral-100" : "bg-white",
+						)}
 						style={{
-							width: scaledWidth || "100%",
-							height: scaledHeight || "100%",
+							width: fitMode === "contain" ? "100%" : scaledWidth || "100%",
+							height: fitMode === "contain" ? "100%" : scaledHeight || "100%",
 						}}
 					>
-						{/* Status overlays */}
-						{status === "idle" && !compiledCode && (
-							<div className="flex h-full w-full items-center justify-center rounded-md border-2 border-dashed border-neutral-300 bg-white">
-								<p className="text-sm text-neutral-400">Write code to see preview</p>
-							</div>
-						)}
-
-						{status === "loading" && (
-							<div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80">
-								<Loader2 className="h-6 w-6 animate-spin text-neutral-400" />
-							</div>
-						)}
-
-						{status === "error" && error && (
-							<div className="absolute bottom-2 left-2 right-2 z-20 flex items-start gap-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 shadow-lg">
-								<AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-								<span className="line-clamp-2">{error}</span>
-							</div>
-						)}
-
-						{/* Sandboxed iframe */}
-						{compiledCode && (
+						<div
+							className="absolute left-0 top-0"
+							style={{
+								transform: `translate3d(${baseTranslate.x + camera.translateX}px, ${baseTranslate.y + camera.translateY}px, 0)`,
+							}}
+						>
 							<div
+								className={cn(
+									"relative",
+									fitMode === "contain"
+										? "overflow-hidden rounded-md border border-neutral-200 bg-white"
+										: null,
+								)}
 								style={{
 									width: dimensions.width,
 									height: dimensions.height,
-									transform: `scale(${scale})`,
+									transform: `scale(${previewScale})`,
 									transformOrigin: "top left",
 								}}
 							>
-								<iframe
-									ref={iframeRef}
-									title="Snippet Preview"
-									sandbox="allow-scripts"
-									data-snippet-preview="iframe"
-									className="block"
-									style={{
-										width: dimensions.width,
-										height: dimensions.height,
-										border: "none",
-									}}
-								/>
+								{/* Status overlays */}
+								{status === "idle" && !compiledCode && (
+									<div className="flex h-full w-full items-center justify-center rounded-md border-2 border-dashed border-neutral-300 bg-white">
+										<p className="text-sm text-neutral-400">Write code to see preview</p>
+									</div>
+								)}
+
+								{status === "loading" && (
+									<div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80">
+										<Loader2 className="h-6 w-6 animate-spin text-neutral-400" />
+									</div>
+								)}
+
+								{status === "error" && error && (
+									<div className="absolute bottom-2 left-2 right-2 z-20 flex items-start gap-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 shadow-lg">
+										<AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+										<span className="line-clamp-2">{error}</span>
+									</div>
+								)}
+
+								{/* Sandboxed iframe */}
+								{compiledCode && (
+									<iframe
+										ref={iframeRef}
+										title="Snippet Preview"
+										sandbox="allow-scripts"
+										data-snippet-preview="iframe"
+										className="block"
+										style={{
+											width: dimensions.width,
+											height: dimensions.height,
+											border: "none",
+											pointerEvents: cameraEnabled ? "none" : "auto",
+										}}
+									/>
+								)}
 							</div>
+						</div>
+
+						{cameraEnabled && (
+							<div
+								aria-hidden="true"
+								className={cn(
+									"absolute inset-0 z-[5] bg-transparent",
+									isCameraPanning ? "cursor-grabbing" : "cursor-grab",
+								)}
+								style={{ touchAction: "none" }}
+								onContextMenu={(event) => event.preventDefault()}
+								onPointerDown={handleCameraPointerDown}
+								onPointerMove={handleCameraPointerMove}
+								onPointerUp={handleCameraPointerEnd}
+								onPointerCancel={handleCameraPointerEnd}
+							/>
 						)}
 
 						{layoutDebugEnabled && (

@@ -1,4 +1,4 @@
-import { ArrowLeft, Bug, Crosshair, Layers, LayoutGrid } from "lucide-react"
+import { ArrowLeft, Bug, Crosshair, Hand, Layers, LayoutGrid, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -6,6 +6,9 @@ interface SnippetPreviewHeaderActionsProps {
 	isExamplePreviewing: boolean
 	activeExampleTitle?: string
 	onExitExamplePreview: () => void
+	cameraEnabled?: boolean
+	onToggleCamera?: () => void
+	onResetCamera?: () => void
 	inspectEnabled?: boolean
 	onToggleInspect?: () => void
 	layoutEnabled?: boolean
@@ -20,6 +23,9 @@ export function SnippetPreviewHeaderActions({
 	isExamplePreviewing,
 	activeExampleTitle,
 	onExitExamplePreview,
+	cameraEnabled = false,
+	onToggleCamera,
+	onResetCamera,
 	inspectEnabled = false,
 	onToggleInspect,
 	layoutEnabled = false,
@@ -74,6 +80,33 @@ export function SnippetPreviewHeaderActions({
 						<Layers className="h-4 w-4" />
 					</Button>
 				)}
+				{onToggleCamera && (
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon-sm"
+						className={toggleButtonClass(cameraEnabled)}
+						aria-pressed={cameraEnabled}
+						onClick={onToggleCamera}
+						aria-label="Camera"
+						title="Camera (Space)"
+					>
+						<Hand className="h-4 w-4" />
+					</Button>
+				)}
+				{onResetCamera && cameraEnabled && (
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon-sm"
+						className="h-7 w-7 text-neutral-500 hover:text-neutral-700"
+						onClick={onResetCamera}
+						aria-label="Reset camera"
+						title="Reset camera"
+					>
+						<RotateCcw className="h-4 w-4" />
+					</Button>
+				)}
 			</>
 		)
 	}
@@ -92,6 +125,33 @@ export function SnippetPreviewHeaderActions({
 					title="Layers 3D"
 				>
 					<Layers className="h-4 w-4" />
+				</Button>
+			)}
+			{onToggleCamera && (
+				<Button
+					type="button"
+					variant="ghost"
+					size="icon-sm"
+					className={toggleButtonClass(cameraEnabled)}
+					aria-pressed={cameraEnabled}
+					onClick={onToggleCamera}
+					aria-label="Camera"
+					title="Camera (Space)"
+				>
+					<Hand className="h-4 w-4" />
+				</Button>
+			)}
+			{onResetCamera && cameraEnabled && (
+				<Button
+					type="button"
+					variant="ghost"
+					size="icon-sm"
+					className="h-7 w-7 text-neutral-500 hover:text-neutral-700"
+					onClick={onResetCamera}
+					aria-label="Reset camera"
+					title="Reset camera"
+				>
+					<RotateCcw className="h-4 w-4" />
 				</Button>
 			)}
 			{onToggleInspect && (
