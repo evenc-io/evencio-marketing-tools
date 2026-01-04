@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
 	formatBytes,
+	getDb,
 	getStorageEstimate,
 	isIndexedDBAvailable,
-	listProjects,
 	type StorageEstimate,
 } from "@/lib/storage"
 
@@ -32,11 +32,22 @@ function SettingsOverviewPage() {
 					setStorageStatus("unavailable")
 					return
 				}
-				const [estimate, projects] = await Promise.all([getStorageEstimate(), listProjects()])
+
+				const db = await getDb()
+				const [estimate, projectsCount, assetsCount, draftCount] = await Promise.all([
+					getStorageEstimate(),
+					db.count("projects"),
+					db.count("assets"),
+					db.count("snippetDrafts"),
+				])
 				let resolvedEstimate = estimate
 				let status: "ready" | "unavailable" = estimate ? "ready" : "unavailable"
 
-				if (estimate && estimate.used === 0 && projects.length > 0) {
+				if (
+					estimate &&
+					estimate.used === 0 &&
+					(projectsCount > 0 || assetsCount > 0 || draftCount > 0)
+				) {
 					await new Promise((resolve) => setTimeout(resolve, 150))
 					const retryEstimate = await getStorageEstimate()
 					if (retryEstimate && retryEstimate.used > 0) {
@@ -84,7 +95,7 @@ function SettingsOverviewPage() {
 						</CardTitle>
 						<CardDescription>
 							{isStorageAvailable
-								? "Local storage usage for your projects and assets"
+								? "Local storage usage for your snippets, assets, and drafts"
 								: "IndexedDB is not available in this browser"}
 						</CardDescription>
 					</CardHeader>
@@ -158,7 +169,7 @@ function SettingsOverviewPage() {
 								<Database className="h-5 w-5" />
 								Local Data
 							</CardTitle>
-							<CardDescription>Manage your locally stored projects</CardDescription>
+							<CardDescription>Manage your locally stored snippets and assets</CardDescription>
 						</CardHeader>
 						<CardContent>
 							<Button variant="outline" size="sm" asChild>

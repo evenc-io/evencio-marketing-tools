@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router"
-import { Check, ChevronDown, Download, Plus, Save, Settings } from "lucide-react"
+import { Check, ChevronDown, Download, Save, Settings } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
+import { AddSnippetButton } from "@/components/asset-library/add-snippet-button"
 import { Logo } from "@/components/brand/logo"
 import { Button } from "@/components/ui/button"
 import {
@@ -16,8 +17,6 @@ interface NavbarProps {
 	projectName?: string
 	/** Callback when project name changes (editor variant only) */
 	onProjectNameChange?: (name: string) => void
-	/** Callback when new project button clicked (dashboard variant only) */
-	onNewProject?: () => void
 	/** Callback when save button clicked (editor variant only) */
 	onSave?: () => void
 	/** Whether save is pending (editor variant only) */
@@ -34,7 +33,6 @@ export function Navbar({
 	variant,
 	projectName,
 	onProjectNameChange,
-	onNewProject,
 	onSave,
 	isSaving,
 	hasUnsavedChanges,
@@ -74,10 +72,7 @@ export function Navbar({
 									<Settings className="h-4 w-4" />
 								</Link>
 							</Button>
-							<Button onClick={onNewProject} size="sm" className="gap-1.5">
-								<Plus className="h-4 w-4" />
-								<span className="hidden sm:inline">New Project</span>
-							</Button>
+							<AddSnippetButton />
 						</>
 					) : (
 						<>

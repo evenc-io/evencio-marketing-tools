@@ -8,12 +8,13 @@ import { Label } from "@/components/ui/label"
 import {
 	clearAllData,
 	formatBytes,
+	getDb,
 	getStorageEstimate,
 	isIndexedDBAvailable,
 	isPrivateBrowsing,
-	listProjects,
 	type StorageEstimate,
 } from "@/lib/storage"
+import { useAssetLibraryStore } from "@/stores/asset-library-store"
 import { useProjectsStore } from "@/stores/projects-store"
 
 export const Route = createFileRoute("/settings/storage")({
@@ -27,14 +28,17 @@ function StoragePage() {
 
 	const [storage, setStorage] = useState<StorageEstimate | null>(null)
 	const [storageStatus, setStorageStatus] = useState<"loading" | "ready" | "unavailable">("loading")
-	const [projectCount, setProjectCount] = useState<number>(0)
+	const [snippetCount, setSnippetCount] = useState<number>(0)
+	const [draftCount, setDraftCount] = useState<number>(0)
 	const [isStorageAvailable, setIsStorageAvailable] = useState(true)
 	const [isPersistenceLimited, setIsPersistenceLimited] = useState(false)
+	const [storageAccessError, setStorageAccessError] = useState<string | null>(null)
 	const [confirmInput, setConfirmInput] = useState("")
 	const [isClearing, setIsClearing] = useState(false)
 	const [clearError, setClearError] = useState<string | null>(null)
 
 	const loadProjects = useProjectsStore((s) => s.loadProjects)
+	const loadLibrary = useAssetLibraryStore((s) => s.loadLibrary)
 
 	useEffect(() => {
 		let isActive = true
@@ -45,16 +49,34 @@ function StoragePage() {
 			if (!available) return
 
 			try {
-				const [estimate, projects, privateBrowsing] = await Promise.all([
+				const db = await getDb()
+				const [
+					estimate,
+					privateBrowsing,
+					projectsCount,
+					assetsCount,
+					nextDraftCount,
+					nextSnippetCount,
+				] = await Promise.all([
 					getStorageEstimate(),
-					listProjects(),
 					isPrivateBrowsing(),
+					db.count("projects").catch(() => 0),
+					db.count("assets").catch(() => 0),
+					db.count("snippetDrafts").catch(() => 0),
+					db.countFromIndex("assets", "type", "snippet").catch(async () => {
+						const assets = await db.getAll("assets").catch(() => [])
+						return assets.filter((asset) => asset.type === "snippet").length
+					}),
 				])
 
 				let resolvedEstimate = estimate
 				let status: "ready" | "unavailable" = estimate ? "ready" : "unavailable"
 
-				if (estimate && estimate.used === 0 && projects.length > 0) {
+				if (
+					estimate &&
+					estimate.used === 0 &&
+					(projectsCount > 0 || assetsCount > 0 || nextDraftCount > 0)
+				) {
 					await new Promise((resolve) => setTimeout(resolve, 150))
 					const retryEstimate = await getStorageEstimate()
 					if (retryEstimate && retryEstimate.used > 0) {
@@ -69,14 +91,19 @@ function StoragePage() {
 				if (!isActive) return
 				setStorage(resolvedEstimate)
 				setStorageStatus(status)
-				setProjectCount(projects.length)
+				setSnippetCount(nextSnippetCount)
+				setDraftCount(nextDraftCount)
 				setIsPersistenceLimited(privateBrowsing)
-			} catch {
+				setStorageAccessError(null)
+			} catch (error) {
 				if (!isActive) return
-				setIsStorageAvailable(false)
 				setStorageStatus("unavailable")
-				setProjectCount(0)
+				setSnippetCount(0)
+				setDraftCount(0)
 				setIsPersistenceLimited(false)
+				setStorageAccessError(
+					error instanceof Error ? error.message : "Unable to read local storage information.",
+				)
 			}
 		}
 
@@ -100,6 +127,7 @@ function StoragePage() {
 			await clearAllData()
 			// Reload from the now-empty database to clear in-memory state
 			await loadProjects()
+			await loadLibrary(false)
 			// Navigate to dashboard
 			navigate({ to: "/" })
 		} catch (err) {
@@ -126,7 +154,20 @@ function StoragePage() {
 							<p className="font-medium text-red-900">Storage Unavailable</p>
 							<p className="mt-1 text-sm text-red-700">
 								IndexedDB is not available in this browser session. This can happen if storage is
-								blocked by browser settings or in private browsing. Your projects cannot be saved.
+								blocked by browser settings or in private browsing. Your local data cannot be saved.
+							</p>
+						</div>
+					</div>
+				)}
+
+				{isStorageAvailable && storageAccessError && (
+					<div className="flex items-start gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+						<AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
+						<div>
+							<p className="font-medium text-amber-900">Storage info unavailable</p>
+							<p className="mt-1 text-sm text-amber-700">
+								We couldn’t read local storage stats in this session. Your data may still be intact
+								— try reloading the page.
 							</p>
 						</div>
 					</div>
@@ -188,11 +229,17 @@ function StoragePage() {
 							)}
 
 							{/* Stats */}
-							<div className="grid grid-cols-2 gap-4">
+							<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 								<div className="rounded-lg border border-neutral-200 p-4">
-									<p className="text-2xl font-semibold text-neutral-900">{projectCount}</p>
+									<p className="text-2xl font-semibold text-neutral-900">{snippetCount}</p>
 									<p className="text-sm text-neutral-500">
-										{projectCount === 1 ? "Project" : "Projects"}
+										{snippetCount === 1 ? "Snippet" : "Snippets"}
+									</p>
+								</div>
+								<div className="rounded-lg border border-neutral-200 p-4">
+									<p className="text-2xl font-semibold text-neutral-900">{draftCount}</p>
+									<p className="text-sm text-neutral-500">
+										{draftCount === 1 ? "Draft" : "Drafts"}
 									</p>
 								</div>
 								<div className="rounded-lg border border-neutral-200 p-4">
@@ -226,8 +273,8 @@ function StoragePage() {
 										<div>
 											<p className="font-medium text-red-900">Clear All Data</p>
 											<p className="mt-1 text-sm text-red-700">
-												This will permanently delete all your projects, assets, and settings. This
-												action cannot be undone.
+												This will permanently delete all your local data (snippets, assets, drafts,
+												and any legacy projects) and settings. This action cannot be undone.
 											</p>
 										</div>
 

@@ -224,7 +224,7 @@ function AssetLibraryPage() {
 					</div>
 					<div className="flex items-center gap-2">
 						<Button variant="outline" size="sm" asChild>
-							<Link to="/">Projects</Link>
+							<Link to="/">Dashboard</Link>
 						</Button>
 						<AddSnippetButton />
 						<AssetImportDialog />
