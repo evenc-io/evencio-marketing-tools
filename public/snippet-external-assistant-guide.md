@@ -10,7 +10,8 @@ Use this guide when you’re generating TSX snippets via an external assistant (
 
 ## Output requirements (assistant must follow)
 
-- Output **ONLY** TSX source code (no Markdown fences like ``` and no explanations).
+- Output **exactly one** Markdown fenced code block (starts with ```tsx and ends with ```), containing the **entire** snippet.
+- Output **no other** text (no preface, no explanation, no extra code blocks).
 - Export **exactly one** component as:
   - `export default function <Name>(props) { ... }`
 - Prefer **no imports**. Do not use any libraries.
@@ -25,6 +26,7 @@ Use this guide when you’re generating TSX snippets via an external assistant (
 - Don’t rely on event handlers (`onClick/onChange/etc.`) — previews don’t attach them
 - Root element must include `className="h-full w-full"`
 - No external images/URLs (use a placeholder div or a `data:` URL)
+- Evencio assets: do **not** inline Evencio logo SVGs in the main file; use `EvencioMark` / `EvencioLockup` from `__imports.assets.tsx` only (or let Import auto-add it)
 
 ## Optional: resolution directive
 
@@ -36,7 +38,8 @@ If multiple are present, the **last one wins**.
 
 ## Optional: multi-file snippets
 
-If you need helper components or extra files, append them as file blocks:
+If you need helper components or extra files, append them as file blocks.
+Important: Keep the **entire output** inside **one** fenced code block — do not wrap each file in its own fence.
 
 ```tsx
 // @snippet-file components/ui/badge.tsx
@@ -53,6 +56,8 @@ export function Badge({ label = "Badge" }: { label?: string }) {
 Important: Do **not** add `// @import …` lines. The editor manages imports automatically.
 
 ## Optional: Evencio logo + icon (Import Assets)
+
+Hard rule: If you need Evencio logos/icons, **do not** inline SVGs (or `EvencioMark` / `EvencioLockup` implementations) in the main snippet file. Keep them in `__imports.assets.tsx` only.
 
 You may reference these components:
 
@@ -76,7 +81,17 @@ If you must include it manually, append this exact file block:
 
 ```tsx
 // @snippet-file __imports.assets.tsx
-const EvencioMark = ({ size = 80 }: { size?: number }) => (
+type EvencioAssetProps = {
+  className?: string
+  style?: any
+}
+
+const mergeClassName = (base: string, extra?: string) =>
+  extra ? base + " " + extra : base
+
+type EvencioMarkProps = EvencioAssetProps & { size?: number }
+
+const EvencioMark = ({ className, style, size = 80 }: EvencioMarkProps) => (
   <svg
     data-snippet-inspect="ignore"
     viewBox="0 0 100 100"
@@ -85,16 +100,23 @@ const EvencioMark = ({ size = 80 }: { size?: number }) => (
     width={size}
     height={size}
     aria-hidden="true"
-    className="shrink-0 self-center"
+    className={mergeClassName("shrink-0 self-center", className)}
+    style={style}
   >
     <path d="M15 10H85V35H40V65H85V90H15V10Z" className="fill-neutral-950" />
     <rect x="65" y="40" width="20" height="20" fill="#0044FF" />
   </svg>
 )
 
-const EvencioLockup = ({ markSize = 32 }: { markSize?: number }) => (
-  <span data-snippet-inspect="ignore" className="inline-flex items-center gap-2 leading-none">
-    <EvencioMark size={markSize} />
+type EvencioLockupProps = EvencioAssetProps & { markSize?: number }
+
+const EvencioLockup = ({ className, style, markSize = 32 }: EvencioLockupProps) => (
+  <span
+    data-snippet-inspect="ignore"
+    className={mergeClassName("inline-flex items-center gap-2 leading-none", className)}
+    style={style}
+  >
+    <EvencioMark size={markSize} style={{ width: markSize, height: markSize }} />
     <span className="font-unbounded text-[24px] font-normal tracking-[-0.02em] uppercase leading-none whitespace-nowrap text-neutral-950">
       EVENCIO
     </span>
@@ -109,7 +131,7 @@ const EvencioLockup = ({ markSize = 32 }: { markSize?: number }) => (
 You are generating a TSX snippet for Evencio’s Snippets Editor.
 
 Output requirements:
-- Output ONLY the TSX source code. No Markdown, no ``` fences, no explanations.
+- Output EXACTLY ONE Markdown fenced code block (```tsx) containing the entire snippet. No text outside the code block.
 - Export exactly one component as: export default function <Name>(props) { ... }.
 - Use JSX return value (no ReactDOM calls).
 
@@ -123,6 +145,7 @@ Hard constraints (must not violate):
 - Don’t rely on event handlers (onClick/onChange/etc.) — previews don’t attach them.
 - Root element must include className="h-full w-full".
 - No external images/URLs. If an image is needed, use a data: URL or a simple placeholder div.
+- Evencio assets: do not inline Evencio logo SVGs in the main file; use EvencioMark/EvencioLockup via __imports.assets.tsx (or let Import auto-add it).
 
 Optional:
 - Resolution directive: add a line like // @res 1920x1080 (or // @res1920x1080).
@@ -146,6 +169,5 @@ Props to support (with defaults):
 - <propName>: <defaultValue>
 - ...
 
-Now output the TSX source only.
+Now output exactly one fenced `tsx` code block (and nothing else).
 ```
-

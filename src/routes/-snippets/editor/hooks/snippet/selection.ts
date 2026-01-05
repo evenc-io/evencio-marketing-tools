@@ -25,6 +25,9 @@ import {
 import type { AssetScope, SnippetAsset } from "@/types/asset-library"
 import type { SnippetDraftRecord } from "@/types/snippet-drafts"
 
+const normalizeNewlines = (value: string) =>
+	value.includes("\r") ? value.replace(/\r\n?/g, "\n") : value
+
 const normalizeDraftScope = (scope: AssetScope): CustomSnippetValues["scope"] =>
 	scope === "global" ? "personal" : scope
 
@@ -88,6 +91,8 @@ interface UseSnippetSelectionOptions {
 interface UseSnippetSelectionResult {
 	autoCompile: boolean
 	handleSnippetSelect: (snippetId: string | null) => void
+	cancelPendingSelection: () => void
+	resetNewSnippet: () => void
 }
 
 export function useSnippetSelection(
@@ -161,6 +166,10 @@ export function useSnippetSelection(
 			},
 		) => {
 			suppressDraftAutosaveRef.current = true
+			if (draftAutosaveTimerRef.current) {
+				clearTimeout(draftAutosaveTimerRef.current)
+				draftAutosaveTimerRef.current = null
+			}
 			setError(null)
 			setComponentTreeSelectedId(null)
 			setComponentTreeSelection(null)
@@ -404,8 +413,8 @@ export function useSnippetSelection(
 		const pending = pendingSnippetReadyRef.current
 		if (!pending) return
 		if (pending.draftId !== currentDraftId) return
-		const expected = pending.source.replaceAll("\r\n", "\n")
-		const actual = watchedSource.replaceAll("\r\n", "\n")
+		const expected = normalizeNewlines(pending.source)
+		const actual = normalizeNewlines(watchedSource)
 		if (expected !== actual) return
 		pendingSnippetReadyRef.current = null
 		setSnippetReadyDraftId(pending.draftId)
@@ -443,14 +452,15 @@ export function useSnippetSelection(
 
 	const scheduleDraftAutosave = useCallback(() => {
 		if (suppressDraftAutosaveRef.current) return
-		if (!form.formState.isDirty) return
 		if (draftAutosaveTimerRef.current) {
 			clearTimeout(draftAutosaveTimerRef.current)
 		}
 		draftAutosaveTimerRef.current = setTimeout(() => {
+			draftAutosaveTimerRef.current = null
+			if (!form.formState.isDirty) return
 			void saveDraft(buildDraftRecord(currentDraftId))
 		}, 1200)
-	}, [buildDraftRecord, currentDraftId, form.formState.isDirty, saveDraft])
+	}, [buildDraftRecord, currentDraftId, form, saveDraft])
 
 	useEffect(() => {
 		const subscription = form.watch(() => {
@@ -500,8 +510,25 @@ export function useSnippetSelection(
 		[buildDraftRecord, currentDraftId, navigate, saveDraft, setError],
 	)
 
+	const cancelPendingSelection = useCallback(() => {
+		invalidateSelectionToken(selectionTokenRef)
+		pendingSnippetReadyRef.current = null
+		setSnippetReadyDraftId(currentDraftId)
+		if (!isEditing) {
+			newDraftAppliedRef.current = true
+		} else if (editAssetId) {
+			editAppliedRef.current = editAssetId
+		}
+		if (draftAutosaveTimerRef.current) {
+			clearTimeout(draftAutosaveTimerRef.current)
+			draftAutosaveTimerRef.current = null
+		}
+	}, [currentDraftId, editAssetId, isEditing])
+
 	return {
 		autoCompile: snippetReadyDraftId === currentDraftId,
 		handleSnippetSelect,
+		cancelPendingSelection,
+		resetNewSnippet: resetToDefaultSnippet,
 	}
 }

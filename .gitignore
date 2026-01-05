@@ -13,6 +13,8 @@ count.txt
 .vinxi
 .zig-cache
 todos.json
+playwright-report
+test-results
 
 # Claude Code config (may contain corporate info)
 .claude/

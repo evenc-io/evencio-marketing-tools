@@ -104,6 +104,9 @@ const getPreviewSourceKey = (source: PreviewSourceLocation | null) => {
 	return `${String(fileName)}:${String(line)}:${String(column)}`
 }
 
+const normalizeNewlines = (value: string) =>
+	value.includes("\r") ? value.replace(/\r\n?/g, "\n") : value
+
 const getPreviewSourceLineKey = (source: PreviewSourceLocation | null) => {
 	if (!source) return null
 	const fileName = source.fileName ?? ""
@@ -280,6 +283,13 @@ function NewSnippetPage() {
 		[editableSnippets],
 	)
 	const hasNewSnippetDraft = draftIds.has(NEW_SNIPPET_DRAFT_ID)
+	const normalizedWatchedSource = useMemo(() => normalizeNewlines(watchedSource), [watchedSource])
+	const normalizedDefaultSource = useMemo(
+		() => normalizeNewlines(defaultSnippetValues.source ?? ""),
+		[defaultSnippetValues.source],
+	)
+	const canResetNewSnippet =
+		!isEditing && (hasNewSnippetDraft || normalizedWatchedSource !== normalizedDefaultSource)
 	const isSnippetListLoading = isLibraryLoading
 	const disabledScopes = useMemo<AssetScope[]>(() => {
 		if (!isEditing || !editAsset) return []
@@ -589,7 +599,6 @@ function NewSnippetPage() {
 	const importAssetsFileSource = parsedFiles.files[IMPORT_ASSET_FILE_NAME] ?? ""
 	const importAssetsPreviewSource = useMemo(() => {
 		if (!isImportAssetsFileActive) return ""
-		if (!importAssetsFileSource.trim()) return ""
 		return buildImportAssetsPreviewSource(importAssetsFileSource)
 	}, [importAssetsFileSource, isImportAssetsFileActive])
 	const { analysis: importAssetsPreviewAnalysis } = useSnippetAnalysis({
@@ -627,39 +636,40 @@ function NewSnippetPage() {
 		}
 	}, [activeExampleId, filteredExamples])
 
-	const { autoCompile, handleSnippetSelect } = useSnippetSelection({
-		isEditing,
-		editAssetId,
-		isLibraryLoading,
-		assetsLength: assets.length,
-		editableSnippetById,
-		currentDraftId,
-		defaultSnippetValues,
-		watchedSource,
-		form,
-		activeComponentExport,
-		openFiles,
-		activeFile,
-		selectedTemplateId,
-		setActiveComponentExport,
-		setOpenFiles,
-		setActiveFile,
-		setSelectedTemplateId,
-		setIsExamplePreviewActive,
-		resetAutoOpenComponents,
-		resetComponentExports,
-		resetAnalysis,
-		resetHistory,
-		fileMigrationRef,
-		templateAppliedRef,
-		loadDraft,
-		saveDraft,
-		setError,
-		navigate,
-		setComponentTreeSelectedId,
-		setComponentTreeSelection,
-		setComponentTreeSelectionToken,
-	})
+	const { autoCompile, handleSnippetSelect, cancelPendingSelection, resetNewSnippet } =
+		useSnippetSelection({
+			isEditing,
+			editAssetId,
+			isLibraryLoading,
+			assetsLength: assets.length,
+			editableSnippetById,
+			currentDraftId,
+			defaultSnippetValues,
+			watchedSource,
+			form,
+			activeComponentExport,
+			openFiles,
+			activeFile,
+			selectedTemplateId,
+			setActiveComponentExport,
+			setOpenFiles,
+			setActiveFile,
+			setSelectedTemplateId,
+			setIsExamplePreviewActive,
+			resetAutoOpenComponents,
+			resetComponentExports,
+			resetAnalysis,
+			resetHistory,
+			fileMigrationRef,
+			templateAppliedRef,
+			loadDraft,
+			saveDraft,
+			setError,
+			navigate,
+			setComponentTreeSelectedId,
+			setComponentTreeSelection,
+			setComponentTreeSelectionToken,
+		})
 
 	// Compile snippet for preview
 	const {
@@ -808,6 +818,16 @@ function NewSnippetPage() {
 	const handleSnippetSearchChange = useCallback((value: string) => {
 		setSnippetSearch(value)
 	}, [])
+
+	const handleResetNewSnippet = useCallback(async () => {
+		cancelPendingSelection()
+		await deleteDraft(NEW_SNIPPET_DRAFT_ID)
+		if (!isEditing) {
+			resetNewSnippet()
+			return
+		}
+		handleSnippetSelect(null)
+	}, [cancelPendingSelection, deleteDraft, handleSnippetSelect, isEditing, resetNewSnippet])
 
 	const handleLayersSnapshot = useCallback((snapshot: PreviewLayerSnapshot) => {
 		setLayersSnapshot(snapshot)
@@ -1001,7 +1021,7 @@ function NewSnippetPage() {
 		explorerCollapsed,
 	})
 
-	const handleImportSnippet = useSnippetImportSnippet({
+	const handleImportSnippetInternal = useSnippetImportSnippet({
 		form,
 		fileMigrationRef,
 		resetComponentExports,
@@ -1016,6 +1036,14 @@ function NewSnippetPage() {
 		setComponentTreeSelection,
 		setComponentTreeSelectionToken,
 	})
+	const handleImportSnippet = useCallback(
+		(value: string) => {
+			templateAppliedRef.current = true
+			cancelPendingSelection()
+			return handleImportSnippetInternal(value)
+		},
+		[cancelPendingSelection, handleImportSnippetInternal],
+	)
 
 	return (
 		<ClientOnly fallback={<SnippetScreenGuard gate={SCREEN_GUARD_EMPTY} />}>
@@ -1064,9 +1092,11 @@ function NewSnippetPage() {
 						snippetItems={snippetItems}
 						activeSnippetId={editAssetId}
 						hasNewSnippetDraft={hasNewSnippetDraft}
+						canResetNewSnippet={canResetNewSnippet}
 						snippetSearch={snippetSearch}
 						onSnippetSearchChange={handleSnippetSearchChange}
 						onSelectSnippet={handleSnippetSelect}
+						onResetNewSnippet={handleResetNewSnippet}
 						isSnippetListLoading={isSnippetListLoading}
 					/>
 					<SnippetImportDialog

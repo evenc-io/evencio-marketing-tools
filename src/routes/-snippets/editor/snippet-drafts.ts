@@ -44,6 +44,8 @@ export async function saveSnippetDraft(draft: SnippetDraftRecord): Promise<void>
 
 export async function deleteSnippetDraft(draftId: string): Promise<void> {
 	if (!isIndexedDBAvailable()) return
-	const db = await getDb()
-	await db.delete("snippetDrafts", draftId)
+	await enqueueDraftWrite(draftId, async () => {
+		const db = await getDb()
+		await db.delete("snippetDrafts", draftId)
+	})
 }

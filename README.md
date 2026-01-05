@@ -71,23 +71,30 @@ bun run start
 
 ```
 src/
-├── routes/              # Dashboard, studio, asset library, snippets editor, settings
+├── routes/              # App routes (dashboard, studio, library, snippets, settings)
 ├── components/
 │   ├── asset-library/   # Asset library UI
-│   ├── dashboard/       # Project dashboard components
-│   ├── editor/          # Studio editor UI
-│   ├── layout/          # App layout and navigation
+│   ├── brand/           # Brand assets + helpers
+│   ├── dashboard/       # Dashboard components
+│   ├── editor/          # Studio editor UI (Fabric)
+│   ├── integrations/    # Connector UI
+│   ├── layout/          # App layout + navigation
 │   └── ui/              # shadcn/ui components
 ├── lib/
-│   ├── asset-library/   # Asset registry, search, and rendering
-│   ├── snippets/        # Snippet compiler, templates, and preview runtime
-│   ├── export/          # Export utilities
+│   ├── asset-library/   # Registry, search, snippet rendering
+│   ├── canvas/          # Fabric helpers/serialization
+│   ├── artboard/        # Artboard primitives/layout
 │   ├── storage/         # IndexedDB storage, autosave, thumbnails
-│   └── wasm/            # Zig/WASM helpers for snippet parsing
-├── stores/              # Zustand stores
+│   ├── connectors/      # Connector registry + types
+│   ├── snippets/        # Snippet compiler + preview runtime
+│   ├── export/          # PNG/JPEG/PDF export utilities
+│   ├── wasm/            # Zig/WASM bridge + artifact
+│   └── ...              # Other shared libs
+├── stores/              # Zustand stores (view state)
 ├── hooks/               # Shared hooks
-└── types/               # TypeScript types
-server/                  # Server-side rendering utilities (snippets)
+├── types/               # TypeScript types
+└── styles.css           # Global styles (Tailwind)
+server/                  # Server-side snippet rendering helpers
 scripts/                 # WASM build + maintenance scripts
 docs/                    # Architecture and benchmarks
 ```
@@ -104,9 +111,22 @@ docs/                    # Architecture and benchmarks
 | `bun run lint:fix` | Fix lint issues |
 | `bun run format` | Format code with Biome |
 | `bun run test` | Run tests |
+| `bun run e2e` | Run Playwright E2E tests |
+| `bun run e2e:ui` | Run Playwright E2E tests (UI mode) |
+| `bun run e2e:headed` | Run Playwright E2E tests (headed) |
+| `bun run verify` | Run lint + test + build + e2e |
 | `bun run wasm:snippets` | Build Zig/WASM snippet helpers |
 | `bun run perf:wasm` | Run WASM benchmarks |
 | `bun run third-party-notices` | Regenerate third-party notices |
+
+## E2E Testing (Playwright)
+
+```bash
+bun run e2e
+
+# If Playwright complains about missing browsers:
+bunx playwright install chromium
+```
 
 ## Snippet WASM (optional)
 

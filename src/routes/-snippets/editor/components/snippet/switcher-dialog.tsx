@@ -15,9 +15,11 @@ interface SnippetSwitcherDialogProps {
 	snippetItems: SnippetExplorerItem[]
 	activeSnippetId: string | null
 	hasNewSnippetDraft: boolean
+	canResetNewSnippet: boolean
 	snippetSearch: string
 	onSnippetSearchChange: (value: string) => void
 	onSelectSnippet: (snippetId: string | null) => void
+	onResetNewSnippet?: () => void
 	isSnippetListLoading: boolean
 }
 
@@ -34,9 +36,11 @@ export function SnippetSwitcherDialog({
 	snippetItems,
 	activeSnippetId,
 	hasNewSnippetDraft,
+	canResetNewSnippet,
 	snippetSearch,
 	onSnippetSearchChange,
 	onSelectSnippet,
+	onResetNewSnippet,
 	isSnippetListLoading,
 }: SnippetSwitcherDialogProps) {
 	const showSnippetEmpty = !isSnippetListLoading && snippetItems.length === 0
@@ -47,6 +51,12 @@ export function SnippetSwitcherDialog({
 
 	const handleSelect = (snippetId: string | null) => {
 		onSelectSnippet(snippetId)
+		onOpenChange(false)
+	}
+
+	const handleResetNewSnippet = () => {
+		if (!onResetNewSnippet) return
+		onResetNewSnippet()
 		onOpenChange(false)
 	}
 
@@ -79,28 +89,47 @@ export function SnippetSwitcherDialog({
 							Loading snippets...
 						</div>
 					)}
-					<button
-						type="button"
-						onClick={() => handleSelect(null)}
-						disabled={isSnippetListLoading}
-						aria-current={activeSnippetId === null}
+					<div
 						className={cn(
-							"flex w-full flex-col gap-1 rounded-md border px-3 py-2 text-left text-sm transition-colors",
+							"flex w-full items-stretch overflow-hidden rounded-md border text-sm transition-colors",
 							activeSnippetId === null
 								? "border-neutral-300 bg-neutral-50 text-neutral-900"
 								: "border-neutral-200 text-neutral-700 hover:bg-neutral-50",
 						)}
 					>
-						<div className="flex items-center justify-between gap-2">
-							<span className="truncate font-medium">New snippet</span>
-							{hasNewSnippetDraft && (
-								<span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-600">
-									Draft
-								</span>
-							)}
-						</div>
-						<span className="text-[11px] text-neutral-500">Start from scratch</span>
-					</button>
+						<button
+							type="button"
+							onClick={() => handleSelect(null)}
+							disabled={isSnippetListLoading}
+							aria-current={activeSnippetId === null}
+							className="flex min-w-0 flex-1 flex-col gap-1 px-3 py-2 text-left"
+						>
+							<div className="flex items-center justify-between gap-2">
+								<span className="truncate font-medium">New snippet</span>
+								{hasNewSnippetDraft && (
+									<span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-600">
+										Draft
+									</span>
+								)}
+							</div>
+							<span className="text-[11px] text-neutral-500">Start from scratch</span>
+						</button>
+
+						{canResetNewSnippet && onResetNewSnippet && (
+							<button
+								type="button"
+								onClick={handleResetNewSnippet}
+								disabled={isSnippetListLoading}
+								className={cn(
+									"shrink-0 border-l border-neutral-200 bg-white px-3 text-[11px] font-semibold uppercase tracking-widest text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-700",
+									activeSnippetId === null && "border-neutral-300",
+								)}
+								aria-label="Reset new snippet draft"
+							>
+								Reset
+							</button>
+						)}
+					</div>
 
 					{snippetItems.map((snippet) => {
 						const isActive = snippet.id === activeSnippetId
