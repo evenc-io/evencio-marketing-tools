@@ -74,4 +74,62 @@ export default function Demo() {
 		expect(result.value.source).not.toContain("contentReference[oaicite:0]")
 		expect(result.value.source).not.toContain("contentReference[oaicite:1]")
 	})
+
+	it("ensures a partial __imports.assets.tsx file includes missing Evencio assets", () => {
+		const input = `
+\`\`\`tsx
+export default function Demo() {
+  return (
+    <div className="h-full w-full">
+      <EvencioLockup />
+    </div>
+  )
+}
+
+// @snippet-file __imports.assets.tsx
+const EvencioMark = () => <svg viewBox="0 0 10 10" />
+// @snippet-file-end
+\`\`\`
+`.trim()
+
+		const result = parseSnippetImportText(input)
+		expect(result.ok).toBe(true)
+		if (!result.ok) return
+
+		const parsed = parseSnippetFiles(result.value.source)
+		const assetsSource = parsed.files[IMPORT_ASSET_FILE_NAME] ?? ""
+		expect(assetsSource).toContain("const EvencioMark")
+		expect(assetsSource).toContain("const EvencioLockup")
+	})
+
+	it("ensures EvencioMark exists when an assets file defines EvencioLockup only", () => {
+		const input = `
+\`\`\`tsx
+export default function Demo() {
+  return (
+    <div className="h-full w-full">
+      <EvencioLockup />
+    </div>
+  )
+}
+
+// @snippet-file __imports.assets.tsx
+const EvencioLockup = () => (
+  <div>
+    <EvencioMark />
+  </div>
+)
+// @snippet-file-end
+\`\`\`
+`.trim()
+
+		const result = parseSnippetImportText(input)
+		expect(result.ok).toBe(true)
+		if (!result.ok) return
+
+		const parsed = parseSnippetFiles(result.value.source)
+		const assetsSource = parsed.files[IMPORT_ASSET_FILE_NAME] ?? ""
+		expect(assetsSource).toContain("const EvencioMark")
+		expect(assetsSource).toContain("const EvencioLockup")
+	})
 })
