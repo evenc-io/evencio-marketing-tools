@@ -28,6 +28,13 @@ type CodeFence = {
 	code: string
 }
 
+const stripAssistantArtifacts = (source: string) =>
+	source
+		.split(/\r?\n/)
+		.filter((line) => !/^\s*(?:\/\/\s*)?:contentReference\[[^\]]+\]\{[^}]+\}\s*$/.test(line))
+		.join("\n")
+		.trimEnd()
+
 const unwrapOuterQuotes = (value: string) => {
 	const trimmed = value.trim()
 	const tripleQuotes = ['"""', "'''"] as const
@@ -178,7 +185,8 @@ export const parseSnippetImportText = (rawInput: string): SnippetImportParseResu
 		return { ok: false, error: "No snippet source detected." }
 	}
 
-	const viewportRaw = extractResolutions(normalizedSource)
+	const cleanedSource = stripAssistantArtifacts(normalizedSource)
+	const viewportRaw = extractResolutions(cleanedSource)
 	const viewport = viewportRaw ? clampSnippetViewport(viewportRaw) : null
 	if (viewport) {
 		const viewportError = getSnippetViewportError(viewport)
@@ -187,7 +195,7 @@ export const parseSnippetImportText = (rawInput: string): SnippetImportParseResu
 		}
 	}
 
-	const parsed = parseSnippetFiles(normalizedSource)
+	const parsed = parseSnippetFiles(cleanedSource)
 	const cleanedMain = stripImportLines(parsed.mainSource)
 	const { files: filesWithAssets, warnings: assetWarnings } = buildImportAssetsFileIfNeeded({
 		mainSource: cleanedMain,

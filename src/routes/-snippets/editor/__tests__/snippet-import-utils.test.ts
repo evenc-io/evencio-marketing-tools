@@ -52,4 +52,25 @@ export default function Demo() {
 
 		expect(result.value.viewport).toEqual({ width: 1920, height: 1080 })
 	})
+
+	it("strips external assistant citation artifacts from the imported source", () => {
+		const input = `
+\`\`\`tsx
+// @res 1080x1920
+// :contentReference[oaicite:0]{index=0}
+:contentReference[oaicite:1]{index=1}
+export default function Demo() {
+  return <div className="h-full w-full" />
+}
+\`\`\`
+`.trim()
+
+		const result = parseSnippetImportText(input)
+		expect(result.ok).toBe(true)
+		if (!result.ok) return
+
+		expect(result.value.source).toContain("// @res 1080x1920")
+		expect(result.value.source).not.toContain("contentReference[oaicite:0]")
+		expect(result.value.source).not.toContain("contentReference[oaicite:1]")
+	})
 })
