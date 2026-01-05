@@ -2,6 +2,8 @@ import { parseSnippetFiles, serializeSnippetFiles } from "@/lib/snippets"
 import { clampSnippetViewport, getSnippetViewportError } from "@/lib/snippets/constraints"
 import {
 	ensureImportAssetsFileSource,
+	getImportAsset,
+	getImportAssetIdsInFileSource,
 	IMPORT_ASSET_FILE_NAME,
 	type ImportAssetId,
 } from "@/routes/-snippets/editor/import-assets"
@@ -32,6 +34,13 @@ const stripAssistantArtifacts = (source: string) =>
 	source
 		.split(/\r?\n/)
 		.filter((line) => !/^\s*(?:\/\/\s*)?:contentReference\[[^\]]+\]\{[^}]+\}\s*$/.test(line))
+		.join("\n")
+		.trimEnd()
+
+const stripMainDirectiveLines = (source: string) =>
+	source
+		.split(/\r?\n/)
+		.filter((line) => !/^\s*\/\/\s*@res\b/i.test(line))
 		.join("\n")
 		.trimEnd()
 
@@ -131,36 +140,76 @@ const isComponentReferenced = (source: string, name: string) => {
 	return new RegExp(`<\\s*${safe}(\\s|>|/)`).test(source)
 }
 
+const resolveImportAssetDependencies = (ids: ImportAssetId[]) => {
+	const resolved: ImportAssetId[] = []
+	const visited = new Set<ImportAssetId>()
+
+	const visit = (id: ImportAssetId) => {
+		if (visited.has(id)) return
+		visited.add(id)
+		const asset = getImportAsset(id)
+		const deps = asset?.dependsOn ?? []
+		for (const dep of deps) {
+			visit(dep)
+		}
+		resolved.push(id)
+	}
+
+	for (const id of ids) {
+		visit(id)
+	}
+
+	return resolved
+}
+
 const buildImportAssetsFileIfNeeded = (options: {
 	mainSource: string
 	files: Record<string, string>
 }): { files: Record<string, string>; warnings: string[] } => {
 	const warnings: string[] = []
-	if (Object.hasOwn(options.files, IMPORT_ASSET_FILE_NAME)) {
-		return { files: options.files, warnings }
-	}
 
+	const hasAssetsFile = Object.hasOwn(options.files, IMPORT_ASSET_FILE_NAME)
+	const currentAssetsSource = options.files[IMPORT_ASSET_FILE_NAME] ?? ""
+	const nonAssetSources = [
+		options.mainSource,
+		...Object.entries(options.files)
+			.filter(([fileName]) => fileName !== IMPORT_ASSET_FILE_NAME)
+			.map(([, source]) => source),
+	]
 	const sources = [options.mainSource, ...Object.values(options.files)]
 
-	const wantsLockup = sources.some((source) => isComponentReferenced(source, "EvencioLockup"))
-	const wantsMark = sources.some((source) => isComponentReferenced(source, "EvencioMark"))
+	const wantsLockup = nonAssetSources.some((source) =>
+		isComponentReferenced(source, "EvencioLockup"),
+	)
+	const wantsMark = nonAssetSources.some((source) => isComponentReferenced(source, "EvencioMark"))
 	if (!wantsLockup && !wantsMark) {
-		return { files: options.files, warnings }
+		if (!hasAssetsFile) {
+			return { files: options.files, warnings }
+		}
+
+		const presentAssetIds = getImportAssetIdsInFileSource(currentAssetsSource)
+		if (!presentAssetIds.includes("evencio-lockup")) {
+			return { files: options.files, warnings }
+		}
 	}
 
-	const declaresLockup = wantsLockup
-		? sources.some((source) => isIdentifierDeclared(source, "EvencioLockup"))
-		: false
-	const declaresMark = wantsMark
-		? sources.some((source) => isIdentifierDeclared(source, "EvencioMark"))
-		: false
-	if (declaresLockup || declaresMark) {
-		return { files: options.files, warnings }
+	const isDeclared = (componentName: string) =>
+		sources.some((source) => isIdentifierDeclared(source, componentName))
+
+	const desiredAssetIds = new Set<ImportAssetId>()
+	if (wantsMark) desiredAssetIds.add("evencio-mark")
+	if (wantsLockup) desiredAssetIds.add("evencio-lockup")
+	if (hasAssetsFile) {
+		for (const id of getImportAssetIdsInFileSource(currentAssetsSource)) {
+			desiredAssetIds.add(id)
+		}
 	}
 
-	const idsToEnsure: ImportAssetId[] = []
-	if (wantsMark) idsToEnsure.push("evencio-mark")
-	if (wantsLockup) idsToEnsure.push("evencio-lockup")
+	const desiredWithDeps = resolveImportAssetDependencies(Array.from(desiredAssetIds))
+	const idsToEnsure = desiredWithDeps.filter((id) => {
+		const asset = getImportAsset(id)
+		return asset ? !isDeclared(asset.componentName) : false
+	})
 
 	if (idsToEnsure.length === 0) {
 		return { files: options.files, warnings }
@@ -168,9 +217,15 @@ const buildImportAssetsFileIfNeeded = (options: {
 
 	const nextFiles = {
 		...options.files,
-		[IMPORT_ASSET_FILE_NAME]: ensureImportAssetsFileSource("", idsToEnsure),
+		[IMPORT_ASSET_FILE_NAME]: ensureImportAssetsFileSource(currentAssetsSource, idsToEnsure, {
+			resolveDependencies: false,
+		}),
 	}
-	warnings.push("Added Imports.assets.tsx (Evencio logo/icon) based on snippet usage.")
+	warnings.push(
+		hasAssetsFile
+			? "Updated Imports.assets.tsx (Evencio logo/icon) based on snippet usage."
+			: "Added Imports.assets.tsx (Evencio logo/icon) based on snippet usage.",
+	)
 	return { files: nextFiles, warnings }
 }
 
@@ -196,7 +251,7 @@ export const parseSnippetImportText = (rawInput: string): SnippetImportParseResu
 	}
 
 	const parsed = parseSnippetFiles(cleanedSource)
-	const cleanedMain = stripImportLines(parsed.mainSource)
+	const cleanedMain = stripMainDirectiveLines(stripImportLines(parsed.mainSource))
 	const { files: filesWithAssets, warnings: assetWarnings } = buildImportAssetsFileIfNeeded({
 		mainSource: cleanedMain,
 		files: parsed.files,

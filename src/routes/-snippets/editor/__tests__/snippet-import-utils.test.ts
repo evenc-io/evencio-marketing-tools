@@ -32,7 +32,7 @@ export default function Demo() {
 
 		const parsed = parseSnippetFiles(result.value.source)
 		expect(Object.hasOwn(parsed.files, IMPORT_ASSET_FILE_NAME)).toBe(true)
-		expect(parsed.mainSource).toContain("// @res 1920x1080")
+		expect(parsed.mainSource).not.toContain("@res")
 	})
 
 	it("uses the last @res directive when multiple are present", () => {
@@ -51,6 +51,7 @@ export default function Demo() {
 		if (!result.ok) return
 
 		expect(result.value.viewport).toEqual({ width: 1920, height: 1080 })
+		expect(result.value.source).not.toContain("@res")
 	})
 
 	it("strips external assistant citation artifacts from the imported source", () => {
@@ -69,7 +70,7 @@ export default function Demo() {
 		expect(result.ok).toBe(true)
 		if (!result.ok) return
 
-		expect(result.value.source).toContain("// @res 1080x1920")
+		expect(result.value.source).not.toContain("@res")
 		expect(result.value.source).not.toContain("contentReference[oaicite:0]")
 		expect(result.value.source).not.toContain("contentReference[oaicite:1]")
 	})

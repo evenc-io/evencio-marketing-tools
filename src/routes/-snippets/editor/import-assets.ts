@@ -188,16 +188,27 @@ export const buildImportAssetsFileSource = (assetIds?: ImportAssetId[]) => {
 export const ensureImportAssetsFileSource = (
 	currentFileSource: string,
 	assetIdsToEnsure: ImportAssetId[],
+	options?: {
+		resolveDependencies?: boolean
+	},
 ) => {
 	const safeCurrent = typeof currentFileSource === "string" ? currentFileSource : ""
 	if (!assetIdsToEnsure.length) return safeCurrent
-	const required = resolveImportAssetDependencies(assetIdsToEnsure)
+	const required =
+		options?.resolveDependencies === false
+			? assetIdsToEnsure
+			: resolveImportAssetDependencies(assetIdsToEnsure)
+	const uniqueRequired = Array.from(new Set(required))
 	if (!safeCurrent.trim()) {
-		return buildImportAssetsFileSource(required)
+		const blocks = uniqueRequired
+			.map((id) => IMPORT_ASSET_IMPLEMENTATIONS[id])
+			.filter((snippet) => Boolean(snippet?.trim()))
+		const parts = [IMPORT_ASSET_FILE_PREAMBLE, ...blocks].filter(Boolean)
+		return parts.join("\n\n").trim()
 	}
 
 	const present = new Set(getImportAssetIdsInFileSource(safeCurrent))
-	const missing = required.filter((id) => !present.has(id))
+	const missing = uniqueRequired.filter((id) => !present.has(id))
 	if (missing.length === 0) return safeCurrent
 
 	let next = safeCurrent.trimEnd()
