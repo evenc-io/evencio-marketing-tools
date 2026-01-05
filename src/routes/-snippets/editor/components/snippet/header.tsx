@@ -9,6 +9,7 @@ interface SnippetHeaderProps {
 	isEditing?: boolean
 	onSubmit: () => void
 	onOpenSnippetSwitcher?: () => void
+	onOpenImportDialog?: () => void
 }
 
 export function SnippetHeader({
@@ -17,6 +18,7 @@ export function SnippetHeader({
 	isEditing = false,
 	onSubmit,
 	onOpenSnippetSwitcher,
+	onOpenImportDialog,
 }: SnippetHeaderProps) {
 	const primaryLabel = isEditing
 		? isSubmitting
@@ -45,6 +47,11 @@ export function SnippetHeader({
 					{onOpenSnippetSwitcher && (
 						<Button variant="outline" size="sm" onClick={onOpenSnippetSwitcher}>
 							Switch snippet
+						</Button>
+					)}
+					{onOpenImportDialog && (
+						<Button variant="outline" size="sm" onClick={onOpenImportDialog}>
+							Import
 						</Button>
 					)}
 					<Button variant="outline" size="sm" asChild>

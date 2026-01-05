@@ -138,14 +138,16 @@ const mergeClassName = (base: string, extra?: string) =>
 
 const IMPORT_ASSET_IMPLEMENTATIONS = {
 	"evencio-mark": `
-const EvencioMark = ({ className, style }: EvencioAssetProps) => (
+type EvencioMarkProps = EvencioAssetProps & { size?: number }
+
+const EvencioMark = ({ className, style, size = 80 }: EvencioMarkProps) => (
   <svg
     data-snippet-inspect="ignore"
     viewBox="0 0 100 100"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
-    width={80}
-    height={80}
+    width={size}
+    height={size}
     aria-hidden="true"
     className={mergeClassName("shrink-0 self-center", className)}
     style={style}
@@ -157,13 +159,15 @@ const EvencioMark = ({ className, style }: EvencioAssetProps) => (
 `.trim(),
 
 	"evencio-lockup": `
-const EvencioLockup = ({ className, style }: EvencioAssetProps) => (
+type EvencioLockupProps = EvencioAssetProps & { markSize?: number }
+
+const EvencioLockup = ({ className, style, markSize = 32 }: EvencioLockupProps) => (
   <span
     data-snippet-inspect="ignore"
     className={mergeClassName("inline-flex items-center gap-2 leading-none", className)}
     style={style}
   >
-    <EvencioMark style={{ width: 32, height: 32 }} />
+    <EvencioMark size={markSize} style={{ width: markSize, height: markSize }} />
     <span className="font-unbounded text-[24px] font-normal tracking-[-0.02em] uppercase leading-none whitespace-nowrap text-neutral-950">
       EVENCIO
     </span>
@@ -184,16 +188,27 @@ export const buildImportAssetsFileSource = (assetIds?: ImportAssetId[]) => {
 export const ensureImportAssetsFileSource = (
 	currentFileSource: string,
 	assetIdsToEnsure: ImportAssetId[],
+	options?: {
+		resolveDependencies?: boolean
+	},
 ) => {
 	const safeCurrent = typeof currentFileSource === "string" ? currentFileSource : ""
 	if (!assetIdsToEnsure.length) return safeCurrent
-	const required = resolveImportAssetDependencies(assetIdsToEnsure)
+	const required =
+		options?.resolveDependencies === false
+			? assetIdsToEnsure
+			: resolveImportAssetDependencies(assetIdsToEnsure)
+	const uniqueRequired = Array.from(new Set(required))
 	if (!safeCurrent.trim()) {
-		return buildImportAssetsFileSource(required)
+		const blocks = uniqueRequired
+			.map((id) => IMPORT_ASSET_IMPLEMENTATIONS[id])
+			.filter((snippet) => Boolean(snippet?.trim()))
+		const parts = [IMPORT_ASSET_FILE_PREAMBLE, ...blocks].filter(Boolean)
+		return parts.join("\n\n").trim()
 	}
 
 	const present = new Set(getImportAssetIdsInFileSource(safeCurrent))
-	const missing = required.filter((id) => !present.has(id))
+	const missing = uniqueRequired.filter((id) => !present.has(id))
 	if (missing.length === 0) return safeCurrent
 
 	let next = safeCurrent.trimEnd()

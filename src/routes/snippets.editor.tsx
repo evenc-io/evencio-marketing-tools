@@ -37,6 +37,7 @@ import { SnippetSettingsPanel } from "@/routes/-snippets/editor/components/setti
 import { SnippetFileOverlays } from "@/routes/-snippets/editor/components/snippet/file-overlays"
 import { SnippetHeader } from "@/routes/-snippets/editor/components/snippet/header"
 import { SnippetHistoryPanel } from "@/routes/-snippets/editor/components/snippet/history-panel"
+import { SnippetImportDialog } from "@/routes/-snippets/editor/components/snippet/import-dialog"
 import { SnippetInspectOverlays } from "@/routes/-snippets/editor/components/snippet/inspect-overlays"
 import { SnippetScreenGuard } from "@/routes/-snippets/editor/components/snippet/screen-guard"
 import { SnippetSwitcherDialog } from "@/routes/-snippets/editor/components/snippet/switcher-dialog"
@@ -60,6 +61,7 @@ import { useSnippetFilters } from "@/routes/-snippets/editor/hooks/snippet/filte
 import { useSnippetHistory } from "@/routes/-snippets/editor/hooks/snippet/history"
 import { useSnippetImportAssetsRemove } from "@/routes/-snippets/editor/hooks/snippet/import-assets-remove"
 import { useSnippetImportDnd } from "@/routes/-snippets/editor/hooks/snippet/import-dnd"
+import { useSnippetImportSnippet } from "@/routes/-snippets/editor/hooks/snippet/import-snippet"
 import { useSnippetInspect } from "@/routes/-snippets/editor/hooks/snippet/inspect"
 import { useSnippetInspectText } from "@/routes/-snippets/editor/hooks/snippet/inspect-text"
 import { useSnippetPanels } from "@/routes/-snippets/editor/hooks/snippet/panels"
@@ -173,6 +175,7 @@ function NewSnippetPage() {
 	const [selectedTemplateId, setSelectedTemplateId] = useState<SnippetTemplateId>("single")
 	const [snippetSearch, setSnippetSearch] = useState("")
 	const [snippetSwitcherOpen, setSnippetSwitcherOpen] = useState(false)
+	const [importDialogOpen, setImportDialogOpen] = useState(false)
 	const [deleteTarget, setDeleteTarget] = useState<{
 		exportName: string
 		label: string
@@ -998,6 +1001,22 @@ function NewSnippetPage() {
 		explorerCollapsed,
 	})
 
+	const handleImportSnippet = useSnippetImportSnippet({
+		form,
+		fileMigrationRef,
+		resetComponentExports,
+		resetAnalysis,
+		resetAutoOpenComponents,
+		commitHistoryNow,
+		setIsExamplePreviewActive,
+		setActiveComponentExport,
+		setActiveFile,
+		setSelectedTemplateId,
+		setComponentTreeSelectedId,
+		setComponentTreeSelection,
+		setComponentTreeSelectionToken,
+	})
+
 	return (
 		<ClientOnly fallback={<SnippetScreenGuard gate={SCREEN_GUARD_EMPTY} />}>
 			{screenGate.status !== "supported" ? (
@@ -1037,6 +1056,7 @@ function NewSnippetPage() {
 						isEditing={isEditing}
 						onSubmit={form.handleSubmit(handleSubmit)}
 						onOpenSnippetSwitcher={() => setSnippetSwitcherOpen(true)}
+						onOpenImportDialog={() => setImportDialogOpen(true)}
 					/>
 					<SnippetSwitcherDialog
 						open={snippetSwitcherOpen}
@@ -1048,6 +1068,11 @@ function NewSnippetPage() {
 						onSnippetSearchChange={handleSnippetSearchChange}
 						onSelectSnippet={handleSnippetSelect}
 						isSnippetListLoading={isSnippetListLoading}
+					/>
+					<SnippetImportDialog
+						open={importDialogOpen}
+						onOpenChange={setImportDialogOpen}
+						onImport={handleImportSnippet}
 					/>
 
 					{/* Main content - fills remaining height */}
