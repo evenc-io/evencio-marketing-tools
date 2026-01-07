@@ -365,7 +365,6 @@ export function useSnippetSelection(
 			if (!snippetId) {
 				const draft = await safeLoadDraft(NEW_SNIPPET_DRAFT_ID)
 				if (isStale()) return false
-				if (isDirtyRef.current) return false
 				if (draft) {
 					applyDraftToEditorRef.current(draft)
 					pendingSnippetReadyRef.current = {
@@ -399,7 +398,6 @@ export function useSnippetSelection(
 
 			const draft = await safeLoadDraft(asset.id)
 			if (isStale()) return false
-			if (isDirtyRef.current) return false
 			const shouldRestoreDraft =
 				draft &&
 				shouldRestoreDraftForAsset({

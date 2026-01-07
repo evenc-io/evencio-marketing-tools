@@ -1,3 +1,5 @@
+import { useState } from "react"
+import { toast } from "sonner"
 import {
 	Dialog,
 	DialogContent,
@@ -19,7 +21,7 @@ interface SnippetSwitcherDialogProps {
 	snippetSearch: string
 	onSnippetSearchChange: (value: string) => void
 	onSelectSnippet: (snippetId: string | null) => void
-	onResetNewSnippet?: () => void
+	onResetNewSnippet?: () => Promise<void> | void
 	isSnippetListLoading: boolean
 }
 
@@ -43,6 +45,8 @@ export function SnippetSwitcherDialog({
 	onResetNewSnippet,
 	isSnippetListLoading,
 }: SnippetSwitcherDialogProps) {
+	const [isResettingNewSnippet, setIsResettingNewSnippet] = useState(false)
+	const isDisabled = isSnippetListLoading || isResettingNewSnippet
 	const showSnippetEmpty = !isSnippetListLoading && snippetItems.length === 0
 	const snippetEmptyMessage =
 		snippetSearch.trim().length > 0
@@ -54,10 +58,18 @@ export function SnippetSwitcherDialog({
 		onOpenChange(false)
 	}
 
-	const handleResetNewSnippet = () => {
+	const handleResetNewSnippet = async () => {
 		if (!onResetNewSnippet) return
-		onResetNewSnippet()
-		onOpenChange(false)
+		if (isResettingNewSnippet) return
+		setIsResettingNewSnippet(true)
+		try {
+			await onResetNewSnippet()
+			setIsResettingNewSnippet(false)
+			onOpenChange(false)
+		} catch (err) {
+			setIsResettingNewSnippet(false)
+			toast.error(err instanceof Error ? err.message : "Failed to reset the new snippet draft.")
+		}
 	}
 
 	return (
@@ -76,7 +88,7 @@ export function SnippetSwitcherDialog({
 							value={snippetSearch}
 							onChange={(event) => onSnippetSearchChange(event.target.value)}
 							placeholder="Search snippets"
-							disabled={isSnippetListLoading}
+							disabled={isDisabled}
 							className="h-9 text-sm"
 							aria-label="Search snippets"
 						/>
@@ -100,7 +112,7 @@ export function SnippetSwitcherDialog({
 						<button
 							type="button"
 							onClick={() => handleSelect(null)}
-							disabled={isSnippetListLoading}
+							disabled={isDisabled}
 							aria-current={activeSnippetId === null}
 							className="flex min-w-0 flex-1 flex-col gap-1 px-3 py-2 text-left"
 						>
@@ -118,15 +130,17 @@ export function SnippetSwitcherDialog({
 						{canResetNewSnippet && onResetNewSnippet && (
 							<button
 								type="button"
-								onClick={handleResetNewSnippet}
-								disabled={isSnippetListLoading}
+								onClick={() => {
+									void handleResetNewSnippet()
+								}}
+								disabled={isDisabled}
 								className={cn(
 									"shrink-0 border-l border-neutral-200 bg-white px-3 text-[11px] font-semibold uppercase tracking-widest text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-700",
 									activeSnippetId === null && "border-neutral-300",
 								)}
 								aria-label="Reset new snippet draft"
 							>
-								Reset
+								{isResettingNewSnippet ? "Resetting..." : "Reset"}
 							</button>
 						)}
 					</div>
@@ -138,7 +152,7 @@ export function SnippetSwitcherDialog({
 								key={snippet.id}
 								type="button"
 								onClick={() => handleSelect(snippet.id)}
-								disabled={isSnippetListLoading}
+								disabled={isDisabled}
 								aria-current={isActive}
 								className={cn(
 									"flex w-full flex-col gap-1 rounded-md border px-3 py-2 text-left text-sm transition-colors",
