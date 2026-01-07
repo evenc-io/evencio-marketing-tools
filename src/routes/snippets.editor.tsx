@@ -1,11 +1,29 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { ChevronRight } from "lucide-react"
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+	lazy,
+	Suspense,
+	useCallback,
+	useDeferredValue,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react"
 import { useForm, useWatch } from "react-hook-form"
 import { z } from "zod"
 import { SnippetPreview } from "@/components/asset-library/snippet-preview"
+import { Button } from "@/components/ui/button"
 import { ClientOnly } from "@/components/ui/client-only"
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog"
 import { Form } from "@/components/ui/form"
 import { SCREEN_GUARD_EMPTY, useScreenGuard } from "@/lib/screen-guard"
 import {
@@ -59,9 +77,14 @@ import { useSnippetEditorActions } from "@/routes/-snippets/editor/hooks/snippet
 import { useSnippetEditorFiles } from "@/routes/-snippets/editor/hooks/snippet/editor-files"
 import { useSnippetFilters } from "@/routes/-snippets/editor/hooks/snippet/filters"
 import { useSnippetHistory } from "@/routes/-snippets/editor/hooks/snippet/history"
+import { useSnippetImportAssetsAdd } from "@/routes/-snippets/editor/hooks/snippet/import-assets-add"
 import { useSnippetImportAssetsRemove } from "@/routes/-snippets/editor/hooks/snippet/import-assets-remove"
 import { useSnippetImportDnd } from "@/routes/-snippets/editor/hooks/snippet/import-dnd"
 import { useSnippetImportSnippet } from "@/routes/-snippets/editor/hooks/snippet/import-snippet"
+import {
+	buildSnippetImportsIndex,
+	useSnippetImportsIndex,
+} from "@/routes/-snippets/editor/hooks/snippet/imports-index"
 import { useSnippetInspect } from "@/routes/-snippets/editor/hooks/snippet/inspect"
 import { useSnippetInspectText } from "@/routes/-snippets/editor/hooks/snippet/inspect-text"
 import { useSnippetPanels } from "@/routes/-snippets/editor/hooks/snippet/panels"
@@ -69,19 +92,15 @@ import { usePreviewCameraHotkey } from "@/routes/-snippets/editor/hooks/snippet/
 import { useSnippetSelection } from "@/routes/-snippets/editor/hooks/snippet/selection"
 import { useSnippetSplitView } from "@/routes/-snippets/editor/hooks/snippet/split-view"
 import { useSnippetSubmit } from "@/routes/-snippets/editor/hooks/snippet/submit"
-import { type CustomSnippetValues, customSnippetSchema } from "@/routes/-snippets/editor/schema"
-
-const LazySnippetLayers3DView = lazy(() =>
-	import("@/routes/-snippets/editor/components/snippet/layers-3d").then((module) => ({
-		default: module.SnippetLayers3DView,
-	})),
-)
-
 import {
 	buildImportAssetsPreviewSource,
+	getImportAsset,
+	getImportAssetRemovalIds,
 	getImportAssetsPreviewDimensions,
 	IMPORT_ASSET_FILE_NAME,
+	type ImportAssetId,
 } from "@/routes/-snippets/editor/import-assets"
+import { type CustomSnippetValues, customSnippetSchema } from "@/routes/-snippets/editor/schema"
 import { getSnippetDraftId, NEW_SNIPPET_DRAFT_ID } from "@/routes/-snippets/editor/snippet-drafts"
 import type {
 	SnippetEditorFileId,
@@ -95,6 +114,18 @@ import {
 } from "@/routes/-snippets/editor/snippet-file-utils"
 import { useAssetLibraryStore } from "@/stores/asset-library-store"
 import type { AssetScope, SnippetAsset } from "@/types/asset-library"
+
+const LazySnippetLayers3DView = lazy(() =>
+	import("@/routes/-snippets/editor/components/snippet/layers-3d").then((module) => ({
+		default: module.SnippetLayers3DView,
+	})),
+)
+
+const LazySnippetImportsGalleryDialog = lazy(() =>
+	import("@/routes/-snippets/editor/components/imports-gallery-dialog").then((module) => ({
+		default: module.SnippetImportsGalleryDialog,
+	})),
+)
 
 const getPreviewSourceKey = (source: PreviewSourceLocation | null) => {
 	if (!source) return null
@@ -161,6 +192,7 @@ function NewSnippetPage() {
 	const fileInputRef = useRef<HTMLInputElement>(null)
 	const templateAppliedRef = useRef(false)
 	const fileMigrationRef = useRef(false)
+	const importAssetMutationRef = useRef(false)
 	const [error, setError] = useState<string | null>(null)
 	const [isSubmitting, setIsSubmitting] = useState(false)
 	const [layoutMode, setLayoutMode] = useState(false)
@@ -178,6 +210,14 @@ function NewSnippetPage() {
 	const [snippetSearch, setSnippetSearch] = useState("")
 	const [snippetSwitcherOpen, setSnippetSwitcherOpen] = useState(false)
 	const [importDialogOpen, setImportDialogOpen] = useState(false)
+	const [importsGalleryOpen, setImportsGalleryOpen] = useState(false)
+	const [importAssetRemoveConfirm, setImportAssetRemoveConfirm] = useState<{
+		assetId: ImportAssetId
+		removalIds: ImportAssetId[]
+		usedIds: ImportAssetId[]
+	} | null>(null)
+	const [isImportAssetImporting, setIsImportAssetImporting] = useState(false)
+	const [isImportAssetRemoving, setIsImportAssetRemoving] = useState(false)
 	const [deleteTarget, setDeleteTarget] = useState<{
 		exportName: string
 		label: string
@@ -243,6 +283,7 @@ function NewSnippetPage() {
 	})
 	const derivedProps = useDerivedSnippetProps({ analysis, form })
 	const parsedFiles = useMemo(() => parseSnippetFiles(watchedSource), [watchedSource])
+	const deferredParsedFiles = useDeferredValue(parsedFiles)
 	const lineMapSegments = useMemo(() => {
 		if (analysis?.lineMapSegments && analysis.lineMapSegments.length > 0) {
 			return analysis.lineMapSegments
@@ -396,6 +437,14 @@ function NewSnippetPage() {
 	})
 	const isImportAssetsFileActive =
 		isComponentEditorActive && activeComponentFileName === IMPORT_ASSET_FILE_NAME
+	const shouldComputeImportsIndex =
+		importsOpen ||
+		importsGalleryOpen ||
+		isImportAssetsFileActive ||
+		Boolean(importAssetRemoveConfirm)
+	const importsIndex = useSnippetImportsIndex(deferredParsedFiles, {
+		enabled: shouldComputeImportsIndex,
+	})
 	const componentCount = componentExports.length
 	const overSoftComponentLimit = componentCount > SNIPPET_COMPONENT_LIMITS.soft
 	const overHardComponentLimit = componentCount > SNIPPET_COMPONENT_LIMITS.hard
@@ -793,6 +842,11 @@ function NewSnippetPage() {
 		[form],
 	)
 
+	const getLatestImportsIndex = useCallback(() => {
+		const currentSource = (form.getValues("source") as string | undefined) ?? ""
+		return buildSnippetImportsIndex(parseSnippetFiles(currentSource))
+	}, [form])
+
 	const importDnd = useSnippetImportDnd({
 		enabled:
 			Boolean(compiledCode) && !isExamplePreviewActive && !layoutMode && !isImportAssetsFileActive,
@@ -802,7 +856,63 @@ function NewSnippetPage() {
 		previewContainerRef,
 		resolvePreviewSource: resolvePreviewSourceForInspect,
 	})
+	const isImportAssetMutating = isImportAssetImporting || isImportAssetRemoving
+	const { handleImportAssetAdd } = useSnippetImportAssetsAdd({ form, commitHistoryNow })
 	const { handleImportAssetRemove } = useSnippetImportAssetsRemove({ form, commitHistoryNow })
+	const removeImportAsset = useCallback(
+		async (assetId: ImportAssetId) => {
+			if (importAssetMutationRef.current) return
+			importAssetMutationRef.current = true
+			setIsImportAssetRemoving(true)
+			try {
+				await handleImportAssetRemove(assetId)
+			} finally {
+				setIsImportAssetRemoving(false)
+				importAssetMutationRef.current = false
+			}
+		},
+		[handleImportAssetRemove],
+	)
+	const requestImportAssetRemove = useCallback(
+		(assetId: ImportAssetId) => {
+			if (importAssetMutationRef.current || isImportAssetMutating) return
+			cancelPendingSelection({ preserveDraftAutosave: true })
+			const removalIds = getImportAssetRemovalIds(assetId)
+			const latestImportsIndex = getLatestImportsIndex()
+			const usedIds = removalIds.filter((id) => latestImportsIndex.importAssetsById.get(id)?.used)
+			if (usedIds.length > 0) {
+				setImportAssetRemoveConfirm({ assetId, removalIds, usedIds })
+				return
+			}
+			void removeImportAsset(assetId)
+		},
+		[cancelPendingSelection, getLatestImportsIndex, isImportAssetMutating, removeImportAsset],
+	)
+	const requestImportAssetAdd = useCallback(
+		async (assetId: ImportAssetId) => {
+			if (importAssetMutationRef.current || isImportAssetMutating) return
+			const latestImportsIndex = getLatestImportsIndex()
+			if (latestImportsIndex.importAssetsById.get(assetId)?.imported) return
+			cancelPendingSelection({ preserveDraftAutosave: true })
+			importAssetMutationRef.current = true
+			setIsImportAssetImporting(true)
+			try {
+				await handleImportAssetAdd(assetId)
+			} finally {
+				setIsImportAssetImporting(false)
+				importAssetMutationRef.current = false
+			}
+		},
+		[cancelPendingSelection, getLatestImportsIndex, handleImportAssetAdd, isImportAssetMutating],
+	)
+	const handlePreviewImportAssetRemove = useCallback(
+		(assetId: string) => {
+			const asset = getImportAsset(assetId as ImportAssetId)
+			if (!asset) return
+			requestImportAssetRemove(asset.id)
+		},
+		[requestImportAssetRemove],
+	)
 	const {
 		applySnippetTemplate,
 		handleConfirmDeleteComponent,
@@ -876,20 +986,22 @@ function NewSnippetPage() {
 
 	useEffect(() => {
 		if (templateAppliedRef.current) return
-		if (isEditing) {
-			templateAppliedRef.current = true
+		templateAppliedRef.current = true
+		if (isEditing) return
+
+		const templateParam = search.template
+		if (!templateParam || !Object.hasOwn(SNIPPET_TEMPLATES, templateParam)) return
+
+		const currentSource = (form.getValues("source") as string | undefined) ?? ""
+		const defaultSource = defaultSnippetValues.source ?? ""
+		if (normalizeNewlines(currentSource) !== normalizeNewlines(defaultSource)) {
 			return
 		}
-		if (typeof window === "undefined") return
-		const params = new URLSearchParams(window.location.search)
-		const templateParam = params.get("template")
-		if (templateParam && Object.hasOwn(SNIPPET_TEMPLATES, templateParam)) {
-			const templateId = templateParam as SnippetTemplateId
-			setSelectedTemplateId(templateId)
-			applySnippetTemplate(templateId, { markDirty: false })
-		}
-		templateAppliedRef.current = true
-	}, [applySnippetTemplate, isEditing])
+
+		const templateId = templateParam as SnippetTemplateId
+		setSelectedTemplateId(templateId)
+		applySnippetTemplate(templateId, { markDirty: false })
+	}, [applySnippetTemplate, defaultSnippetValues.source, form, isEditing, search.template])
 	const { handleSubmit } = useSnippetSubmit({
 		isEditing,
 		editAsset,
@@ -1127,6 +1239,88 @@ function NewSnippetPage() {
 						onOpenChange={setImportDialogOpen}
 						onImport={handleImportSnippet}
 					/>
+					{importsGalleryOpen ? (
+						<Suspense fallback={null}>
+							<LazySnippetImportsGalleryDialog
+								open={importsGalleryOpen}
+								onOpenChange={setImportsGalleryOpen}
+								importsIndex={importsIndex}
+								libraryAssets={assets}
+								tagNameById={tagNameById}
+								isLibraryLoading={isLibraryLoading}
+								isImportingImportAsset={isImportAssetImporting}
+								isRemovingImportAsset={isImportAssetRemoving}
+								onRequestImportImportAsset={requestImportAssetAdd}
+								onRequestRemoveImportAsset={requestImportAssetRemove}
+							/>
+						</Suspense>
+					) : null}
+
+					<Dialog
+						open={Boolean(importAssetRemoveConfirm)}
+						onOpenChange={(next) => {
+							if (importAssetMutationRef.current || isImportAssetMutating) return
+							if (!next) setImportAssetRemoveConfirm(null)
+						}}
+					>
+						<DialogContent className="max-w-lg">
+							<DialogHeader>
+								<DialogTitle>Remove imported assets?</DialogTitle>
+								<DialogDescription>
+									These assets are currently used by your snippet. Removing them will also remove
+									their usages from the source.
+								</DialogDescription>
+							</DialogHeader>
+							{importAssetRemoveConfirm ? (
+								<div className="space-y-2">
+									{importAssetRemoveConfirm.removalIds.map((id) => {
+										const label = getImportAsset(id)?.label ?? id
+										const isUsed = importAssetRemoveConfirm.usedIds.includes(id)
+										return (
+											<div
+												key={id}
+												className="flex items-center justify-between gap-3 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-700"
+											>
+												<span className="font-medium text-neutral-900">{label}</span>
+												{isUsed ? (
+													<span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+														In use
+													</span>
+												) : (
+													<span className="rounded-full border border-neutral-200 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-600">
+														Imported
+													</span>
+												)}
+											</div>
+										)
+									})}
+								</div>
+							) : null}
+							<DialogFooter>
+								<Button
+									type="button"
+									variant="outline"
+									onClick={() => setImportAssetRemoveConfirm(null)}
+									disabled={isImportAssetMutating}
+								>
+									Cancel
+								</Button>
+								<Button
+									type="button"
+									variant="destructive"
+									onClick={async () => {
+										if (!importAssetRemoveConfirm) return
+										const assetId = importAssetRemoveConfirm.assetId
+										await removeImportAsset(assetId)
+										setImportAssetRemoveConfirm(null)
+									}}
+									disabled={isImportAssetMutating}
+								>
+									{isImportAssetRemoving ? "Removing…" : "Remove assets"}
+								</Button>
+							</DialogFooter>
+						</DialogContent>
+					</Dialog>
 
 					{/* Main content - fills remaining height */}
 					<Form {...form}>
@@ -1201,7 +1395,14 @@ function NewSnippetPage() {
 							<SnippetImportsPanel
 								open={importsOpen}
 								filters={importsFilters}
+								importsIndex={importsIndex}
 								onAssetPointerDown={importDnd.handleAssetPointerDown}
+								isRemovingImportAsset={isImportAssetMutating}
+								onRequestRemoveImportAsset={requestImportAssetRemove}
+								onOpenGallery={() => {
+									cancelPendingSelection({ preserveDraftAutosave: true })
+									setImportsGalleryOpen(true)
+								}}
 							/>
 
 							{/* Center - Editor and Preview split */}
@@ -1330,7 +1531,7 @@ function NewSnippetPage() {
 												layoutSnapGrid={layoutSnapGrid}
 												onLayoutCommit={handleLayoutCommit}
 												onImportAssetRemove={
-													previewMode === "imports" ? handleImportAssetRemove : undefined
+													previewMode === "imports" ? handlePreviewImportAssetRemove : undefined
 												}
 												layersEnabled={previewMode === "imports" ? false : layers3dOpen}
 												layersRequestToken={layersRequestToken}

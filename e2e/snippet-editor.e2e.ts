@@ -206,6 +206,13 @@ const ensureDetailsOpen = async (page: Page) => {
 	}
 }
 
+const ensureImportsOpen = async (page: Page) => {
+	const showImports = page.getByRole("button", { name: "Show imports panel" })
+	if ((await showImports.count()) > 0) {
+		await showImports.click()
+	}
+}
+
 const readSnippetDraftSource = async (page: Page, draftId: string) => {
 	return page.evaluate(async (targetDraftId) => {
 		const databaseName = "evencio-studio"
@@ -333,6 +340,40 @@ test("reset new snippet clears the cached draft and restores the starter snippet
 	await expect(
 		switcherAfterReload.getByRole("button", { name: "Reset new snippet draft" }),
 	).toHaveCount(0)
+})
+
+test("imports gallery can import + remove built-in SVGs", async ({ page }) => {
+	await openNewSnippetEditor(page)
+	await ensureImportsOpen(page)
+
+	await page.getByRole("button", { name: "Gallery" }).click()
+
+	const gallery = page.getByRole("dialog", { name: "Imports gallery" })
+	await expect(gallery).toBeVisible()
+
+	await gallery.getByRole("button", { name: /^SVGs/ }).click()
+
+	await gallery.getByTestId("imports-gallery-import-evencio-lockup").click()
+	await expect(gallery.getByTestId("imports-gallery-remove-evencio-lockup")).toBeVisible()
+	await expect(gallery.getByTestId("imports-gallery-remove-evencio-mark")).toBeVisible()
+
+	await page.keyboard.press("Escape")
+	await expect(gallery).toBeHidden()
+
+	await expect(page.getByTestId("imports-sidebar-import-asset-evencio-lockup")).toBeVisible()
+	await expect(page.getByTestId("imports-sidebar-import-asset-evencio-mark")).toBeVisible()
+
+	await page.getByTestId("imports-sidebar-import-asset-evencio-mark").click({ button: "right" })
+	await page.getByRole("menuitem", { name: "Remove import" }).click()
+
+	await expect(page.getByTestId("imports-sidebar-import-asset-evencio-mark")).toHaveCount(0)
+	await expect(page.getByTestId("imports-sidebar-import-asset-evencio-lockup")).toHaveCount(0)
+
+	await page.getByRole("button", { name: "Gallery" }).click()
+	await expect(gallery).toBeVisible()
+	await gallery.getByRole("button", { name: /^SVGs/ }).click()
+	await expect(gallery.getByTestId("imports-gallery-import-evencio-lockup")).toBeVisible()
+	await expect(gallery.getByTestId("imports-gallery-import-evencio-mark")).toBeVisible()
 })
 
 test("layout mode persists translate + size as Tailwind utilities", async ({ page }) => {

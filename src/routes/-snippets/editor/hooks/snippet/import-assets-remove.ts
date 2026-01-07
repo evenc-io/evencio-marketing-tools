@@ -282,10 +282,11 @@ export const useSnippetImportAssetsRemove = ({
 						source: importsSource,
 						componentNames,
 					})
-					if (importsResult.changed) {
-						nextFiles[IMPORT_ASSET_FILE_NAME] = importsResult.source
+					const nextImportsSource = importsResult.changed ? importsResult.source : importsSource
+					if (nextImportsSource.trim().length === 0) {
+						delete nextFiles[IMPORT_ASSET_FILE_NAME]
 					} else {
-						nextFiles[IMPORT_ASSET_FILE_NAME] = importsSource
+						nextFiles[IMPORT_ASSET_FILE_NAME] = nextImportsSource
 					}
 				}
 
