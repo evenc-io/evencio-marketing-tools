@@ -28,10 +28,12 @@ If compilation succeeds but analysis is “idle” or “stale”, the preview c
 
 ### 1) Source of truth: the form
 
-- `src/routes/snippets.editor.tsx`
+- `src/routes/-snippets/editor/page.tsx`
   - Holds the snippet editor form (`useForm`) and reads the current source via `useWatch`.
   - Applies selected snippet/draft into the form via `form.reset(...)`.
   - Drives preview hooks with the watched `source`.
+- Route wrapper: `src/routes/snippets.editor.tsx`
+  - Owns routing + `validateSearch` and passes `search` into the page module.
 
 **Why it matters:** the analysis and compilation hooks only run when they “see” source changes. If the form updates aren’t subscribed correctly, downstream stages can remain stale.
 
@@ -71,6 +73,7 @@ If compilation succeeds but analysis is “idle” or “stale”, the preview c
   - Injects Tailwind CSS into `<style id="snippet-tailwind">…</style>`.
   - Implements a tiny render runtime with a restricted “React-like” API and a DOM renderer.
   - Listens for `code-update`, `tailwind-update`, `props-update`, inspect/layout/layers toggles.
+  - Runtime implementation is split under `src/lib/snippets/preview/runtime/srcdoc/` (CSP + script sections).
 - Message types (iframe → parent): `src/lib/snippets/preview/runtime/types.ts` (`PreviewMessage`)
 
 ## Safety Model (Sandbox + CSP)
@@ -131,7 +134,7 @@ In `src/components/asset-library/snippet-preview.tsx`:
 
 ## Editor Orchestration: Applying a Snippet vs. Draft
 
-In `src/routes/snippets.editor.tsx` the route orchestrator:
+In `src/routes/-snippets/editor/page.tsx` the page orchestrator:
 
 - Loads the asset library (`loadLibrary()`).
 - Determines if we’re editing an existing snippet (`?edit=assetId`) or working on a new draft.
