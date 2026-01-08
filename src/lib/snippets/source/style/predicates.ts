@@ -1,4 +1,5 @@
 import { isColorSuffix } from "./colors"
+import { isSizeLikeArbitraryValue } from "./size-check"
 import { getUtility, isBaseToken } from "./tokens"
 
 /**
@@ -85,7 +86,11 @@ export const isFontSizeClass = (token: string) => {
 	if (!base.startsWith("text-")) return false
 	const suffix = base.slice("text-".length)
 	if (!suffix) return false
-	if (/^\[[^\]]+\]$/.test(suffix)) return true
+	// Handle arbitrary values - only accept size-like values (e.g., [44px], [1.5rem])
+	if (/^\[[^\]]+\]$/.test(suffix)) {
+		const inner = suffix.slice(1, -1)
+		return isSizeLikeArbitraryValue(inner)
+	}
 	return /^(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl|6xl|7xl|8xl|9xl)$/.test(suffix)
 }
 

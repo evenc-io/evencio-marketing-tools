@@ -1,3 +1,5 @@
+import { isSizeLikeArbitraryValue } from "./size-check"
+
 const THEME_COLOR_TOKENS = new Set([
 	"background",
 	"foreground",
@@ -52,7 +54,14 @@ export const isColorSuffix = (suffix: string) => {
 	) {
 		return true
 	}
-	if (/^\[[^\]]+\]$/.test(suffix)) return true
+	// Handle arbitrary values in brackets (e.g., [#ff0000], [rgb(0,0,0)])
+	if (/^\[[^\]]+\]$/.test(suffix)) {
+		const inner = suffix.slice(1, -1)
+		// Reject size-like values (e.g., 44px, 1.5rem) - these are font sizes, not colors
+		if (isSizeLikeArbitraryValue(inner)) return false
+		// Accept other arbitrary values (colors, CSS variables, etc.)
+		return true
+	}
 	const base = suffix.includes("/") ? (suffix.split("/")[0] ?? "") : suffix
 	if (THEME_COLOR_TOKENS.has(base)) return true
 	return isPaletteColorToken(suffix)
