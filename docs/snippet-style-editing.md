@@ -11,12 +11,17 @@ The Styles sidebar provides:
 - **Context + layout selection**: right click (context) opens the sidebar for a selected element; in layout mode, clicking a different element retargets the sidebar automatically.
 - **Tag rules + code-only guard**: only intrinsic tags are supported, and elements with dynamic `className` are treated as code-only.
 
-Supported style groups (v1):
+Supported style groups (v2):
 
 - Background: `backgroundColor`
 - Border: `borderWidth`, `borderColor`
 - Radius: `borderRadius`
-- Type: `textColor`, `fontSize`, `fontWeight`
+- Spacing: `padding`, `paddingX`, `paddingY`, `paddingTop`, `paddingRight`, `paddingBottom`, `paddingLeft`
+- Type:
+  - Color: `textColor`
+  - Font: `fontFamily`, `fontSize`, `fontWeight`
+  - Rhythm: `lineHeight`, `letterSpacing`
+  - Formatting: `textAlign`, `textTransform`, `fontStyle`, `textDecoration`
 
 Color editing notes:
 
@@ -127,8 +132,9 @@ To add a new editable property:
 4. **UI:** Add controls in `src/routes/-snippets/editor/components/snippet/styles-panel/sections/*`.
 5. **Tests:** Add/extend tests in `src/lib/snippets/source/__tests__/` (both read + write).
 
-## Known Limitations (v1)
+## Known Limitations
 
-- Only intrinsic HTML tags are editable.
+- Only intrinsic HTML tags are editable (`div`, `span`, `p`, `h1`-`h6`, `ul`, `ol`, `li`, `img`).
 - Dynamic `className` expressions are treated as code-only.
 - Style-read focuses on supported properties only; it is not a full computed-style inspector.
+- Variant-prefixed utilities (e.g. `md:`) are preserved and not rewritten by the Styles panel.

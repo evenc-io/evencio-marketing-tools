@@ -366,3 +366,85 @@ test("styles panel retargets when selecting another element", async ({ page }) =
 	await expect(stylesPanel.getByText("<p>")).toBeVisible()
 	await expect(stylesPanel.getByRole("button", { name: "Remove background" })).toHaveCount(0)
 })
+
+test("styles panel applies font family + padding utilities", async ({ page }) => {
+	await openNewSnippetEditor(page)
+	await importSnippet(page, STYLE_SNIPPET)
+	await ensureE2EDebugEnabled(page)
+
+	const previewFrame = page.locator('iframe[data-snippet-preview="iframe"]')
+	await expect(previewFrame).toBeVisible()
+
+	const preview = page.frameLocator('iframe[data-snippet-preview="iframe"]')
+	const text = preview.locator('[data-testid="style-text"]')
+	await expect(text).toBeVisible()
+
+	const layoutButton = page.getByRole("button", { name: "Layout", exact: true })
+	await layoutButton.click()
+	await expect(layoutButton).toHaveAttribute("aria-pressed", "true")
+
+	await text.click({ button: "right" })
+	const menu = page.getByRole("menu", { name: "Inspect actions" })
+	await expect(menu).toBeVisible()
+	await menu.getByRole("menuitem", { name: "Edit styles" }).click()
+
+	const stylesPanel = page.getByTestId("snippet-styles-panel")
+	await expect(stylesPanel).toBeVisible()
+	await expect(stylesPanel.getByText("<p>")).toBeVisible()
+
+	const typeSection = stylesPanel.getByTestId("snippet-styles-section-type")
+	await expect(typeSection).toBeVisible()
+
+	const fontFamilySelect = typeSection.getByRole("combobox", { name: "Font family" })
+	if (!(await fontFamilySelect.isVisible())) {
+		await typeSection.getByRole("button", { name: "Type" }).click()
+	}
+
+	await fontFamilySelect.selectOption("mono")
+	await waitForStyleUpdateLabel(page, "Update typography")
+
+	await expect
+		.poll(
+			async () => {
+				const className = await text.getAttribute("class")
+				return (
+					typeof className === "string" &&
+					className.includes("font-mono") &&
+					className.includes("font-semibold") &&
+					className.includes("text-sm")
+				)
+			},
+			{ timeout: 30_000 },
+		)
+		.toBe(true)
+
+	const spacingSection = stylesPanel.getByTestId("snippet-styles-section-spacing")
+	await expect(spacingSection).toBeVisible()
+	await spacingSection.getByRole("button", { name: "Spacing" }).click()
+
+	const paddingSelect = spacingSection.getByLabel("Padding", { exact: true })
+	await paddingSelect.selectOption("4")
+	await waitForStyleUpdateLabel(page, "Update spacing")
+
+	await expect
+		.poll(
+			async () => {
+				const className = await text.getAttribute("class")
+				return typeof className === "string" && className.includes("p-4")
+			},
+			{ timeout: 30_000 },
+		)
+		.toBe(true)
+
+	await expect
+		.poll(
+			async () => {
+				return await text.evaluate((node) => {
+					const style = getComputedStyle(node)
+					return `${style.paddingTop} ${style.paddingRight} ${style.paddingBottom} ${style.paddingLeft}`
+				})
+			},
+			{ timeout: 30_000 },
+		)
+		.toBe("16px 16px 16px 16px")
+})

@@ -62,8 +62,22 @@ export const useSnippetInspectStyleState = ({
 					borderColor: { present: false, value: null },
 					borderRadius: { present: false, value: null },
 					textColor: { present: false, value: null },
+					fontFamily: { present: false, value: null },
 					fontSize: { present: false, value: null },
 					fontWeight: { present: false, value: null },
+					lineHeight: { present: false, value: null },
+					letterSpacing: { present: false, value: null },
+					textAlign: { present: false, value: null },
+					textTransform: { present: false, value: null },
+					fontStyle: { present: false, value: null },
+					textDecoration: { present: false, value: null },
+					padding: { present: false, value: null },
+					paddingX: { present: false, value: null },
+					paddingY: { present: false, value: null },
+					paddingTop: { present: false, value: null },
+					paddingRight: { present: false, value: null },
+					paddingBottom: { present: false, value: null },
+					paddingLeft: { present: false, value: null },
 				},
 			})
 			setIsReading(false)
@@ -105,10 +119,38 @@ export const useSnippetInspectStyleState = ({
 							prevProps?.borderRadius.value === nextProps.borderRadius.value &&
 							prevProps?.textColor.present === nextProps.textColor.present &&
 							prevProps?.textColor.value === nextProps.textColor.value &&
+							prevProps?.fontFamily.present === nextProps.fontFamily.present &&
+							prevProps?.fontFamily.value === nextProps.fontFamily.value &&
 							prevProps?.fontSize.present === nextProps.fontSize.present &&
 							prevProps?.fontSize.value === nextProps.fontSize.value &&
 							prevProps?.fontWeight.present === nextProps.fontWeight.present &&
-							prevProps?.fontWeight.value === nextProps.fontWeight.value
+							prevProps?.fontWeight.value === nextProps.fontWeight.value &&
+							prevProps?.lineHeight.present === nextProps.lineHeight.present &&
+							prevProps?.lineHeight.value === nextProps.lineHeight.value &&
+							prevProps?.letterSpacing.present === nextProps.letterSpacing.present &&
+							prevProps?.letterSpacing.value === nextProps.letterSpacing.value &&
+							prevProps?.textAlign.present === nextProps.textAlign.present &&
+							prevProps?.textAlign.value === nextProps.textAlign.value &&
+							prevProps?.textTransform.present === nextProps.textTransform.present &&
+							prevProps?.textTransform.value === nextProps.textTransform.value &&
+							prevProps?.fontStyle.present === nextProps.fontStyle.present &&
+							prevProps?.fontStyle.value === nextProps.fontStyle.value &&
+							prevProps?.textDecoration.present === nextProps.textDecoration.present &&
+							prevProps?.textDecoration.value === nextProps.textDecoration.value &&
+							prevProps?.padding.present === nextProps.padding.present &&
+							prevProps?.padding.value === nextProps.padding.value &&
+							prevProps?.paddingX.present === nextProps.paddingX.present &&
+							prevProps?.paddingX.value === nextProps.paddingX.value &&
+							prevProps?.paddingY.present === nextProps.paddingY.present &&
+							prevProps?.paddingY.value === nextProps.paddingY.value &&
+							prevProps?.paddingTop.present === nextProps.paddingTop.present &&
+							prevProps?.paddingTop.value === nextProps.paddingTop.value &&
+							prevProps?.paddingRight.present === nextProps.paddingRight.present &&
+							prevProps?.paddingRight.value === nextProps.paddingRight.value &&
+							prevProps?.paddingBottom.present === nextProps.paddingBottom.present &&
+							prevProps?.paddingBottom.value === nextProps.paddingBottom.value &&
+							prevProps?.paddingLeft.present === nextProps.paddingLeft.present &&
+							prevProps?.paddingLeft.value === nextProps.paddingLeft.value
 
 						if (
 							prev &&
@@ -138,8 +180,22 @@ export const useSnippetInspectStyleState = ({
 							borderColor: { present: false, value: null },
 							borderRadius: { present: false, value: null },
 							textColor: { present: false, value: null },
+							fontFamily: { present: false, value: null },
 							fontSize: { present: false, value: null },
 							fontWeight: { present: false, value: null },
+							lineHeight: { present: false, value: null },
+							letterSpacing: { present: false, value: null },
+							textAlign: { present: false, value: null },
+							textTransform: { present: false, value: null },
+							fontStyle: { present: false, value: null },
+							textDecoration: { present: false, value: null },
+							padding: { present: false, value: null },
+							paddingX: { present: false, value: null },
+							paddingY: { present: false, value: null },
+							paddingTop: { present: false, value: null },
+							paddingRight: { present: false, value: null },
+							paddingBottom: { present: false, value: null },
+							paddingLeft: { present: false, value: null },
 						},
 					})
 				})

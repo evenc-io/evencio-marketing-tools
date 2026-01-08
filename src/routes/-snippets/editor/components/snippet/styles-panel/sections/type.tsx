@@ -1,26 +1,25 @@
-import { Plus, Trash2 } from "lucide-react"
 import type { Dispatch, MutableRefObject, SetStateAction } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CollapsibleSection } from "@/routes/-snippets/editor/components/collapsible-section"
-import { FONT_SIZE_SCALE, FONT_WEIGHT_SCALE } from "../constants"
-import { TailwindColorPicker } from "../tailwind-color-picker"
 import type { ColorDraft, ScheduleApplyFn, StylesPanelExpandedState } from "../types"
-import { ensureOption, normalizeHexColor, parseOptionalNumber } from "../utils"
+import { FontFamilyField } from "./type/font-family-field"
+import { FontSizeField } from "./type/font-size-field"
+import { FontWeightField } from "./type/font-weight-field"
+import { FormattingGrid } from "./type/formatting-grid"
+import { LetterSpacingField } from "./type/letter-spacing-field"
+import { LineHeightField } from "./type/line-height-field"
+import { TextColorField } from "./type/text-color-field"
 
 type TypeSectionProps = {
 	open: boolean
 	onOpenChange: (open: boolean) => void
+	panelMode: "basic" | "advanced"
 	canApply: boolean
 	baseSelectClassName: string
+	fontFamily: string
+	setFontFamily: Dispatch<SetStateAction<string>>
 	showTextColor: boolean
 	showFontSize: boolean
 	showFontWeight: boolean
-	hasTextColor: boolean
-	hasFontSize: boolean
-	hasFontWeight: boolean
 	textColorDraft: ColorDraft
 	setTextColorDraft: Dispatch<SetStateAction<ColorDraft>>
 	fontSizeMode: "scale" | "custom"
@@ -35,6 +34,26 @@ type TypeSectionProps = {
 	setFontWeightScale: Dispatch<SetStateAction<string>>
 	fontWeightCustom: string
 	setFontWeightCustom: Dispatch<SetStateAction<string>>
+	lineHeightMode: "scale" | "custom"
+	setLineHeightMode: Dispatch<SetStateAction<"scale" | "custom">>
+	lineHeightScale: string
+	setLineHeightScale: Dispatch<SetStateAction<string>>
+	lineHeightCustom: string
+	setLineHeightCustom: Dispatch<SetStateAction<string>>
+	letterSpacingMode: "scale" | "custom"
+	setLetterSpacingMode: Dispatch<SetStateAction<"scale" | "custom">>
+	letterSpacingScale: string
+	setLetterSpacingScale: Dispatch<SetStateAction<string>>
+	letterSpacingCustom: string
+	setLetterSpacingCustom: Dispatch<SetStateAction<string>>
+	textAlign: string
+	setTextAlign: Dispatch<SetStateAction<string>>
+	textTransform: string
+	setTextTransform: Dispatch<SetStateAction<string>>
+	fontStyle: string
+	setFontStyle: Dispatch<SetStateAction<string>>
+	textDecoration: string
+	setTextDecoration: Dispatch<SetStateAction<string>>
 	setExpanded: Dispatch<SetStateAction<StylesPanelExpandedState>>
 	focusedFieldRef: MutableRefObject<string | null>
 	scheduleApply: ScheduleApplyFn
@@ -43,14 +62,14 @@ type TypeSectionProps = {
 export function TypeSection({
 	open,
 	onOpenChange,
+	panelMode,
 	canApply,
 	baseSelectClassName,
+	fontFamily,
+	setFontFamily,
 	showTextColor,
 	showFontSize,
 	showFontWeight,
-	hasTextColor,
-	hasFontSize,
-	hasFontWeight,
 	textColorDraft,
 	setTextColorDraft,
 	fontSizeMode,
@@ -65,385 +84,150 @@ export function TypeSection({
 	setFontWeightScale,
 	fontWeightCustom,
 	setFontWeightCustom,
+	lineHeightMode,
+	setLineHeightMode,
+	lineHeightScale,
+	setLineHeightScale,
+	lineHeightCustom,
+	setLineHeightCustom,
+	letterSpacingMode,
+	setLetterSpacingMode,
+	letterSpacingScale,
+	setLetterSpacingScale,
+	letterSpacingCustom,
+	setLetterSpacingCustom,
+	textAlign,
+	setTextAlign,
+	textTransform,
+	setTextTransform,
+	fontStyle,
+	setFontStyle,
+	textDecoration,
+	setTextDecoration,
 	setExpanded,
 	focusedFieldRef,
 	scheduleApply,
 }: TypeSectionProps) {
+	const showAdvanced = panelMode === "advanced"
+
 	return (
 		<div data-testid="snippet-styles-section-type">
 			<CollapsibleSection title="Type" open={open} onOpenChange={onOpenChange}>
-				<div className="space-y-3">
-					{showTextColor ? (
-						<div className="space-y-2">
-							<div className="flex items-center justify-between gap-2">
-								<Label className="text-xs text-neutral-600">Text color</Label>
-								<Button
-									type="button"
-									variant="ghost"
-									size="icon"
-									className="h-7 w-7 text-neutral-400 hover:text-neutral-700"
-									onClick={() => {
-										setExpanded((prev) => ({ ...prev, textColor: false }))
-										if (!hasFontSize && !hasFontWeight) {
-											onOpenChange(false)
-										}
-										scheduleApply({ textColor: null }, "Remove text color", { immediate: true })
-									}}
-									disabled={!canApply}
-									aria-label="Remove text color"
-									title="Remove"
-								>
-									<Trash2 className="h-4 w-4" />
-								</Button>
-							</div>
-							<Tabs
-								value={textColorDraft.mode}
-								onValueChange={(next) =>
-									setTextColorDraft((prev) => ({
-										...prev,
-										mode: next === "custom" ? "custom" : "token",
-									}))
-								}
-							>
-								<TabsList className="w-full">
-									<TabsTrigger value="token">Token</TabsTrigger>
-									<TabsTrigger value="custom">Custom</TabsTrigger>
-								</TabsList>
-								<TabsContent value="token">
-									<TailwindColorPicker
-										value={textColorDraft.token}
-										onValueChange={(next) => {
-											setTextColorDraft((prev) => ({ ...prev, token: next, mode: "token" }))
-											scheduleApply({ textColor: next || null }, "Update typography")
-										}}
-										disabled={!canApply}
-										buttonClassName={baseSelectClassName}
-										title="Text color"
-										description="Select a Tailwind v4 text token like emerald-500."
-										onOpenChange={(nextOpen) => {
-											if (nextOpen) {
-												focusedFieldRef.current = "textColor-token"
-												return
-											}
-											if (focusedFieldRef.current === "textColor-token") {
-												focusedFieldRef.current = null
-											}
-										}}
-									/>
-								</TabsContent>
-								<TabsContent value="custom">
-									<div className="flex items-center gap-2">
-										<input
-											type="color"
-											value={normalizeHexColor(textColorDraft.hex) ?? "#000000"}
-											onChange={(event) => {
-												const next = event.target.value
-												setTextColorDraft((prev) => ({ ...prev, hex: next, mode: "custom" }))
-												const normalized = normalizeHexColor(next)
-												if (normalized) {
-													scheduleApply({ textColor: normalized }, "Update typography")
-												}
-											}}
-											onFocus={() => {
-												focusedFieldRef.current = "textColor-hex"
-											}}
-											onBlur={() => {
-												if (focusedFieldRef.current === "textColor-hex") {
-													focusedFieldRef.current = null
-												}
-											}}
-											className="h-9 w-9 rounded-md border border-neutral-200 bg-white p-1"
-											disabled={!canApply}
-											aria-label="Pick text color"
-										/>
-										<Input
-											value={textColorDraft.hex}
-											onChange={(event) => {
-												const next = event.target.value
-												setTextColorDraft((prev) => ({ ...prev, hex: next, mode: "custom" }))
-												if (!next.trim()) {
-													scheduleApply({ textColor: null }, "Remove text color", {
-														immediate: true,
-													})
-													return
-												}
-												const normalized = normalizeHexColor(next)
-												if (normalized) {
-													scheduleApply({ textColor: normalized }, "Update typography")
-												}
-											}}
-											onFocus={() => {
-												focusedFieldRef.current = "textColor-hex-input"
-											}}
-											onBlur={() => {
-												if (focusedFieldRef.current === "textColor-hex-input") {
-													focusedFieldRef.current = null
-												}
-												if (!textColorDraft.hex.trim()) {
-													setExpanded((prev) => ({ ...prev, textColor: false }))
-													if (!hasFontSize && !hasFontWeight) {
-														onOpenChange(false)
-													}
-												}
-											}}
-											placeholder="#111111"
-											disabled={!canApply}
-											aria-invalid={
-												textColorDraft.hex.trim().length > 0 &&
-												normalizeHexColor(textColorDraft.hex) === null
-													? true
-													: undefined
-											}
-										/>
-									</div>
-								</TabsContent>
-							</Tabs>
-						</div>
-					) : (
-						<Button
-							type="button"
-							variant="ghost"
-							size="sm"
-							className="justify-start px-0 text-neutral-500 hover:text-neutral-900"
-							onClick={() => setExpanded((prev) => ({ ...prev, textColor: true }))}
-							disabled={!canApply}
-						>
-							<Plus className="mr-2 h-4 w-4" />
-							Add text color
-						</Button>
-					)}
+				<div className="space-y-4">
+					<div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-3">
+						<p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
+							Font
+						</p>
+						<div className="mt-3 space-y-3">
+							<FontFamilyField
+								canApply={canApply}
+								baseSelectClassName={baseSelectClassName}
+								fontFamily={fontFamily}
+								setFontFamily={setFontFamily}
+								focusedFieldRef={focusedFieldRef}
+								scheduleApply={scheduleApply}
+							/>
 
-					{showFontSize ? (
-						<div className="space-y-2">
-							<div className="flex items-center justify-between gap-2">
-								<Label className="text-xs text-neutral-600">Font size</Label>
-								<Button
-									type="button"
-									variant="ghost"
-									size="icon"
-									className="h-7 w-7 text-neutral-400 hover:text-neutral-700"
-									onClick={() => {
-										setExpanded((prev) => ({ ...prev, fontSize: false }))
-										if (!hasTextColor && !hasFontWeight) {
-											onOpenChange(false)
-										}
-										scheduleApply({ fontSize: null }, "Remove font size", { immediate: true })
-									}}
-									disabled={!canApply}
-									aria-label="Remove font size"
-									title="Remove"
-								>
-									<Trash2 className="h-4 w-4" />
-								</Button>
-							</div>
-							<Tabs
-								value={fontSizeMode}
-								onValueChange={(next) => setFontSizeMode(next === "custom" ? "custom" : "scale")}
-							>
-								<TabsList className="w-full">
-									<TabsTrigger value="scale">Scale</TabsTrigger>
-									<TabsTrigger value="custom">Custom</TabsTrigger>
-								</TabsList>
-								<TabsContent value="scale">
-									<select
-										value={fontSizeScale}
-										onChange={(event) => {
-											const next = event.target.value
-											setFontSizeScale(next)
-											setFontSizeMode("scale")
-											scheduleApply({ fontSize: next || null }, "Update typography")
-										}}
-										onFocus={() => {
-											focusedFieldRef.current = "fontSize-scale"
-										}}
-										onBlur={() => {
-											if (focusedFieldRef.current === "fontSize-scale") {
-												focusedFieldRef.current = null
-											}
-										}}
-										className={baseSelectClassName}
-										disabled={!canApply}
-									>
-										{ensureOption(FONT_SIZE_SCALE, fontSizeScale, "Custom").map((option) => (
-											<option key={option.value} value={option.value}>
-												{option.label}
-											</option>
-										))}
-									</select>
-								</TabsContent>
-								<TabsContent value="custom">
-									<Input
-										inputMode="numeric"
-										value={fontSizeCustom}
-										onChange={(event) => {
-											const next = event.target.value
-											setFontSizeCustom(next)
-											setFontSizeMode("custom")
-											const parsed = parseOptionalNumber(next)
-											if (parsed === null) {
-												scheduleApply({ fontSize: null }, "Remove font size", { immediate: true })
-												return
-											}
-											if (parsed !== "invalid") {
-												scheduleApply({ fontSize: parsed }, "Update typography")
-											}
-										}}
-										onFocus={() => {
-											focusedFieldRef.current = "fontSize-custom"
-										}}
-										onBlur={() => {
-											if (focusedFieldRef.current === "fontSize-custom") {
-												focusedFieldRef.current = null
-											}
-											if (!fontSizeCustom.trim()) {
-												setExpanded((prev) => ({ ...prev, fontSize: false }))
-												if (!hasTextColor && !hasFontWeight) {
-													onOpenChange(false)
-												}
-											}
-										}}
-										placeholder="16"
-										disabled={!canApply}
-										aria-invalid={
-											fontSizeCustom.trim().length > 0 &&
-											parseOptionalNumber(fontSizeCustom) === "invalid"
-												? true
-												: undefined
-										}
-									/>
-								</TabsContent>
-							</Tabs>
-						</div>
-					) : (
-						<Button
-							type="button"
-							variant="ghost"
-							size="sm"
-							className="justify-start px-0 text-neutral-500 hover:text-neutral-900"
-							onClick={() => setExpanded((prev) => ({ ...prev, fontSize: true }))}
-							disabled={!canApply}
-						>
-							<Plus className="mr-2 h-4 w-4" />
-							Add font size
-						</Button>
-					)}
+							<FontSizeField
+								show={showFontSize}
+								canApply={canApply}
+								baseSelectClassName={baseSelectClassName}
+								fontSizeMode={fontSizeMode}
+								setFontSizeMode={setFontSizeMode}
+								fontSizeScale={fontSizeScale}
+								setFontSizeScale={setFontSizeScale}
+								fontSizeCustom={fontSizeCustom}
+								setFontSizeCustom={setFontSizeCustom}
+								setExpanded={setExpanded}
+								focusedFieldRef={focusedFieldRef}
+								scheduleApply={scheduleApply}
+							/>
 
-					{showFontWeight ? (
-						<div className="space-y-2">
-							<div className="flex items-center justify-between gap-2">
-								<Label className="text-xs text-neutral-600">Font weight</Label>
-								<Button
-									type="button"
-									variant="ghost"
-									size="icon"
-									className="h-7 w-7 text-neutral-400 hover:text-neutral-700"
-									onClick={() => {
-										setExpanded((prev) => ({ ...prev, fontWeight: false }))
-										if (!hasTextColor && !hasFontSize) {
-											onOpenChange(false)
-										}
-										scheduleApply({ fontWeight: null }, "Remove font weight", { immediate: true })
-									}}
-									disabled={!canApply}
-									aria-label="Remove font weight"
-									title="Remove"
-								>
-									<Trash2 className="h-4 w-4" />
-								</Button>
-							</div>
-							<Tabs
-								value={fontWeightMode}
-								onValueChange={(next) => setFontWeightMode(next === "custom" ? "custom" : "scale")}
-							>
-								<TabsList className="w-full">
-									<TabsTrigger value="scale">Scale</TabsTrigger>
-									<TabsTrigger value="custom">Custom</TabsTrigger>
-								</TabsList>
-								<TabsContent value="scale">
-									<select
-										value={fontWeightScale}
-										onChange={(event) => {
-											const next = event.target.value
-											setFontWeightScale(next)
-											setFontWeightMode("scale")
-											scheduleApply({ fontWeight: next || null }, "Update typography")
-										}}
-										onFocus={() => {
-											focusedFieldRef.current = "fontWeight-scale"
-										}}
-										onBlur={() => {
-											if (focusedFieldRef.current === "fontWeight-scale") {
-												focusedFieldRef.current = null
-											}
-										}}
-										className={baseSelectClassName}
-										disabled={!canApply}
-									>
-										{ensureOption(FONT_WEIGHT_SCALE, fontWeightScale, "Custom").map((option) => (
-											<option key={option.value} value={option.value}>
-												{option.label}
-											</option>
-										))}
-									</select>
-								</TabsContent>
-								<TabsContent value="custom">
-									<Input
-										inputMode="numeric"
-										value={fontWeightCustom}
-										onChange={(event) => {
-											const next = event.target.value
-											setFontWeightCustom(next)
-											setFontWeightMode("custom")
-											const parsed = parseOptionalNumber(next)
-											if (parsed === null) {
-												scheduleApply({ fontWeight: null }, "Remove font weight", {
-													immediate: true,
-												})
-												return
-											}
-											if (parsed !== "invalid") {
-												scheduleApply({ fontWeight: parsed }, "Update typography")
-											}
-										}}
-										onFocus={() => {
-											focusedFieldRef.current = "fontWeight-custom"
-										}}
-										onBlur={() => {
-											if (focusedFieldRef.current === "fontWeight-custom") {
-												focusedFieldRef.current = null
-											}
-											if (!fontWeightCustom.trim()) {
-												setExpanded((prev) => ({ ...prev, fontWeight: false }))
-												if (!hasTextColor && !hasFontSize) {
-													onOpenChange(false)
-												}
-											}
-										}}
-										placeholder="600"
-										disabled={!canApply}
-										aria-invalid={
-											fontWeightCustom.trim().length > 0 &&
-											parseOptionalNumber(fontWeightCustom) === "invalid"
-												? true
-												: undefined
-										}
-									/>
-								</TabsContent>
-							</Tabs>
+							<FontWeightField
+								show={showFontWeight}
+								canApply={canApply}
+								baseSelectClassName={baseSelectClassName}
+								fontWeightMode={fontWeightMode}
+								setFontWeightMode={setFontWeightMode}
+								fontWeightScale={fontWeightScale}
+								setFontWeightScale={setFontWeightScale}
+								fontWeightCustom={fontWeightCustom}
+								setFontWeightCustom={setFontWeightCustom}
+								setExpanded={setExpanded}
+								focusedFieldRef={focusedFieldRef}
+								scheduleApply={scheduleApply}
+							/>
 						</div>
-					) : (
-						<Button
-							type="button"
-							variant="ghost"
-							size="sm"
-							className="justify-start px-0 text-neutral-500 hover:text-neutral-900"
-							onClick={() => setExpanded((prev) => ({ ...prev, fontWeight: true }))}
-							disabled={!canApply}
-						>
-							<Plus className="mr-2 h-4 w-4" />
-							Add font weight
-						</Button>
-					)}
+					</div>
+
+					<div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-3">
+						<p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
+							Text
+						</p>
+						<div className="mt-3 space-y-3">
+							<TextColorField
+								show={showTextColor}
+								canApply={canApply}
+								baseSelectClassName={baseSelectClassName}
+								textColorDraft={textColorDraft}
+								setTextColorDraft={setTextColorDraft}
+								setExpanded={setExpanded}
+								focusedFieldRef={focusedFieldRef}
+								scheduleApply={scheduleApply}
+							/>
+
+							<FormattingGrid
+								panelMode={panelMode}
+								canApply={canApply}
+								baseSelectClassName={baseSelectClassName}
+								textAlign={textAlign}
+								setTextAlign={setTextAlign}
+								textTransform={textTransform}
+								setTextTransform={setTextTransform}
+								fontStyle={fontStyle}
+								setFontStyle={setFontStyle}
+								textDecoration={textDecoration}
+								setTextDecoration={setTextDecoration}
+								focusedFieldRef={focusedFieldRef}
+								scheduleApply={scheduleApply}
+							/>
+						</div>
+					</div>
+
+					{showAdvanced ? (
+						<div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-3">
+							<p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">
+								Rhythm
+							</p>
+							<div className="mt-3 space-y-3">
+								<LineHeightField
+									canApply={canApply}
+									baseSelectClassName={baseSelectClassName}
+									lineHeightMode={lineHeightMode}
+									setLineHeightMode={setLineHeightMode}
+									lineHeightScale={lineHeightScale}
+									setLineHeightScale={setLineHeightScale}
+									lineHeightCustom={lineHeightCustom}
+									setLineHeightCustom={setLineHeightCustom}
+									focusedFieldRef={focusedFieldRef}
+									scheduleApply={scheduleApply}
+								/>
+
+								<LetterSpacingField
+									canApply={canApply}
+									baseSelectClassName={baseSelectClassName}
+									letterSpacingMode={letterSpacingMode}
+									setLetterSpacingMode={setLetterSpacingMode}
+									letterSpacingScale={letterSpacingScale}
+									setLetterSpacingScale={setLetterSpacingScale}
+									letterSpacingCustom={letterSpacingCustom}
+									setLetterSpacingCustom={setLetterSpacingCustom}
+									focusedFieldRef={focusedFieldRef}
+									scheduleApply={scheduleApply}
+								/>
+							</div>
+						</div>
+					) : null}
 				</div>
 			</CollapsibleSection>
 		</div>

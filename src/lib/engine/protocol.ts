@@ -84,8 +84,22 @@ export type StyleUpdateRequest = {
 	borderColor?: string | null
 	borderRadius?: number | string | null
 	textColor?: string | null
+	fontFamily?: string | null
 	fontSize?: number | string | null
 	fontWeight?: number | string | null
+	lineHeight?: number | string | null
+	letterSpacing?: string | null
+	textAlign?: string | null
+	textTransform?: string | null
+	fontStyle?: string | null
+	textDecoration?: string | null
+	padding?: string | null
+	paddingX?: string | null
+	paddingY?: string | null
+	paddingTop?: string | null
+	paddingRight?: string | null
+	paddingBottom?: string | null
+	paddingLeft?: string | null
 }
 
 export type StyleUpdateResponse = {
@@ -113,8 +127,22 @@ export type StyleReadResponse = {
 		borderColor: { present: boolean; value: string | null }
 		borderRadius: { present: boolean; value: number | string | null }
 		textColor: { present: boolean; value: string | null }
+		fontFamily: { present: boolean; value: string | null }
 		fontSize: { present: boolean; value: number | string | null }
 		fontWeight: { present: boolean; value: number | string | null }
+		lineHeight: { present: boolean; value: number | string | null }
+		letterSpacing: { present: boolean; value: string | null }
+		textAlign: { present: boolean; value: string | null }
+		textTransform: { present: boolean; value: string | null }
+		fontStyle: { present: boolean; value: string | null }
+		textDecoration: { present: boolean; value: string | null }
+		padding: { present: boolean; value: string | null }
+		paddingX: { present: boolean; value: string | null }
+		paddingY: { present: boolean; value: string | null }
+		paddingTop: { present: boolean; value: string | null }
+		paddingRight: { present: boolean; value: string | null }
+		paddingBottom: { present: boolean; value: string | null }
+		paddingLeft: { present: boolean; value: string | null }
 	}
 }
 

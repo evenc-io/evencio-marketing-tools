@@ -23,6 +23,7 @@ export type StylesPanelSectionState = {
 	background: boolean
 	border: boolean
 	radius: boolean
+	spacing: boolean
 	type: boolean
 }
 

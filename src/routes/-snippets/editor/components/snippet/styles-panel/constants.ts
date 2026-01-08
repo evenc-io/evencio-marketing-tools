@@ -46,3 +46,107 @@ export const FONT_WEIGHT_SCALE: SelectOption[] = [
 	{ value: "extrabold", label: "800 (extra bold)" },
 	{ value: "black", label: "900 (black)" },
 ]
+
+export const LINE_HEIGHT_SCALE: SelectOption[] = [
+	{ value: "", label: "Default" },
+	{ value: "none", label: "none (leading-none)" },
+	{ value: "tight", label: "tight (leading-tight)" },
+	{ value: "snug", label: "snug (leading-snug)" },
+	{ value: "normal", label: "normal (leading-normal)" },
+	{ value: "relaxed", label: "relaxed (leading-relaxed)" },
+	{ value: "loose", label: "loose (leading-loose)" },
+	{ value: "3", label: "3 (leading-3)" },
+	{ value: "4", label: "4 (leading-4)" },
+	{ value: "5", label: "5 (leading-5)" },
+	{ value: "6", label: "6 (leading-6)" },
+	{ value: "7", label: "7 (leading-7)" },
+	{ value: "8", label: "8 (leading-8)" },
+	{ value: "9", label: "9 (leading-9)" },
+	{ value: "10", label: "10 (leading-10)" },
+]
+
+export const LETTER_SPACING_SCALE: SelectOption[] = [
+	{ value: "", label: "Default" },
+	{ value: "tighter", label: "tighter (tracking-tighter)" },
+	{ value: "tight", label: "tight (tracking-tight)" },
+	{ value: "normal", label: "normal (tracking-normal)" },
+	{ value: "wide", label: "wide (tracking-wide)" },
+	{ value: "wider", label: "wider (tracking-wider)" },
+	{ value: "widest", label: "widest (tracking-widest)" },
+]
+
+export const FONT_FAMILY_OPTIONS: SelectOption[] = [
+	{ value: "", label: "Default (Inter)" },
+	{ value: "lexend", label: "Lexend Exa (font-lexend)" },
+	{ value: "unbounded", label: "Unbounded (font-unbounded)" },
+	{ value: "mono", label: "Monospace (font-mono)" },
+]
+
+export const TEXT_ALIGN_OPTIONS: SelectOption[] = [
+	{ value: "", label: "Default" },
+	{ value: "left", label: "Left (text-left)" },
+	{ value: "center", label: "Center (text-center)" },
+	{ value: "right", label: "Right (text-right)" },
+	{ value: "justify", label: "Justify (text-justify)" },
+]
+
+export const TEXT_TRANSFORM_OPTIONS: SelectOption[] = [
+	{ value: "", label: "Default" },
+	{ value: "uppercase", label: "Uppercase (uppercase)" },
+	{ value: "lowercase", label: "Lowercase (lowercase)" },
+	{ value: "capitalize", label: "Capitalize (capitalize)" },
+	{ value: "normal-case", label: "Normal case (normal-case)" },
+]
+
+export const FONT_STYLE_OPTIONS: SelectOption[] = [
+	{ value: "", label: "Default" },
+	{ value: "italic", label: "Italic (italic)" },
+	{ value: "not-italic", label: "Normal (not-italic)" },
+]
+
+export const TEXT_DECORATION_OPTIONS: SelectOption[] = [
+	{ value: "", label: "Default" },
+	{ value: "underline", label: "Underline (underline)" },
+	{ value: "line-through", label: "Strikethrough (line-through)" },
+	{ value: "overline", label: "Overline (overline)" },
+	{ value: "no-underline", label: "None (no-underline)" },
+]
+
+export const SPACING_SCALE: SelectOption[] = [
+	{ value: "", label: "Default" },
+	{ value: "0", label: "0" },
+	{ value: "px", label: "px" },
+	{ value: "0.5", label: "0.5" },
+	{ value: "1", label: "1" },
+	{ value: "1.5", label: "1.5" },
+	{ value: "2", label: "2" },
+	{ value: "2.5", label: "2.5" },
+	{ value: "3", label: "3" },
+	{ value: "3.5", label: "3.5" },
+	{ value: "4", label: "4" },
+	{ value: "5", label: "5" },
+	{ value: "6", label: "6" },
+	{ value: "7", label: "7" },
+	{ value: "8", label: "8" },
+	{ value: "9", label: "9" },
+	{ value: "10", label: "10" },
+	{ value: "11", label: "11" },
+	{ value: "12", label: "12" },
+	{ value: "14", label: "14" },
+	{ value: "16", label: "16" },
+	{ value: "20", label: "20" },
+	{ value: "24", label: "24" },
+	{ value: "28", label: "28" },
+	{ value: "32", label: "32" },
+	{ value: "36", label: "36" },
+	{ value: "40", label: "40" },
+	{ value: "44", label: "44" },
+	{ value: "48", label: "48" },
+	{ value: "52", label: "52" },
+	{ value: "56", label: "56" },
+	{ value: "60", label: "60" },
+	{ value: "64", label: "64" },
+	{ value: "72", label: "72" },
+	{ value: "80", label: "80" },
+	{ value: "96", label: "96" },
+]

@@ -97,7 +97,7 @@ export const useSnippetInspectStyle = ({
 			const currentTarget = targetOverride ?? target
 			if (!currentTarget) return
 			if (!isSnippetIntrinsicTag(currentTarget.elementName)) {
-				toast.error("Only intrinsic HTML tags are editable in v1.")
+				toast.error("Only intrinsic HTML tags are editable.")
 				return
 			}
 

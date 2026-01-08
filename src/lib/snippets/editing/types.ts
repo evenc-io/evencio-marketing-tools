@@ -1,4 +1,9 @@
-export type SnippetEditableStyleGroup = "background" | "border" | "radius" | "typography"
+export type SnippetEditableStyleGroup =
+	| "background"
+	| "border"
+	| "radius"
+	| "spacing"
+	| "typography"
 
 export type SnippetStyleEditCapabilities = Record<SnippetEditableStyleGroup, boolean>
 
