@@ -6,6 +6,15 @@ import { getSnippetIntrinsicTagRule, isSnippetIntrinsicTag } from "@/lib/snippet
 import type { SnippetEditorFileId } from "@/routes/-snippets/editor/snippet-editor-types"
 import type { SnippetInspectTextRequest } from "@/routes/-snippets/editor/snippet-inspect-utils"
 
+const writeE2EDebug = (update: unknown) => {
+	if (typeof window === "undefined") return
+	const win = window as unknown as {
+		__EVENCIO_E2E_SNIPPET_STYLE_DEBUG__?: { lastUpdate?: unknown }
+	}
+	if (!win.__EVENCIO_E2E_SNIPPET_STYLE_DEBUG__) return
+	win.__EVENCIO_E2E_SNIPPET_STYLE_DEBUG__.lastUpdate = update
+}
+
 type UseSnippetInspectStyleOptions = {
 	target: SnippetInspectTextRequest | null
 	getSourceForFile: (fileId: SnippetEditorFileId) => string
@@ -94,6 +103,14 @@ export const useSnippetInspectStyle = ({
 				}
 
 				try {
+					writeE2EDebug({
+						phase: "request",
+						label,
+						fileId: target.fileId,
+						line: target.line,
+						column: target.column,
+						payload,
+					})
 					const result = await applySnippetStyleUpdateInEngine({
 						source: fileSource,
 						line: target.line,
@@ -101,6 +118,13 @@ export const useSnippetInspectStyle = ({
 						...payload,
 					})
 					if (!mountedRef.current) return
+					writeE2EDebug({
+						phase: "response",
+						label,
+						changed: result.changed,
+						reason: result.reason ?? null,
+						notice: result.notice ?? null,
+					})
 					if (!result.changed) {
 						if (result.reason) {
 							toast.error(result.reason)
@@ -110,6 +134,11 @@ export const useSnippetInspectStyle = ({
 
 					if (!mountedRef.current) return
 					const applied = applySourceForFile(target.fileId, result.source, label)
+					writeE2EDebug({
+						phase: "applied",
+						label,
+						applied,
+					})
 					if (applied) {
 						if (!mountedRef.current) return
 						onApplied?.({
@@ -125,6 +154,11 @@ export const useSnippetInspectStyle = ({
 						toast(result.notice)
 					}
 				} catch (err) {
+					writeE2EDebug({
+						phase: "error",
+						label,
+						error: err instanceof Error ? err.message : String(err),
+					})
 					toast.error(err instanceof Error ? err.message : "Failed to update styles.")
 				}
 			})

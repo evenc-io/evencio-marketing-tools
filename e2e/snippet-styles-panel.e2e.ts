@@ -39,6 +39,12 @@ test("styles panel updates source/preview without losing focus", async ({ page }
 	await openNewSnippetEditor(page)
 	await importSnippet(page, STYLE_SNIPPET)
 
+	await page.evaluate(() => {
+		;(
+			window as unknown as { __EVENCIO_E2E_SNIPPET_STYLE_DEBUG__?: unknown }
+		).__EVENCIO_E2E_SNIPPET_STYLE_DEBUG__ = { lastUpdate: null }
+	})
+
 	const previewFrame = page.locator('iframe[data-snippet-preview="iframe"]')
 	await expect(previewFrame).toBeVisible()
 
@@ -67,6 +73,25 @@ test("styles panel updates source/preview without losing focus", async ({ page }
 	await backgroundHexInput.click()
 	await backgroundHexInput.fill("#ff0000")
 	await expect(backgroundHexInput).toBeFocused()
+
+	await expect
+		.poll(
+			async () => {
+				return await page.evaluate(() => {
+					const win = window as unknown as {
+						__EVENCIO_E2E_SNIPPET_STYLE_DEBUG__?: { lastUpdate?: unknown }
+					}
+					const update = win.__EVENCIO_E2E_SNIPPET_STYLE_DEBUG__?.lastUpdate
+					if (!update || typeof update !== "object") return null
+					const data = update as { phase?: unknown; label?: unknown; applied?: unknown }
+					if (data.phase !== "applied") return null
+					if (data.label !== "Update background") return null
+					return data.applied === true ? "ok" : "not-applied"
+				})
+			},
+			{ timeout: 15_000 },
+		)
+		.toBe("ok")
 
 	await expect
 		.poll(
