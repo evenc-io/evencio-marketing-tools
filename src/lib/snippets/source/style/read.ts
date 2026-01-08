@@ -8,6 +8,7 @@ import {
 	readStaticClassNameValue,
 } from "./ast"
 import { normalizeColorValue } from "./colors"
+import { formatNumber } from "./format"
 import {
 	isBackgroundClass,
 	isBorderColorClass,
@@ -123,6 +124,191 @@ const readInlineFontWeight = (raw: string | number | null | undefined): number |
 	const numeric = trimmed.match(/^(\d+(?:\.\d+)?)$/)
 	if (numeric) return Number(numeric[1])
 	return null
+}
+
+const readInlineLineHeight = (raw: string | number | null | undefined): number | string | null => {
+	if (typeof raw === "number" && Number.isFinite(raw)) return raw
+	if (typeof raw !== "string") return null
+	const trimmed = raw.trim()
+	if (!trimmed) return null
+	if (trimmed.startsWith("[") && trimmed.endsWith("]")) return trimmed
+	const numeric = trimmed.match(/^(-?\d+(?:\.\d+)?)$/)
+	if (numeric) {
+		if (trimmed.includes(".")) return Number(numeric[1])
+		return trimmed
+	}
+	const withUnit = trimmed.match(/^(-?\d+(?:\.\d+)?)(px|rem|em|%)$/)
+	if (withUnit) return `[${trimmed}]`
+	return trimmed
+}
+
+const readInlineLetterSpacing = (raw: string | number | null | undefined): string | null => {
+	if (typeof raw === "number" && Number.isFinite(raw)) {
+		const formatted = formatNumber(raw)
+		if (formatted === "0") return "0"
+		if (formatted === "1") return "px"
+		return `[${formatted}px]`
+	}
+	if (typeof raw !== "string") return null
+	const trimmed = raw.trim()
+	if (!trimmed) return null
+	if (/^0(?:\.0+)?(?:px|rem|em|%)?$/.test(trimmed)) return "0"
+	if (trimmed.startsWith("[") && trimmed.endsWith("]")) return trimmed
+	return `[${trimmed}]`
+}
+
+const readInlineTextAlign = (raw: string | number | null | undefined): string | null => {
+	if (typeof raw !== "string") return null
+	const trimmed = raw.trim()
+	if (!trimmed) return null
+	return trimmed
+}
+
+const readInlineTextTransform = (raw: string | number | null | undefined): string | null => {
+	if (typeof raw !== "string") return null
+	const trimmed = raw.trim()
+	if (!trimmed) return null
+	if (trimmed === "none") return "normal-case"
+	return trimmed
+}
+
+const readInlineFontStyle = (raw: string | number | null | undefined): string | null => {
+	if (typeof raw !== "string") return null
+	const trimmed = raw.trim()
+	if (!trimmed) return null
+	if (trimmed === "normal") return "not-italic"
+	return trimmed
+}
+
+const readInlineTextDecoration = (raw: string | number | null | undefined): string | null => {
+	if (typeof raw !== "string") return null
+	const trimmed = raw.trim()
+	if (!trimmed) return null
+	if (trimmed === "none") return "no-underline"
+	return trimmed
+}
+
+const readInlineSpacingValue = (raw: string | number | null | undefined): string | null => {
+	if (typeof raw === "number" && Number.isFinite(raw)) {
+		const formatted = formatNumber(raw)
+		if (formatted === "0") return "0"
+		if (formatted === "1") return "px"
+		return `[${formatted}px]`
+	}
+	if (typeof raw !== "string") return null
+	const trimmed = raw.trim()
+	if (!trimmed) return null
+	if (/^0(?:\.0+)?$/.test(trimmed)) return "0"
+	if (/^0(?:\.0+)?(?:px|rem|em|%)$/.test(trimmed)) return "0"
+	if (trimmed === "1px") return "px"
+	if (trimmed.startsWith("[") && trimmed.endsWith("]")) return trimmed
+	return `[${trimmed}]`
+}
+
+type InlineSpacingValues = {
+	padding: string | null
+	paddingX: string | null
+	paddingY: string | null
+	paddingTop: string | null
+	paddingRight: string | null
+	paddingBottom: string | null
+	paddingLeft: string | null
+}
+
+const readInlinePaddingValues = (
+	style: Partial<Record<string, string | number | null>>,
+): InlineSpacingValues => {
+	const out: InlineSpacingValues = {
+		padding: null,
+		paddingX: null,
+		paddingY: null,
+		paddingTop: null,
+		paddingRight: null,
+		paddingBottom: null,
+		paddingLeft: null,
+	}
+
+	const rawPadding = style.padding
+	let paddingParts: string[] | null = null
+	if (typeof rawPadding === "number" && Number.isFinite(rawPadding)) {
+		paddingParts = [String(rawPadding)]
+	} else if (typeof rawPadding === "string") {
+		const trimmed = rawPadding.trim()
+		if (trimmed) {
+			const parts = trimmed.split(/\s+/).filter(Boolean)
+			if (parts.length >= 1 && parts.length <= 4) {
+				paddingParts = parts
+			}
+		}
+	}
+
+	const hasExplicitSides =
+		style.paddingTop !== undefined ||
+		style.paddingRight !== undefined ||
+		style.paddingBottom !== undefined ||
+		style.paddingLeft !== undefined
+
+	let expanded: {
+		top: string | null
+		right: string | null
+		bottom: string | null
+		left: string | null
+	} | null = null
+
+	if (paddingParts) {
+		const normalized = paddingParts.map((part) =>
+			readInlineSpacingValue(typeof rawPadding === "number" ? Number(part) : part),
+		)
+		if (
+			normalized.every((value): value is string => typeof value === "string" && value.length > 0)
+		) {
+			const [a, b, c, d] = normalized
+			if (normalized.length === 1) {
+				expanded = { top: a, right: a, bottom: a, left: a }
+			} else if (normalized.length === 2) {
+				expanded = { top: a, right: b, bottom: a, left: b }
+			} else if (normalized.length === 3) {
+				expanded = { top: a, right: b, bottom: c ?? null, left: b }
+			} else if (normalized.length === 4) {
+				expanded = { top: a, right: b, bottom: c ?? null, left: d ?? null }
+			}
+		}
+	}
+
+	const topOverride = readInlineSpacingValue(style.paddingTop ?? null)
+	const rightOverride = readInlineSpacingValue(style.paddingRight ?? null)
+	const bottomOverride = readInlineSpacingValue(style.paddingBottom ?? null)
+	const leftOverride = readInlineSpacingValue(style.paddingLeft ?? null)
+
+	const resolvedTop = topOverride ?? expanded?.top ?? null
+	const resolvedRight = rightOverride ?? expanded?.right ?? null
+	const resolvedBottom = bottomOverride ?? expanded?.bottom ?? null
+	const resolvedLeft = leftOverride ?? expanded?.left ?? null
+
+	if (hasExplicitSides || (paddingParts && paddingParts.length >= 3)) {
+		out.paddingTop = resolvedTop
+		out.paddingRight = resolvedRight
+		out.paddingBottom = resolvedBottom
+		out.paddingLeft = resolvedLeft
+		return out
+	}
+
+	if (paddingParts?.length === 1) {
+		out.padding = resolvedTop
+		return out
+	}
+
+	if (paddingParts?.length === 2) {
+		out.paddingY = resolvedTop
+		out.paddingX = resolvedRight
+		return out
+	}
+
+	out.paddingTop = resolvedTop
+	out.paddingRight = resolvedRight
+	out.paddingBottom = resolvedBottom
+	out.paddingLeft = resolvedLeft
+	return out
 }
 
 export const readSnippetStyleState = async ({
@@ -355,6 +541,13 @@ export const readSnippetStyleState = async ({
 	const inlineRadius = readInlinePx(inlineStyle.borderRadius ?? null)
 	const inlineFontSize = readInlinePx(inlineStyle.fontSize ?? null)
 	const inlineFontWeight = readInlineFontWeight(inlineStyle.fontWeight ?? null)
+	const inlineLineHeight = readInlineLineHeight(inlineStyle.lineHeight ?? null)
+	const inlineLetterSpacing = readInlineLetterSpacing(inlineStyle.letterSpacing ?? null)
+	const inlineTextAlign = readInlineTextAlign(inlineStyle.textAlign ?? null)
+	const inlineTextTransform = readInlineTextTransform(inlineStyle.textTransform ?? null)
+	const inlineFontStyle = readInlineFontStyle(inlineStyle.fontStyle ?? null)
+	const inlineTextDecoration = readInlineTextDecoration(inlineStyle.textDecoration ?? null)
+	const inlinePadding = readInlinePaddingValues(inlineStyle)
 
 	const backgroundValue = inlineBackground ?? bgValueFromClass
 	const borderColorValue = inlineBorderColor ?? borderColorFromClass
@@ -364,19 +557,19 @@ export const readSnippetStyleState = async ({
 	const fontSizeValue = inlineFontSize ?? fontSizeFromClass
 	const fontWeightValue = inlineFontWeight ?? fontWeightFromClass
 	const fontFamilyValue = fontFamilyFromClass
-	const lineHeightValue = lineHeightFromClass
-	const letterSpacingValue = letterSpacingFromClass
-	const textAlignValue = textAlignFromClass
-	const textTransformValue = textTransformFromClass
-	const fontStyleValue = fontStyleFromClass
-	const textDecorationValue = textDecorationFromClass
-	const paddingValue = paddingFromClass
-	const paddingXValue = paddingXFromClass
-	const paddingYValue = paddingYFromClass
-	const paddingTopValue = paddingTopFromClass
-	const paddingRightValue = paddingRightFromClass
-	const paddingBottomValue = paddingBottomFromClass
-	const paddingLeftValue = paddingLeftFromClass
+	const lineHeightValue = inlineLineHeight ?? lineHeightFromClass
+	const letterSpacingValue = inlineLetterSpacing ?? letterSpacingFromClass
+	const textAlignValue = inlineTextAlign ?? textAlignFromClass
+	const textTransformValue = inlineTextTransform ?? textTransformFromClass
+	const fontStyleValue = inlineFontStyle ?? fontStyleFromClass
+	const textDecorationValue = inlineTextDecoration ?? textDecorationFromClass
+	const paddingValue = inlinePadding.padding ?? paddingFromClass
+	const paddingXValue = inlinePadding.paddingX ?? paddingXFromClass
+	const paddingYValue = inlinePadding.paddingY ?? paddingYFromClass
+	const paddingTopValue = inlinePadding.paddingTop ?? paddingTopFromClass
+	const paddingRightValue = inlinePadding.paddingRight ?? paddingRightFromClass
+	const paddingBottomValue = inlinePadding.paddingBottom ?? paddingBottomFromClass
+	const paddingLeftValue = inlinePadding.paddingLeft ?? paddingLeftFromClass
 
 	const backgroundPresent = Boolean(inlineStyle.backgroundColor !== undefined || bgToken)
 	const borderColorPresent = Boolean(inlineStyle.borderColor !== undefined || borderColorToken)
@@ -386,19 +579,25 @@ export const readSnippetStyleState = async ({
 	const fontSizePresent = Boolean(inlineStyle.fontSize !== undefined || fontSizeToken)
 	const fontWeightPresent = Boolean(inlineStyle.fontWeight !== undefined || fontWeightToken)
 	const fontFamilyPresent = Boolean(fontFamilyToken)
-	const lineHeightPresent = Boolean(lineHeightToken)
-	const letterSpacingPresent = Boolean(letterSpacingToken)
-	const textAlignPresent = Boolean(textAlignToken)
-	const textTransformPresent = Boolean(textTransformToken)
-	const fontStylePresent = Boolean(fontStyleToken)
-	const textDecorationPresent = Boolean(textDecorationToken)
-	const paddingPresent = Boolean(paddingToken)
-	const paddingXPresent = Boolean(paddingXToken)
-	const paddingYPresent = Boolean(paddingYToken)
-	const paddingTopPresent = Boolean(paddingTopToken)
-	const paddingRightPresent = Boolean(paddingRightToken)
-	const paddingBottomPresent = Boolean(paddingBottomToken)
-	const paddingLeftPresent = Boolean(paddingLeftToken)
+	const lineHeightPresent = Boolean(inlineStyle.lineHeight !== undefined || lineHeightToken)
+	const letterSpacingPresent = Boolean(
+		inlineStyle.letterSpacing !== undefined || letterSpacingToken,
+	)
+	const textAlignPresent = Boolean(inlineStyle.textAlign !== undefined || textAlignToken)
+	const textTransformPresent = Boolean(
+		inlineStyle.textTransform !== undefined || textTransformToken,
+	)
+	const fontStylePresent = Boolean(inlineStyle.fontStyle !== undefined || fontStyleToken)
+	const textDecorationPresent = Boolean(
+		inlineStyle.textDecoration !== undefined || textDecorationToken,
+	)
+	const paddingPresent = Boolean(inlinePadding.padding !== null || paddingToken)
+	const paddingXPresent = Boolean(inlinePadding.paddingX !== null || paddingXToken)
+	const paddingYPresent = Boolean(inlinePadding.paddingY !== null || paddingYToken)
+	const paddingTopPresent = Boolean(inlinePadding.paddingTop !== null || paddingTopToken)
+	const paddingRightPresent = Boolean(inlinePadding.paddingRight !== null || paddingRightToken)
+	const paddingBottomPresent = Boolean(inlinePadding.paddingBottom !== null || paddingBottomToken)
+	const paddingLeftPresent = Boolean(inlinePadding.paddingLeft !== null || paddingLeftToken)
 
 	return {
 		found: true,
