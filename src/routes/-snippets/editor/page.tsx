@@ -57,6 +57,7 @@ import { SnippetHistoryPanel } from "@/routes/-snippets/editor/components/snippe
 import { SnippetImportDialog } from "@/routes/-snippets/editor/components/snippet/import-dialog"
 import { SnippetInspectOverlays } from "@/routes/-snippets/editor/components/snippet/inspect-overlays"
 import { SnippetScreenGuard } from "@/routes/-snippets/editor/components/snippet/screen-guard"
+import { SnippetStylesPanel } from "@/routes/-snippets/editor/components/snippet/styles-panel"
 import { SnippetSwitcherDialog } from "@/routes/-snippets/editor/components/snippet/switcher-dialog"
 import { SnippetSplitViewResizer } from "@/routes/-snippets/editor/components/split-view-resizer"
 import {
@@ -86,6 +87,8 @@ import {
 	useSnippetImportsIndex,
 } from "@/routes/-snippets/editor/hooks/snippet/imports-index"
 import { useSnippetInspect } from "@/routes/-snippets/editor/hooks/snippet/inspect"
+import { useSnippetInspectStyle } from "@/routes/-snippets/editor/hooks/snippet/inspect-style"
+import { useSnippetInspectStyleState } from "@/routes/-snippets/editor/hooks/snippet/inspect-style-state"
 import { useSnippetInspectText } from "@/routes/-snippets/editor/hooks/snippet/inspect-text"
 import { useSnippetPanels } from "@/routes/-snippets/editor/hooks/snippet/panels"
 import { usePreviewCameraHotkey } from "@/routes/-snippets/editor/hooks/snippet/preview-camera"
@@ -112,6 +115,7 @@ import {
 	stripSnippetFileDirectives,
 	syncImportBlock,
 } from "@/routes/-snippets/editor/snippet-file-utils"
+import type { SnippetInspectTextRequest } from "@/routes/-snippets/editor/snippet-inspect-utils"
 import { useAssetLibraryStore } from "@/stores/asset-library-store"
 import type { AssetScope, SnippetAsset } from "@/types/asset-library"
 
@@ -201,6 +205,15 @@ export function SnippetsEditorPage({ search }: { search: SnippetsEditorSearch })
 	const [layersSnapshot, setLayersSnapshot] = useState<PreviewLayerSnapshot | null>(null)
 	const [layersError, setLayersError] = useState<string | null>(null)
 	const [layersRequestToken, setLayersRequestToken] = useState(0)
+	const [stylesPanelOpen, setStylesPanelOpen] = useState(false)
+	const [stylesTarget, setStylesTarget] = useState<SnippetInspectTextRequest | null>(null)
+	const [stylesReadSuspend, setStylesReadSuspend] = useState<{
+		fileId: SnippetEditorFileId
+		line: number
+		column: number
+		source: string
+		until: number
+	} | null>(null)
 	const [componentTreeSelection, setComponentTreeSelection] =
 		useState<PreviewSourceLocation | null>(null)
 	const [componentTreeSelectionToken, setComponentTreeSelectionToken] = useState(0)
@@ -616,6 +629,39 @@ export function SnippetsEditorPage({ search }: { search: SnippetsEditorSearch })
 		[commitHistoryNow, form],
 	)
 
+	const applyStyleSourceForFile = useCallback(
+		(fileId: SnippetEditorFileId, nextFileSource: string, label: string) => {
+			const currentSource = form.getValues("source") ?? ""
+			const parsed = parseSnippetFiles(currentSource)
+			const sanitizedValue = stripSnippetFileDirectives(nextFileSource)
+
+			if (fileId === "source") {
+				const normalizedMain = syncImportBlock(sanitizedValue, Object.keys(parsed.files))
+				const nextSource = serializeSnippetFiles(normalizedMain, parsed.files)
+				if (nextSource !== currentSource) {
+					markHistoryLabel(label)
+					form.setValue("source", nextSource, { shouldValidate: true, shouldDirty: true })
+					return true
+				}
+				return false
+			}
+
+			if (!isComponentFileId(fileId)) return false
+			const fileName = getComponentFileName(fileId)
+			if (!fileName) return false
+			const nextFiles = { ...parsed.files, [fileName]: sanitizedValue }
+			const nextMain = syncImportBlock(parsed.mainSource, Object.keys(nextFiles))
+			const nextSource = serializeSnippetFiles(nextMain, nextFiles)
+			if (nextSource !== currentSource) {
+				markHistoryLabel(label)
+				form.setValue("source", nextSource, { shouldValidate: true, shouldDirty: true })
+				return true
+			}
+			return false
+		},
+		[form, markHistoryLabel],
+	)
+
 	useEffect(() => {
 		if (typeof window === "undefined") return
 		const handleKeyDown = (event: KeyboardEvent) => {
@@ -806,6 +852,10 @@ export function SnippetsEditorPage({ search }: { search: SnippetsEditorSearch })
 		lineMapSegments,
 		forceEnabled: layoutMode,
 	})
+	const handleOpenStylesPanelForInspect = useCallback((request: SnippetInspectTextRequest) => {
+		setStylesTarget(request)
+		setStylesPanelOpen(true)
+	}, [])
 	const {
 		inspectTextEdit,
 		inspectContextMenu,
@@ -815,6 +865,7 @@ export function SnippetsEditorPage({ search }: { search: SnippetsEditorSearch })
 		handleInspectTextChange,
 		closeInspectTextEdit,
 		handleInspectContextEdit,
+		handleInspectContextEditStyles,
 		handleInspectContextRemove,
 		handleInspectContextRemoveContainer,
 		handlePreviewInspectSelect: handlePreviewInspectSelectInternal,
@@ -828,9 +879,41 @@ export function SnippetsEditorPage({ search }: { search: SnippetsEditorSearch })
 		resolvePreviewSource: resolvePreviewSourceForInspect,
 		onPreviewInspectSelect,
 		onPreviewInspectContext,
+		onInspectContextEditStyles: handleOpenStylesPanelForInspect,
 		layoutMode,
 		isExamplePreviewActive,
 		inspectEnabled,
+	})
+	const handleStylesApplied = useCallback(
+		(payload: {
+			fileId: SnippetEditorFileId
+			line: number
+			column: number
+			source: string
+			label: string
+		}) => {
+			setStylesReadSuspend({
+				fileId: payload.fileId,
+				line: payload.line,
+				column: payload.column,
+				source: payload.source,
+				until: Date.now() + 350,
+			})
+		},
+		[],
+	)
+	const { isApplying: isStylesApplying, applyStyleUpdate } = useSnippetInspectStyle({
+		target: stylesTarget,
+		getSourceForFile,
+		applySourceForFile: applyStyleSourceForFile,
+		onApplied: handleStylesApplied,
+	})
+	const stylesFileSource = stylesTarget ? getSourceForFile(stylesTarget.fileId) : ""
+	const { state: stylesPanelState, isReading: isStylesReading } = useSnippetInspectStyleState({
+		enabled: stylesPanelOpen,
+		target: stylesTarget,
+		source: stylesFileSource,
+		suspend: stylesReadSuspend,
 	})
 
 	const setSnippetSource = useCallback(
@@ -1135,6 +1218,10 @@ export function SnippetsEditorPage({ search }: { search: SnippetsEditorSearch })
 			},
 		) => {
 			handlePreviewInspectSelectInternal(source, meta)
+			if (layoutMode && stylesPanelOpen && meta?.reason !== "reset") {
+				const request = onPreviewInspectContext(source)
+				setStylesTarget(request)
+			}
 			if (!componentTreeOpen) return
 			if (!source && meta?.reason === "reset") {
 				setComponentTreeSelectedId(null)
@@ -1145,7 +1232,14 @@ export function SnippetsEditorPage({ search }: { search: SnippetsEditorSearch })
 				setComponentTreeSelectedId(nextSelected)
 			}
 		},
-		[componentTreeOpen, handlePreviewInspectSelectInternal, resolveTreeSelectionId],
+		[
+			componentTreeOpen,
+			handlePreviewInspectSelectInternal,
+			layoutMode,
+			onPreviewInspectContext,
+			resolveTreeSelectionId,
+			stylesPanelOpen,
+		],
 	)
 	const { onResizeStart } = useSnippetSplitView({
 		containerRef: splitContainerRef,
@@ -1200,6 +1294,7 @@ export function SnippetsEditorPage({ search }: { search: SnippetsEditorSearch })
 					/>
 					<SnippetInspectOverlays
 						contextMenu={inspectContextMenu}
+						onContextEditStyles={handleInspectContextEditStyles}
 						onContextEdit={handleInspectContextEdit}
 						onContextRemove={handleInspectContextRemove}
 						onContextRemoveContainer={handleInspectContextRemoveContainer}
@@ -1561,6 +1656,15 @@ export function SnippetsEditorPage({ search }: { search: SnippetsEditorSearch })
 									</div>
 								</div>
 							</section>
+							<SnippetStylesPanel
+								open={stylesPanelOpen}
+								target={stylesTarget}
+								state={stylesPanelState}
+								isReading={isStylesReading}
+								isApplying={isStylesApplying}
+								onClose={() => setStylesPanelOpen(false)}
+								onApply={applyStyleUpdate}
+							/>
 						</form>
 					</Form>
 				</div>

@@ -75,6 +75,49 @@ export type InsertChildResponse = {
 	reason?: string
 }
 
+export type StyleUpdateRequest = {
+	source: string
+	line: number
+	column: number
+	backgroundColor?: string | null
+	borderWidth?: number | null
+	borderColor?: string | null
+	borderRadius?: number | string | null
+	textColor?: string | null
+	fontSize?: number | string | null
+	fontWeight?: number | string | null
+}
+
+export type StyleUpdateResponse = {
+	source: string
+	changed: boolean
+	reason?: string
+	notice?: string
+}
+
+export type StyleReadRequest = {
+	source: string
+	line: number
+	column: number
+}
+
+export type StyleReadResponse = {
+	found: boolean
+	reason?: string
+	elementName?: string | null
+	classNameKind: "none" | "static" | "dynamic"
+	editable: boolean
+	properties: {
+		backgroundColor: { present: boolean; value: string | null }
+		borderWidth: { present: boolean; value: number | null }
+		borderColor: { present: boolean; value: string | null }
+		borderRadius: { present: boolean; value: number | string | null }
+		textColor: { present: boolean; value: string | null }
+		fontSize: { present: boolean; value: number | string | null }
+		fontWeight: { present: boolean; value: number | string | null }
+	}
+}
+
 export type EngineRequest =
 	| {
 			id: string
@@ -105,6 +148,16 @@ export type EngineRequest =
 			id: string
 			type: "insert-child"
 			payload: InsertChildRequest
+	  }
+	| {
+			id: string
+			type: "style-update"
+			payload: StyleUpdateRequest
+	  }
+	| {
+			id: string
+			type: "style-read"
+			payload: StyleReadRequest
 	  }
 
 export type EngineResponse =
@@ -137,6 +190,16 @@ export type EngineResponse =
 			id: string
 			type: "insert-child"
 			payload: InsertChildResponse
+	  }
+	| {
+			id: string
+			type: "style-update"
+			payload: StyleUpdateResponse
+	  }
+	| {
+			id: string
+			type: "style-read"
+			payload: StyleReadResponse
 	  }
 	| {
 			id: string

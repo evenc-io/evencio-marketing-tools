@@ -222,14 +222,14 @@ export function useSnippetInspect({
 
 	const onPreviewInspectContext = useCallback(
 		(source: PreviewSourceLocation | null) => {
-			if (!inspectMode) return null
+			if (!inspectActive) return null
 			const target = resolveInspectTarget(source)
 			if (!target) return null
 			setInspectSelection(target)
 			setInspectHover(null)
 			return buildInspectTextRequest(target)
 		},
-		[buildInspectTextRequest, inspectMode, resolveInspectTarget],
+		[buildInspectTextRequest, inspectActive, resolveInspectTarget],
 	)
 
 	return {

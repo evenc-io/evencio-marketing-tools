@@ -8,12 +8,18 @@ import type {
 	InsertChildResponse,
 	LayoutTranslateRequest,
 	LayoutTranslateResponse,
+	StyleReadRequest,
+	StyleReadResponse,
+	StyleUpdateRequest,
+	StyleUpdateResponse,
 } from "@/lib/engine/protocol"
 import { analyzeSnippetTsx } from "@/lib/snippets/analyze-tsx"
 import { compileSnippet } from "@/lib/snippets/compiler"
 import { buildSnippetComponentTree } from "@/lib/snippets/component-tree"
 import { insertSnippetChild } from "@/lib/snippets/source/insert-child"
 import { applySnippetTranslate } from "@/lib/snippets/source/layout"
+import { applySnippetStyleUpdate } from "@/lib/snippets/source/style"
+import { readSnippetStyleState } from "@/lib/snippets/source/style-read"
 
 const isBrowser = typeof window !== "undefined" || typeof self !== "undefined"
 const hasWorker = typeof Worker !== "undefined"
@@ -163,6 +169,14 @@ const runInProcess = async <T extends EngineResponse>(payload: EngineRequest): P
 		const result = await insertSnippetChild(payload.payload)
 		return { id: payload.id, type: "insert-child", payload: result } as T
 	}
+	if (payload.type === "style-update") {
+		const result = await applySnippetStyleUpdate(payload.payload)
+		return { id: payload.id, type: "style-update", payload: result } as T
+	}
+	if (payload.type === "style-read") {
+		const result = await readSnippetStyleState(payload.payload)
+		return { id: payload.id, type: "style-read", payload: result } as T
+	}
 	const result = await compileSnippet(payload.payload.source, payload.payload.entryExport)
 	return { id: payload.id, type: "compile", payload: result } as T
 }
@@ -274,6 +288,36 @@ export const applySnippetLayoutInEngine = async (
 		payload,
 	})
 	if (response.type !== "layout-translate") {
+		throw new Error("Engine returned unexpected response")
+	}
+	return response.payload
+}
+
+export const applySnippetStyleUpdateInEngine = async (
+	payload: StyleUpdateRequest,
+): Promise<StyleUpdateResponse> => {
+	const id = `style-update-${++requestCounter}`
+	const response = await requestEngine<EngineResponse>({
+		id,
+		type: "style-update",
+		payload,
+	})
+	if (response.type !== "style-update") {
+		throw new Error("Engine returned unexpected response")
+	}
+	return response.payload
+}
+
+export const readSnippetStyleStateInEngine = async (
+	payload: StyleReadRequest,
+): Promise<StyleReadResponse> => {
+	const id = `style-read-${++requestCounter}`
+	const response = await requestEngine<EngineResponse>({
+		id,
+		type: "style-read",
+		payload,
+	})
+	if (response.type !== "style-read") {
 		throw new Error("Engine returned unexpected response")
 	}
 	return response.payload

@@ -2,6 +2,7 @@ import type { RefObject } from "react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { applySnippetLayoutInEngine } from "@/lib/engine/client"
+import { isSnippetIntrinsicTag } from "@/lib/snippets/editing"
 import type { PreviewLayoutCommit, PreviewSourceLocation } from "@/lib/snippets/preview/runtime"
 import type {
 	InspectContextMenuState,
@@ -32,6 +33,7 @@ type UseSnippetInspectTextOptions = {
 	onPreviewInspectContext: (
 		source: PreviewSourceLocation | null,
 	) => SnippetInspectTextRequest | null
+	onInspectContextEditStyles?: (request: SnippetInspectTextRequest) => void
 	layoutMode: boolean
 	isExamplePreviewActive: boolean
 	inspectEnabled: boolean
@@ -47,6 +49,7 @@ type UseSnippetInspectTextResult = {
 	handleInspectTextChange: (nextValue: string) => void
 	closeInspectTextEdit: () => void
 	handleInspectContextEdit: () => void
+	handleInspectContextEditStyles: () => void
 	handleInspectContextRemove: () => void
 	handleInspectContextRemoveContainer: () => void
 	handlePreviewInspectSelect: (
@@ -69,6 +72,7 @@ export const useSnippetInspectText = ({
 	resolvePreviewSource,
 	onPreviewInspectSelect,
 	onPreviewInspectContext,
+	onInspectContextEditStyles,
 	layoutMode,
 	isExamplePreviewActive,
 	inspectEnabled,
@@ -88,6 +92,7 @@ export const useSnippetInspectText = ({
 		y: 0,
 		label: "Snippet text",
 		editable: false,
+		stylesEditable: false,
 		canRemoveContainer: false,
 		containerLabel: "container",
 		request: null,
@@ -211,6 +216,7 @@ export const useSnippetInspectText = ({
 			open: false,
 			label: "Snippet text",
 			canRemoveContainer: false,
+			stylesEditable: false,
 			containerLabel: "container",
 			request: null,
 		}))
@@ -230,6 +236,16 @@ export const useSnippetInspectText = ({
 			return { ...prev, open: false, request: null }
 		})
 	}, [openInspectTextEditor])
+
+	const handleInspectContextEditStyles = useCallback(() => {
+		setInspectContextMenu((prev) => {
+			if (!prev.open || !prev.stylesEditable || !prev.request) {
+				return { ...prev, open: false, request: null }
+			}
+			onInspectContextEditStyles?.(prev.request)
+			return { ...prev, open: false, request: null }
+		})
+	}, [onInspectContextEditStyles])
 
 	const handleInspectContextRemove = useCallback(() => {
 		setInspectContextMenu((prev) => {
@@ -308,7 +324,7 @@ export const useSnippetInspectText = ({
 			setInspectTextEdit(null)
 			if (!request) return
 			const menuWidth = 208
-			const menuHeight = 176
+			const menuHeight = 216
 			const maxX = Math.max(12, window.innerWidth - menuWidth - 12)
 			const maxY = Math.max(12, window.innerHeight - menuHeight - 12)
 			const fileLabel =
@@ -321,12 +337,15 @@ export const useSnippetInspectText = ({
 					: request.elementName
 						? `<${request.elementName}>`
 						: "container"
+			const stylesEditable =
+				request.elementType === "element" && isSnippetIntrinsicTag(request.elementName)
 			setInspectContextMenu({
 				open: true,
 				x: Math.min(payload.clientX, maxX),
 				y: Math.min(payload.clientY, maxY),
 				label: fileLabel,
 				editable: Boolean(request.range),
+				stylesEditable,
 				canRemoveContainer: Boolean(request.elementRange),
 				containerLabel,
 				request,
@@ -501,6 +520,7 @@ export const useSnippetInspectText = ({
 		handleInspectTextChange,
 		closeInspectTextEdit,
 		handleInspectContextEdit,
+		handleInspectContextEditStyles,
 		handleInspectContextRemove,
 		handleInspectContextRemoveContainer,
 		handlePreviewInspectSelect,

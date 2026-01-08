@@ -7,6 +7,8 @@ import {
 } from "@/lib/snippets/component-tree"
 import { insertSnippetChild } from "@/lib/snippets/source/insert-child"
 import { applySnippetTranslate } from "@/lib/snippets/source/layout"
+import { applySnippetStyleUpdate } from "@/lib/snippets/source/style"
+import { readSnippetStyleState } from "@/lib/snippets/source/style-read"
 
 const send = (message: EngineResponse) => {
 	postMessage(message)
@@ -59,6 +61,18 @@ self.onmessage = async (event: MessageEvent<EngineRequest>) => {
 		if (data.type === "insert-child") {
 			const result = await insertSnippetChild(data.payload)
 			send({ id: data.id, type: "insert-child", payload: result })
+			return
+		}
+
+		if (data.type === "style-update") {
+			const result = await applySnippetStyleUpdate(data.payload)
+			send({ id: data.id, type: "style-update", payload: result })
+			return
+		}
+
+		if (data.type === "style-read") {
+			const result = await readSnippetStyleState(data.payload)
+			send({ id: data.id, type: "style-read", payload: result })
 			return
 		}
 	} catch (err) {

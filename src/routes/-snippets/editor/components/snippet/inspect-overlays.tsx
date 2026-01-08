@@ -23,6 +23,7 @@ export type InspectContextMenuState = {
 	y: number
 	label: string
 	editable: boolean
+	stylesEditable: boolean
 	canRemoveContainer: boolean
 	containerLabel: string
 	request: SnippetInspectTextRequest | null
@@ -30,6 +31,7 @@ export type InspectContextMenuState = {
 
 interface SnippetInspectOverlaysProps {
 	contextMenu: InspectContextMenuState
+	onContextEditStyles: () => void
 	onContextEdit: () => void
 	onContextRemove: () => void
 	onContextRemoveContainer: () => void
@@ -43,6 +45,7 @@ interface SnippetInspectOverlaysProps {
 
 export function SnippetInspectOverlays({
 	contextMenu,
+	onContextEditStyles,
 	onContextEdit,
 	onContextRemove,
 	onContextRemoveContainer,
@@ -78,6 +81,16 @@ export function SnippetInspectOverlays({
 						<button
 							type="button"
 							role="menuitem"
+							onClick={onContextEditStyles}
+							disabled={!contextMenu.stylesEditable}
+							className="flex w-full items-center px-2 py-1.5 text-xs text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:text-neutral-300"
+						>
+							Edit styles
+						</button>
+						<div className="border-t border-neutral-200" />
+						<button
+							type="button"
+							role="menuitem"
 							onClick={onContextEdit}
 							disabled={!contextMenu.editable}
 							className="flex w-full items-center px-2 py-1.5 text-xs text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:text-neutral-300"
@@ -105,6 +118,11 @@ export function SnippetInspectOverlays({
 						{!contextMenu.editable && (
 							<div className="border-t border-neutral-200 px-2 py-1 text-[10px] text-neutral-400">
 								Text is dynamic
+							</div>
+						)}
+						{!contextMenu.stylesEditable && contextMenu.request?.elementName && (
+							<div className="border-t border-neutral-200 px-2 py-1 text-[10px] text-neutral-400">
+								Styles unavailable for &lt;{contextMenu.request.elementName}&gt;
 							</div>
 						)}
 					</div>
