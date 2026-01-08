@@ -26,63 +26,6 @@ const openNewSnippetEditor = async (page: Page) => {
 	await expect(page.getByRole("button", { name: "Create snippet" })).toBeVisible()
 }
 
-const readSnippetDraftSource = async (page: Page, draftId: string) => {
-	return page.evaluate(async (targetDraftId) => {
-		const databaseName = "evencio-studio"
-		const storeName = "snippetDrafts"
-
-		let db: IDBDatabase | null = null
-		try {
-			db = await new Promise<IDBDatabase>((resolve, reject) => {
-				const request = indexedDB.open(databaseName)
-				request.onerror = () => reject(request.error)
-				request.onsuccess = () => resolve(request.result)
-			})
-
-			if (!db) {
-				return "__NO_DB__"
-			}
-			const dbInstance = db
-
-			if (!dbInstance.objectStoreNames.contains(storeName)) {
-				return "__NO_STORE__"
-			}
-
-			const record = await new Promise<Record<string, unknown> | null>((resolve, reject) => {
-				const tx = dbInstance.transaction(storeName, "readonly")
-				const store = tx.objectStore(storeName)
-				const request = store.get(targetDraftId)
-				request.onerror = () => reject(request.error)
-				request.onsuccess = () =>
-					resolve((request.result as Record<string, unknown> | null) ?? null)
-			})
-
-			const source = record && typeof record.source === "string" ? record.source : null
-			if (source) return source
-
-			const keys = await new Promise<string[]>((resolve, reject) => {
-				const tx = dbInstance.transaction(storeName, "readonly")
-				const store = tx.objectStore(storeName)
-				const request = store.getAllKeys()
-				request.onerror = () => reject(request.error)
-				request.onsuccess = () => resolve(request.result.map(String))
-			})
-
-			return `__NO_RECORD__ keys=${keys.join(",")}`
-		} catch (error) {
-			const message =
-				error instanceof Error
-					? error.message
-					: error && typeof error === "object" && "message" in error
-						? String(error.message)
-						: String(error)
-			return `__ERROR__:${message}`
-		} finally {
-			db?.close()
-		}
-	}, draftId)
-}
-
 const importSnippet = async (page: Page, source: string) => {
 	await page.getByRole("button", { name: "Import", exact: true }).click()
 	const dialog = page.getByRole("dialog", { name: "Import snippet" })
@@ -128,8 +71,12 @@ test("styles panel updates source/preview without losing focus", async ({ page }
 	await expect
 		.poll(
 			async () => {
-				const source = await readSnippetDraftSource(page, "snippet-draft:new")
-				return source.includes("bg-[#ff0000]") && !source.includes("bg-neutral-200")
+				const className = await box.getAttribute("class")
+				return (
+					typeof className === "string" &&
+					className.includes("bg-[#ff0000]") &&
+					!className.includes("bg-neutral-200")
+				)
 			},
 			{ timeout: 30_000 },
 		)
