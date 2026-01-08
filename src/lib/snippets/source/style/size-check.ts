@@ -7,6 +7,8 @@ const VAR_REFERENCE_PATTERN = /var\(([^)]+)\)/gi
 const LENGTH_TOKEN_PATTERN =
 	/-?\d*\.?\d+(px|rem|em|%|vw|vh|vmin|vmax|svw|svh|lvw|lvh|dvw|dvh|ch|ex|lh|rlh|cap|ic|cqw|cqh|cqi|cqb|cqmin|cqmax|cm|mm|in|pt|pc)/i
 const SIZE_NAME_HINT_PATTERN = /(font|size|text|leading|tracking|line|lh|fs)/i
+const COLOR_NAME_HINT_PATTERN =
+	/(color|foreground|background|bg|fg|border|outline|ring|fill|stroke|accent|primary|secondary|muted|destructive)/i
 
 const splitArbitraryModifier = (value: string) => {
 	const trimmed = value.trim()
@@ -28,6 +30,7 @@ const isSizeLikeVarExpression = (expression: string) => {
 	const [rawName, rawFallback] = inner.split(",")
 	const name = rawName?.trim() ?? ""
 	const fallback = rawFallback?.trim() ?? ""
+	if (name && COLOR_NAME_HINT_PATTERN.test(name)) return false
 	if (name && SIZE_NAME_HINT_PATTERN.test(name)) return true
 	if (fallback) return isSizeLikeArbitraryValue(fallback)
 	return false

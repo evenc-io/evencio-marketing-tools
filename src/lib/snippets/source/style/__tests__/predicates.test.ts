@@ -47,6 +47,8 @@ describe("isColorSuffix", () => {
 		it("accepts CSS variables", () => {
 			expect(isColorSuffix("[var(--some-color)]")).toBe(true)
 			expect(isColorSuffix("[var(--primary)]")).toBe(true)
+			expect(isColorSuffix("[var(--text-color)]")).toBe(true)
+			expect(isColorSuffix("[var(--text-foreground)]")).toBe(true)
 		})
 	})
 
@@ -141,12 +143,15 @@ describe("isFontSizeClass", () => {
 		expect(isFontSizeClass("text-[calc(1rem+2vw)]")).toBe(true)
 		expect(isFontSizeClass("text-[var(--font-size)]")).toBe(true)
 		expect(isFontSizeClass("text-[length:var(--text-size)]")).toBe(true)
+		expect(isFontSizeClass("text-[var(--text-size)]")).toBe(true)
 	})
 
 	it("does NOT match text color classes", () => {
 		expect(isFontSizeClass("text-red-500")).toBe(false)
 		expect(isFontSizeClass("text-[#ff0000]")).toBe(false)
 		expect(isFontSizeClass("text-[var(--color)]")).toBe(false)
+		expect(isFontSizeClass("text-[var(--text-color)]")).toBe(false)
+		expect(isFontSizeClass("text-[var(--text-foreground)]")).toBe(false)
 	})
 })
 
