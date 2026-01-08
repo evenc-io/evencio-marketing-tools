@@ -83,9 +83,24 @@ test("styles panel updates source/preview without losing focus", async ({ page }
 					}
 					const update = win.__EVENCIO_E2E_SNIPPET_STYLE_DEBUG__?.lastUpdate
 					if (!update || typeof update !== "object") return null
-					const data = update as { phase?: unknown; label?: unknown; applied?: unknown }
-					if (data.phase !== "applied") return null
-					if (data.label !== "Update background") return null
+					const data = update as {
+						phase?: unknown
+						label?: unknown
+						applied?: unknown
+						changed?: unknown
+						reason?: unknown
+						error?: unknown
+					}
+					if (data.label !== "Update background") {
+						return `mismatch:${String(data.label ?? "unknown")}`
+					}
+					if (data.phase === "response" && data.changed === false) {
+						return `rejected:${String(data.reason ?? "unknown")}`
+					}
+					if (data.phase === "error") {
+						return `error:${String(data.error ?? "unknown")}`
+					}
+					if (data.phase !== "applied") return `pending:${String(data.phase ?? "unknown")}`
 					return data.applied === true ? "ok" : "not-applied"
 				})
 			},

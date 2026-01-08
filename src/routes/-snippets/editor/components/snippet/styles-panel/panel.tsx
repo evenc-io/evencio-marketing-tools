@@ -30,11 +30,21 @@ export function SnippetStylesPanel({
 	const lastLabelRef = useRef("Update styles")
 	const wasOpenRef = useRef(open)
 	const pendingPayloadRef = useRef<StyleUpdatePayload>({})
+	const pendingTargetRef = useRef<typeof target>(null)
+	const targetRef = useRef(target)
+	const onApplyRef = useRef(onApply)
 
-	const targetKey = useMemo(
-		() => (target ? `${target.fileId}:${target.line}:${target.column}` : null),
-		[target],
-	)
+	targetRef.current = target
+	onApplyRef.current = onApply
+
+	const targetKey = useMemo(() => {
+		if (!target) return null
+		if (target.elementRange) {
+			const range = target.elementRange
+			return `${target.fileId}:${range.startLine}:${range.startColumn}:${range.endLine}:${range.endColumn}`
+		}
+		return `${target.fileId}:${target.line}:${target.column}`
+	}, [target])
 
 	const [expanded, setExpanded] = useState<StylesPanelExpandedState>(() => ({
 		backgroundColor: false,
@@ -105,6 +115,7 @@ export function SnippetStylesPanel({
 			applyTimerRef.current = null
 		}
 		pendingPayloadRef.current = {}
+		pendingTargetRef.current = null
 	}, [])
 
 	useEffect(() => {
@@ -113,21 +124,21 @@ export function SnippetStylesPanel({
 		}
 	}, [clearPending])
 
-	const flushApply = useCallback(
-		(label: string) => {
-			if (!canApply) return
-			const payload = pendingPayloadRef.current
-			const keys = Object.keys(payload)
-			if (keys.length === 0) return
-			pendingPayloadRef.current = {}
-			onApply(payload, label)
-		},
-		[canApply, onApply],
-	)
+	const flushApply = useCallback((label: string) => {
+		const payload = pendingPayloadRef.current
+		const keys = Object.keys(payload)
+		if (keys.length === 0) return
+		const pendingTarget = pendingTargetRef.current ?? targetRef.current
+		if (!pendingTarget) return
+		pendingPayloadRef.current = {}
+		pendingTargetRef.current = null
+		onApplyRef.current(payload, label, pendingTarget)
+	}, [])
 
 	const scheduleApply = useCallback(
 		(payload: StyleUpdatePayload, label: string, options?: { immediate?: boolean }) => {
 			if (!canApply) return
+			pendingTargetRef.current = targetRef.current
 			lastLabelRef.current = label
 			pendingPayloadRef.current = { ...pendingPayloadRef.current, ...payload }
 			if (options?.immediate) {
@@ -164,6 +175,11 @@ export function SnippetStylesPanel({
 
 	useEffect(() => {
 		void targetKey
+		if (applyTimerRef.current) {
+			clearTimeout(applyTimerRef.current)
+			applyTimerRef.current = null
+		}
+		flushApply(lastLabelRef.current)
 		clearPending()
 		setExpanded({
 			backgroundColor: false,
@@ -187,7 +203,7 @@ export function SnippetStylesPanel({
 			type: false,
 		}
 		focusedFieldRef.current = null
-	}, [clearPending, targetKey])
+	}, [clearPending, flushApply, targetKey])
 
 	useEffect(() => {
 		if (!state?.found) return

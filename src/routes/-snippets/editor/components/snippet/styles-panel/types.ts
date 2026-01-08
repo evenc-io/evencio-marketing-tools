@@ -39,5 +39,5 @@ export interface SnippetStylesPanelProps {
 	isReading?: boolean
 	isApplying?: boolean
 	onClose: () => void
-	onApply: (payload: StyleUpdatePayload, label: string) => void
+	onApply: (payload: StyleUpdatePayload, label: string, target: SnippetInspectTextRequest) => void
 }

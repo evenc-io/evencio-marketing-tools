@@ -1220,7 +1220,9 @@ export function SnippetsEditorPage({ search }: { search: SnippetsEditorSearch })
 			handlePreviewInspectSelectInternal(source, meta)
 			if (layoutMode && stylesPanelOpen && meta?.reason !== "reset") {
 				const request = onPreviewInspectContext(source)
-				setStylesTarget(request)
+				if (request) {
+					setStylesTarget(request)
+				}
 			}
 			if (!componentTreeOpen) return
 			if (!source && meta?.reason === "reset") {

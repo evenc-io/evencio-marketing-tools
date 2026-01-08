@@ -39,6 +39,7 @@ type UseSnippetInspectStyleResult = {
 	applyStyleUpdate: (
 		payload: Omit<StyleUpdateRequest, "source" | "line" | "column">,
 		label: string,
+		targetOverride?: SnippetInspectTextRequest,
 	) => void
 }
 
@@ -55,6 +56,7 @@ export const useSnippetInspectStyle = ({
 	const mountedRef = useRef(true)
 
 	useEffect(() => {
+		mountedRef.current = true
 		return () => {
 			mountedRef.current = false
 		}
@@ -87,16 +89,21 @@ export const useSnippetInspectStyle = ({
 	}, [])
 
 	const applyStyleUpdate = useCallback(
-		(payload: Omit<StyleUpdateRequest, "source" | "line" | "column">, label: string) => {
-			if (!target) return
-			if (!isSnippetIntrinsicTag(target.elementName)) {
+		(
+			payload: Omit<StyleUpdateRequest, "source" | "line" | "column">,
+			label: string,
+			targetOverride?: SnippetInspectTextRequest,
+		) => {
+			const currentTarget = targetOverride ?? target
+			if (!currentTarget) return
+			if (!isSnippetIntrinsicTag(currentTarget.elementName)) {
 				toast.error("Only intrinsic HTML tags are editable in v1.")
 				return
 			}
 
 			enqueue(async () => {
 				if (!mountedRef.current) return
-				const fileSource = getSourceForFile(target.fileId)
+				const fileSource = getSourceForFile(currentTarget.fileId)
 				if (!fileSource.trim()) {
 					toast.error("Selected element source is empty.")
 					return
@@ -106,15 +113,15 @@ export const useSnippetInspectStyle = ({
 					writeE2EDebug({
 						phase: "request",
 						label,
-						fileId: target.fileId,
-						line: target.line,
-						column: target.column,
+						fileId: currentTarget.fileId,
+						line: currentTarget.line,
+						column: currentTarget.column,
 						payload,
 					})
 					const result = await applySnippetStyleUpdateInEngine({
 						source: fileSource,
-						line: target.line,
-						column: target.column,
+						line: currentTarget.line,
+						column: currentTarget.column,
 						...payload,
 					})
 					if (!mountedRef.current) return
@@ -133,7 +140,7 @@ export const useSnippetInspectStyle = ({
 					}
 
 					if (!mountedRef.current) return
-					const applied = applySourceForFile(target.fileId, result.source, label)
+					const applied = applySourceForFile(currentTarget.fileId, result.source, label)
 					writeE2EDebug({
 						phase: "applied",
 						label,
@@ -142,9 +149,9 @@ export const useSnippetInspectStyle = ({
 					if (applied) {
 						if (!mountedRef.current) return
 						onApplied?.({
-							fileId: target.fileId,
-							line: target.line,
-							column: target.column,
+							fileId: currentTarget.fileId,
+							line: currentTarget.line,
+							column: currentTarget.column,
 							source: result.source,
 							label,
 						})
