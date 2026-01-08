@@ -1,5 +1,6 @@
 const SIZE_LIKE_ARBITRARY_VALUE_PATTERN =
 	/^-?\d*\.?\d+(px|rem|em|%|vw|vh|vmin|vmax|svw|svh|lvw|lvh|dvw|dvh|ch|ex|lh|rlh|cap|ic|cqw|cqh|cqi|cqb|cqmin|cqmax|cm|mm|in|pt|pc)$/i
+const UNITLESS_ZERO_PATTERN = /^-?(?:0+(?:\.0*)?|\.0+)$/
 const SIZE_LIKE_FUNCTION_PATTERN = /^(clamp|calc|min|max)\(/i
 const COLOR_FUNCTION_PATTERN = /^(rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch|color|color-mix)\(/i
 const VAR_FUNCTION_PATTERN = /^var\((.+)\)$/i
@@ -57,6 +58,7 @@ export const isSizeLikeArbitraryValue = (inner: string) => {
 	if (!expression) return false
 	if (modifier === "color") return false
 	if (COLOR_FUNCTION_PATTERN.test(expression)) return false
+	if (UNITLESS_ZERO_PATTERN.test(expression)) return true
 	if (SIZE_LIKE_ARBITRARY_VALUE_PATTERN.test(expression)) return true
 	if (modifier === "length" || modifier === "size" || modifier === "font-size") return true
 	if (isSizeLikeVarExpression(expression)) return true

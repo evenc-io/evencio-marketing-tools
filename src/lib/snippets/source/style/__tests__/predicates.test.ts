@@ -59,6 +59,12 @@ describe("isColorSuffix", () => {
 			expect(isColorSuffix("[1px]")).toBe(false)
 		})
 
+		it("rejects unitless zero", () => {
+			expect(isColorSuffix("[0]")).toBe(false)
+			expect(isColorSuffix("[0.0]")).toBe(false)
+			expect(isColorSuffix("[-0]")).toBe(false)
+		})
+
 		it("rejects rem values", () => {
 			expect(isColorSuffix("[1.5rem]")).toBe(false)
 			expect(isColorSuffix("[2rem]")).toBe(false)
@@ -113,6 +119,7 @@ describe("isTextColorClass", () => {
 	it("does NOT match font size classes", () => {
 		expect(isTextColorClass("text-[44px]")).toBe(false)
 		expect(isTextColorClass("text-[1.5rem]")).toBe(false)
+		expect(isTextColorClass("text-[0]")).toBe(false)
 		expect(isTextColorClass("text-lg")).toBe(false)
 		expect(isTextColorClass("text-xl")).toBe(false)
 		expect(isTextColorClass("text-2xl")).toBe(false)
@@ -140,6 +147,7 @@ describe("isFontSizeClass", () => {
 		expect(isFontSizeClass("text-[44px]")).toBe(true)
 		expect(isFontSizeClass("text-[1.5rem]")).toBe(true)
 		expect(isFontSizeClass("text-[2em]")).toBe(true)
+		expect(isFontSizeClass("text-[0]")).toBe(true)
 		expect(isFontSizeClass("text-[clamp(1rem,2vw,3rem)]")).toBe(true)
 		expect(isFontSizeClass("text-[calc(1rem+2vw)]")).toBe(true)
 		expect(isFontSizeClass("text-[var(--font-size)]")).toBe(true)
@@ -172,6 +180,14 @@ describe("normalizeTailwindClassName", () => {
 			const result = normalizeTailwindClassName(input, { textColor: "text-blue-600" })
 			expect(result).toContain("text-2xl")
 			expect(result).toContain("text-blue-600")
+			expect(result).not.toContain("text-neutral-900")
+		})
+
+		it("preserves unitless zero font size when updating text color", () => {
+			const input = "text-[0] text-neutral-900"
+			const result = normalizeTailwindClassName(input, { textColor: "text-red-500" })
+			expect(result).toContain("text-[0]")
+			expect(result).toContain("text-red-500")
 			expect(result).not.toContain("text-neutral-900")
 		})
 
