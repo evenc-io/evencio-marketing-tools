@@ -196,6 +196,9 @@ const requestEngine = async <T extends EngineResponse>(payload: EngineRequest): 
 	return runInProcess<T>(payload)
 }
 
+/**
+ * Analyze snippet TSX source via the engine (worker when available) and mark results as stale if superseded.
+ */
 export const analyzeSnippetInEngine = async (
 	source: string,
 	options?: { includeTailwind?: boolean; includeInspect?: boolean; key?: string },
@@ -224,6 +227,9 @@ export const analyzeSnippetInEngine = async (
 	}
 }
 
+/**
+ * Compile snippet TSX source via the engine (worker when available) and mark results as stale if superseded.
+ */
 export const compileSnippetInEngine = async (
 	source: string,
 	options?: { entryExport?: string; key?: string },
@@ -251,6 +257,9 @@ export const compileSnippetInEngine = async (
 	}
 }
 
+/**
+ * Build a snippet component tree via the engine (worker when available) and mark results as stale if superseded.
+ */
 export const buildSnippetComponentTreeInEngine = async (
 	source: string,
 	options?: { entryExport?: string; key?: string },
@@ -278,6 +287,9 @@ export const buildSnippetComponentTreeInEngine = async (
 	}
 }
 
+/**
+ * Apply a layout translation request in the engine.
+ */
 export const applySnippetLayoutInEngine = async (
 	payload: LayoutTranslateRequest,
 ): Promise<LayoutTranslateResponse> => {
@@ -293,6 +305,9 @@ export const applySnippetLayoutInEngine = async (
 	return response.payload
 }
 
+/**
+ * Apply a style update request in the engine.
+ */
 export const applySnippetStyleUpdateInEngine = async (
 	payload: StyleUpdateRequest,
 ): Promise<StyleUpdateResponse> => {
@@ -308,6 +323,9 @@ export const applySnippetStyleUpdateInEngine = async (
 	return response.payload
 }
 
+/**
+ * Read the current style state for a snippet source via the engine.
+ */
 export const readSnippetStyleStateInEngine = async (
 	payload: StyleReadRequest,
 ): Promise<StyleReadResponse> => {
@@ -323,6 +341,9 @@ export const readSnippetStyleStateInEngine = async (
 	return response.payload
 }
 
+/**
+ * Insert a new child element into snippet source via the engine.
+ */
 export const insertSnippetChildInEngine = async (
 	payload: InsertChildRequest,
 ): Promise<InsertChildResponse> => {

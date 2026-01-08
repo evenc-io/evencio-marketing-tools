@@ -311,6 +311,9 @@ const readInlinePaddingValues = (
 	return out
 }
 
+/**
+ * Read Tailwind + inline style state for the JSX element at the given cursor position.
+ */
 export const readSnippetStyleState = async ({
 	source,
 	line,

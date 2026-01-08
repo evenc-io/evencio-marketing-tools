@@ -65,6 +65,9 @@ interface AssetLibraryService {
 	listAssetVersions: (assetId: AssetId) => Promise<AssetVersion[]>
 }
 
+/**
+ * Create an Asset Library service with scope-aware access control and version tracking.
+ */
 export function createAssetLibraryService(
 	registry: AssetRegistry,
 	options: AssetLibraryServiceOptions,

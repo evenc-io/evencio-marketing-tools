@@ -20,6 +20,9 @@ export type { SnippetComponentExport, SnippetComponentSourceMap }
 export { listSnippetComponentExports, getSnippetComponentSourceMap, removeSnippetComponentExport }
 export { deriveSnippetPropsFromSource, deriveSnippetPropsFromAllExports }
 
+/**
+ * Analyze a parsed snippet program and return export entries plus derived props metadata.
+ */
 export const analyzeSnippetProgram = (program: { body: unknown[] }) => ({
 	exports: listSnippetComponentExportsFromProgram(program),
 	...deriveSnippetPropsFromProgram(program),

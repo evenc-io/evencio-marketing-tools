@@ -32,6 +32,9 @@ const matchesScope = (left: AssetScopeRef, right: AssetScopeRef) => {
 	}
 }
 
+/**
+ * Create an asset registry backed by IndexedDB for both binary storage and metadata.
+ */
 export function createIndexedDbAssetRegistry(): AssetRegistry {
 	const storage: AssetStorageAdapter = {
 		async put(object) {

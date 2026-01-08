@@ -28,11 +28,17 @@ const mulberry32 = (seed: number) => {
 	}
 }
 
+/**
+ * Create a deterministic PRNG seeded from an arbitrary string.
+ */
 export const createSeededRandom = (seed: string) => {
 	const seedHash = createSeedHash(seed)
 	return mulberry32(seedHash())
 }
 
+/**
+ * Build a stable inline `style` string for the snippet root container.
+ */
 export const buildSnippetContainerStyle = (config: RenderDeterminismConfig) => {
 	const fontStack = Array.from(new Set([...(config.fonts.families ?? []), config.fonts.fallback]))
 		.filter(Boolean)
@@ -52,6 +58,9 @@ export const buildSnippetContainerStyle = (config: RenderDeterminismConfig) => {
 	].join(";")
 }
 
+/**
+ * Build a small base CSS payload for snippet rendering (and optionally disables animations).
+ */
 export const buildSnippetBaseCss = (config: RenderDeterminismConfig) => {
 	const animationReset = config.disableAnimations
 		? `
@@ -72,6 +81,9 @@ ${animationReset}
 `
 }
 
+/**
+ * Assemble snippet markup by wrapping rendered inner HTML in a root container and inline styles.
+ */
 export const buildSnippetMarkup = (innerHtml: string, config: RenderDeterminismConfig) => {
 	const style = buildSnippetContainerStyle(config)
 	const baseCss = buildSnippetBaseCss(config)
@@ -85,6 +97,9 @@ export const buildSnippetMarkup = (innerHtml: string, config: RenderDeterminismC
 `
 }
 
+/**
+ * Wrap snippet markup into a minimal standalone HTML document for server-side rendering / export.
+ */
 export const buildSnippetHtmlDocument = (markup: string, config: RenderDeterminismConfig) => {
 	return `<!doctype html>
 <html lang="${config.locale}">
@@ -106,6 +121,9 @@ export const buildSnippetHtmlDocument = (markup: string, config: RenderDetermini
 </html>`
 }
 
+/**
+ * Throw if the snippet markup contains `http(s)` URLs in HTML attributes or CSS `url(...)`.
+ */
 export const assertNoExternalUrls = (markup: string) => {
 	const urls = new Set<string>()
 	const attrPattern = /(src|href)=["'](https?:\/\/[^"']+)["']/gi
@@ -125,6 +143,9 @@ export const assertNoExternalUrls = (markup: string) => {
 	}
 }
 
+/**
+ * Temporarily disable network primitives (`fetch`, XHR, WebSocket, etc.) for deterministic rendering.
+ */
 export const withNetworkDisabled = async <T>(fn: () => Promise<T> | T): Promise<T> => {
 	const globals = globalThis as typeof globalThis & {
 		fetch?: typeof fetch
@@ -169,6 +190,9 @@ export const withNetworkDisabled = async <T>(fn: () => Promise<T> | T): Promise<
 	}
 }
 
+/**
+ * Run a function with deterministic `Math.random`, `Date`, and `Intl.DateTimeFormat` based on config.
+ */
 export const withDeterministicEnv = async <T>(
 	config: RenderDeterminismConfig,
 	fn: () => Promise<T> | T,

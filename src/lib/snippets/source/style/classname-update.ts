@@ -18,6 +18,9 @@ const isCnCallExpression = (node: Record<string, unknown> | null | undefined) =>
 	return false
 }
 
+/**
+ * Build a `className` attribute update for a JSX opening element based on Tailwind style update options.
+ */
 export const buildClassNameUpdate = (
 	openingElement: Record<string, unknown>,
 	attributes: Record<string, unknown>[],

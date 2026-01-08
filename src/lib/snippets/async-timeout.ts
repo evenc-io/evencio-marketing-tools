@@ -1,3 +1,6 @@
+/**
+ * Wrap a promise with a timeout. Rejects with a `TimeoutError` when the timeout elapses.
+ */
 export const withTimeout = <T>(
 	promise: Promise<T>,
 	timeoutMs: number,

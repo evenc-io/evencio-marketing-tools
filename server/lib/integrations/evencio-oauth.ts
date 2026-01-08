@@ -94,8 +94,14 @@ const getEnvConfig = () => {
 	}
 }
 
+/**
+ * Read Evencio OAuth configuration from environment variables, with dev/prod defaults.
+ */
 export const getEvencioOAuthEnv = (): EvencioOAuthEnv => getEnvConfig()
 
+/**
+ * Create a new opaque session id used to key in-memory OAuth state for this process.
+ */
 export const getSessionId = () => {
 	try {
 		return randomUUID()
@@ -104,6 +110,9 @@ export const getSessionId = () => {
 	}
 }
 
+/**
+ * Create and persist an OAuth PKCE request (state + code verifier) for a given session.
+ */
 export const createOAuthRequest = (sessionId: string) => {
 	pruneStaleSessions()
 	const state = base64UrlEncode(randomBytes(16))
@@ -119,6 +128,9 @@ export const createOAuthRequest = (sessionId: string) => {
 	return { state, codeChallenge }
 }
 
+/**
+ * Read and delete the pending OAuth request for a session (returns null if missing/expired).
+ */
 export const consumeOAuthRequest = (sessionId: string) => {
 	pruneStaleSessions()
 	const request = oauthRequests.get(sessionId) ?? null
@@ -133,6 +145,9 @@ export const consumeOAuthRequest = (sessionId: string) => {
 	return request
 }
 
+/**
+ * Get the active token set for a session (returns null if missing/expired).
+ */
 export const getActiveToken = (sessionId: string) => {
 	pruneStaleSessions()
 	return tokenStore.get(sessionId) ?? null
@@ -144,15 +159,24 @@ export interface EvencioOAuthClient {
 	createdAt: number
 }
 
+/**
+ * Get the cached OAuth client for a session (returns null if missing/expired).
+ */
 export const getClient = (sessionId: string) => {
 	pruneStaleSessions()
 	return clientStore.get(sessionId) ?? null
 }
 
+/**
+ * Cache an OAuth client for a session.
+ */
 export const setClient = (sessionId: string, client: EvencioOAuthClient) => {
 	clientStore.set(sessionId, client)
 }
 
+/**
+ * Ensure an OAuth client exists for a session, provisioning one if needed.
+ */
 export const ensureOAuthClient = async (
 	env: EvencioOAuthEnv,
 	sessionId: string,
@@ -202,6 +226,9 @@ const saveToken = (sessionId: string, payload: z.infer<typeof tokenResponseSchem
 	return nextToken
 }
 
+/**
+ * Clear all OAuth state for a session (token, request, and cached client).
+ */
 export const clearToken = (sessionId: string) => {
 	tokenStore.delete(sessionId)
 	oauthRequests.delete(sessionId)
@@ -236,6 +263,9 @@ const postTokenRequest = async (body: URLSearchParams, env: EvencioOAuthEnv) => 
 	return parsed.data
 }
 
+/**
+ * Exchange an authorization code for tokens and store them for the session.
+ */
 export const exchangeAuthorizationCode = async (
 	env: EvencioOAuthEnv,
 	client: EvencioOAuthClient,
@@ -259,6 +289,9 @@ export const exchangeAuthorizationCode = async (
 	return saveToken(sessionId, payload)
 }
 
+/**
+ * Refresh the access token using the session's refresh token (returns null if unavailable).
+ */
 export const refreshAccessToken = async (
 	env: EvencioOAuthEnv,
 	client: EvencioOAuthClient,
@@ -283,6 +316,9 @@ export const refreshAccessToken = async (
 	return saveToken(sessionId, payload)
 }
 
+/**
+ * Return a currently valid access token for the session, refreshing if near expiry.
+ */
 export const ensureValidAccessToken = async (env: EvencioOAuthEnv, sessionId: string) => {
 	pruneStaleSessions()
 	const token = tokenStore.get(sessionId)
@@ -299,6 +335,9 @@ export const ensureValidAccessToken = async (env: EvencioOAuthEnv, sessionId: st
 	return refreshed?.accessToken ?? null
 }
 
+/**
+ * Build the OAuth authorize URL for redirecting the user to Evencio Auth.
+ */
 export const buildAuthorizeUrl = (
 	env: EvencioOAuthEnv,
 	clientId: string,
@@ -315,6 +354,9 @@ export const buildAuthorizeUrl = (
 	return url.toString()
 }
 
+/**
+ * Fetch the current OAuth status from the Evencio API for an access token.
+ */
 export const readStatus = async (env: EvencioOAuthEnv, accessToken: string) => {
 	const response = await fetch(`${env.apiBaseUrl}/oauth/status`, {
 		headers: {
@@ -364,6 +406,9 @@ export interface ProvisionOAuthClientOptions {
 	rotateSecret?: boolean
 }
 
+/**
+ * Provision an OAuth client via Evencio's internal endpoints (and optionally rotate its secret).
+ */
 export const provisionOAuthClient = async (
 	env: EvencioOAuthEnv,
 	cookie: string,

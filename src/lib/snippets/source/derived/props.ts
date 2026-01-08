@@ -259,6 +259,9 @@ const mergeDerivedEntries = (
 	}
 }
 
+/**
+ * Derive a snippet props schema + defaults for a specific export from source.
+ */
 export const deriveSnippetPropsFromSource = async (
 	source: string,
 	entryExport: string = DEFAULT_SNIPPET_EXPORT,
@@ -325,6 +328,9 @@ export const deriveSnippetPropsFromSource = async (
 	}
 }
 
+/**
+ * Derive snippet props schema + defaults by inspecting every exported component in a parsed program.
+ */
 export const deriveSnippetPropsFromProgram = (program: {
 	body: unknown[]
 }): {
@@ -405,6 +411,9 @@ export const deriveSnippetPropsFromProgram = (program: {
 	}
 }
 
+/**
+ * Derive snippet props schema + defaults by parsing source and inspecting all component exports.
+ */
 export const deriveSnippetPropsFromAllExports = async (
 	source: string,
 ): Promise<{

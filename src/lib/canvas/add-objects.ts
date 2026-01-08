@@ -17,6 +17,9 @@ function getDefaultPosition() {
 	}
 }
 
+/**
+ * Add a new editable text object to the canvas at a default position.
+ */
 export function addTextToCanvas(canvas: Canvas): void {
 	const { left, top } = getDefaultPosition()
 	// Fabric 7 defaults to center origin; we need left/top for consistent positioning
@@ -35,6 +38,9 @@ export function addTextToCanvas(canvas: Canvas): void {
 	canvas.renderAll()
 }
 
+/**
+ * Add a new rectangle object to the canvas at a default position.
+ */
 export function addRectToCanvas(canvas: Canvas): void {
 	const { left, top } = getDefaultPosition()
 	// Fabric 7 defaults to center origin; we need left/top for consistent positioning
@@ -55,6 +61,9 @@ export function addRectToCanvas(canvas: Canvas): void {
 	canvas.renderAll()
 }
 
+/**
+ * Add a new circle object to the canvas at a default position.
+ */
 export function addCircleToCanvas(canvas: Canvas): void {
 	const { left, top } = getDefaultPosition()
 	// Fabric 7 defaults to center origin; we need left/top for consistent positioning
@@ -74,6 +83,9 @@ export function addCircleToCanvas(canvas: Canvas): void {
 	canvas.renderAll()
 }
 
+/**
+ * Add a new triangle object to the canvas at a default position.
+ */
 export function addTriangleToCanvas(canvas: Canvas): void {
 	const { left, top } = getDefaultPosition()
 	// Fabric 7 defaults to center origin; we need left/top for consistent positioning

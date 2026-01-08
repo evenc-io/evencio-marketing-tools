@@ -40,6 +40,9 @@ export type TailwindStyleUpdateOptions = {
 	paddingLeft?: string | null
 }
 
+/**
+ * Normalize an existing Tailwind className string by removing conflicting tokens and applying requested updates.
+ */
 export const normalizeTailwindClassName = (value: string, options: TailwindStyleUpdateOptions) => {
 	const tokens = value.split(/\s+/).filter(Boolean)
 	const next: string[] = []

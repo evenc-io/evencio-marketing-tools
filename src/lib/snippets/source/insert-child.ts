@@ -96,6 +96,9 @@ const indentMultiline = (value: string, indent: string) => {
 	return lines.map((line) => `${indent}${line.trimEnd()}`).join("\n")
 }
 
+/**
+ * Insert JSX as a child of the JSX element at the given cursor position.
+ */
 export const insertSnippetChild = async ({
 	source,
 	line,

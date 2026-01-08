@@ -8,6 +8,9 @@ export type JsxTarget = {
 	loc: SourceLocation
 }
 
+/**
+ * Check whether a node has numeric `start` and `end` offsets.
+ */
 export const hasValidRange = (node: { start?: number; end?: number } | null | undefined) =>
 	typeof node?.start === "number" && typeof node?.end === "number"
 
@@ -24,6 +27,9 @@ const getSpanScore = (loc: SourceLocation) => {
 	return { lineSpan, columnSpan }
 }
 
+/**
+ * Find the smallest `JSXElement` node that contains the given line/column location.
+ */
 export const findJsxElementAt = (ast: unknown, line: number, column: number): JsxTarget | null => {
 	let best: JsxTarget | null = null
 
@@ -72,12 +78,18 @@ export const findJsxElementAt = (ast: unknown, line: number, column: number): Js
 	return best
 }
 
+/**
+ * Read the attribute name from a JSX attribute node.
+ */
 export const getAttributeName = (node: Record<string, unknown>) => {
 	const nameNode = node.name as Record<string, unknown> | undefined
 	if (!nameNode || nameNode.type !== "JSXIdentifier") return null
 	return typeof nameNode.name === "string" ? nameNode.name : null
 }
 
+/**
+ * Read a static object property key from an AST node (`Identifier` / `StringLiteral`).
+ */
 export const getObjectPropertyKey = (node: Record<string, unknown>) => {
 	const keyNode = node.key as Record<string, unknown> | undefined
 	if (!keyNode) return null
@@ -90,6 +102,9 @@ export const getObjectPropertyKey = (node: Record<string, unknown>) => {
 	return null
 }
 
+/**
+ * Read a static `className` value from JSX (`"..."`, `{"..."}`, or a template literal without expressions).
+ */
 export const readStaticClassNameValue = (valueNode: Record<string, unknown> | null | undefined) => {
 	if (!valueNode) return ""
 	if (valueNode.type === "StringLiteral") {
@@ -117,6 +132,9 @@ export const readStaticClassNameValue = (valueNode: Record<string, unknown> | nu
 	return null
 }
 
+/**
+ * Read the opening element name from a JSX opening element node.
+ */
 export const readOpeningElementName = (
 	openingElement: Record<string, unknown> | null | undefined,
 ) => {
@@ -131,6 +149,9 @@ export const readOpeningElementName = (
 	return null
 }
 
+/**
+ * Return the whitespace indentation string at a given character index in source.
+ */
 export const getIndentationAt = (source: string, index: number) => {
 	const lineStart = source.lastIndexOf("\n", Math.max(0, index - 1)) + 1
 	const prefix = source.slice(lineStart, Math.max(lineStart, index))

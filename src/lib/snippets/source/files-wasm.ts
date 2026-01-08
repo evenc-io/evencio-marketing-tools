@@ -15,6 +15,9 @@ const trimCache = () => {
 	}
 }
 
+/**
+ * Scan a snippet source for virtual `@snippet-file` blocks, using WASM in the browser with a small cache.
+ */
 export const scanSnippetFilesInWasm = async (source: string): Promise<SnippetFileScanResult> => {
 	if (!source) {
 		return scanSnippetFilesSync(source)

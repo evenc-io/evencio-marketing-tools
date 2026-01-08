@@ -48,6 +48,9 @@ const stripAutoImportBlockFallback = (source: string) => {
 	return lines.slice(index).join("\n")
 }
 
+/**
+ * Analyze a snippet TSX source string: parse/derive exports + props, scan security, and optionally build Tailwind + inspect data.
+ */
 export const analyzeSnippetTsx = async ({
 	source,
 	includeTailwind = true,

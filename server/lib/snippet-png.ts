@@ -12,6 +12,10 @@ const DEFAULT_ARGS = [
 	"--disable-setuid-sandbox",
 ]
 
+/**
+ * Render an HTML document to a PNG image in a sandboxed headless Chromium instance.
+ * Requests are blocked unless they are `data:`, `blob:`, or `about:blank` to keep rendering deterministic.
+ */
 export async function renderHtmlToPng(
 	html: string,
 	config: RenderDeterminismConfig,

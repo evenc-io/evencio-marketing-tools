@@ -39,6 +39,9 @@ const buildScopeTokens = (scope: AssetScopeRef) => {
 	return [scope.scope]
 }
 
+/**
+ * Build a lightweight search index for assets (normalized text + tag set) for fast filtering.
+ */
 export function buildAssetSearchIndex(assets: Asset[], tags: AssetTag[]): AssetSearchEntry[] {
 	const tagMap = new Map(tags.map((tag) => [tag.id, tag]))
 
@@ -70,6 +73,9 @@ export function buildAssetSearchIndex(assets: Asset[], tags: AssetTag[]): AssetS
 	})
 }
 
+/**
+ * Filter a pre-built asset search index by type/scope/tags/search text.
+ */
 export function filterAssetSearchIndex(entries: AssetSearchEntry[], filters: AssetSearchFilters) {
 	let results = entries
 

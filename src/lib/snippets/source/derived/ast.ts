@@ -8,12 +8,21 @@ export type TypeInfo = {
 
 export type TypeInfoMap = Record<string, TypeInfo>
 
+/**
+ * Type guard for Babel AST nodes by `type` string.
+ */
 export const isNodeType = (node: unknown, type: string) =>
 	Boolean(node && typeof node === "object" && (node as { type?: string }).type === type)
 
+/**
+ * Read the `type` string from a Babel AST node, if present.
+ */
 export const getNodeType = (node: unknown) =>
 	node && typeof node === "object" ? (node as { type?: string }).type : undefined
 
+/**
+ * Read an identifier name from a node, or null if not an Identifier.
+ */
 export const getIdentifierName = (node: unknown): string | null => {
 	if (isNodeType(node, "Identifier")) {
 		return (node as { name: string }).name
@@ -21,6 +30,9 @@ export const getIdentifierName = (node: unknown): string | null => {
 	return null
 }
 
+/**
+ * Read an object property key name from `Identifier`, `StringLiteral`, or `NumericLiteral`.
+ */
 export const getPropertyKeyName = (node: unknown): string | null => {
 	if (!node || typeof node !== "object") return null
 	if (isNodeType(node, "Identifier")) return (node as { name: string }).name
@@ -29,6 +41,9 @@ export const getPropertyKeyName = (node: unknown): string | null => {
 	return null
 }
 
+/**
+ * Remove non-semantic wrapper expressions (casts, non-null assertions, parentheses) from a node.
+ */
 export const unwrapExpression = (node: unknown): unknown => {
 	if (!node || typeof node !== "object") return node
 	if (isNodeType(node, "TSAsExpression") || isNodeType(node, "TSTypeAssertion")) {
@@ -43,6 +58,9 @@ export const unwrapExpression = (node: unknown): unknown => {
 	return node
 }
 
+/**
+ * Extract a static literal value from an expression (string/number/boolean/null/array/object).
+ */
 export const extractLiteralValue = (node: unknown): unknown | undefined => {
 	const expr = unwrapExpression(node)
 	if (!expr || typeof expr !== "object") return undefined
@@ -146,6 +164,9 @@ const parseTypeAnnotation = (node: unknown): TypeInfo | null => {
 	return null
 }
 
+/**
+ * Build a `key -> TypeInfo` map from a TypeScript object type literal.
+ */
 export const buildTypeInfoMapFromLiteral = (node: unknown): TypeInfoMap => {
 	const map: TypeInfoMap = {}
 	if (!isNodeType(node, "TSTypeLiteral")) return map
@@ -169,6 +190,9 @@ export const buildTypeInfoMapFromLiteral = (node: unknown): TypeInfoMap => {
 	return map
 }
 
+/**
+ * Collect a map of named type aliases/interfaces to their object-literal TypeInfo maps.
+ */
 export const buildTypeMapFromProgram = (program: { body: unknown[] }) => {
 	const map = new Map<string, TypeInfoMap>()
 	for (const node of program.body) {
@@ -187,6 +211,9 @@ export const buildTypeMapFromProgram = (program: { body: unknown[] }) => {
 	return map
 }
 
+/**
+ * Resolve parameter type info from a function parameter node using a pre-built type map.
+ */
 export const resolveParamTypeInfo = (
 	param: unknown,
 	typeMap: Map<string, TypeInfoMap>,

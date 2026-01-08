@@ -27,12 +27,18 @@ const hashSourceJs = (value: string) => {
 
 const isBrowserRuntime = typeof window !== "undefined" || typeof self !== "undefined"
 
+/**
+ * Hash snippet source synchronously, optionally treating the input as already-expanded source.
+ */
 export const hashSnippetSourceSync = (source: string, options?: { expanded?: boolean }): number => {
 	const normalized = options?.expanded ? source : expandSnippetSource(source)
 	if (!normalized || normalized.length === 0) return 0
 	return hashSourceJs(normalized)
 }
 
+/**
+ * Hash snippet source, preferring WASM hashing in the browser (falls back to JS hashing).
+ */
 export const hashSnippetSource = async (
 	source: string,
 	options?: { expanded?: boolean },

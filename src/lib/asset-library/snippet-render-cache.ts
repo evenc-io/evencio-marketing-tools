@@ -53,12 +53,18 @@ const stableStringify = (value: unknown): string => {
 	return `{${serialized}}`
 }
 
+/**
+ * Build a stable cache key for a snippet render based on asset/version/props and determinism settings.
+ */
 export function getSnippetRenderCacheKey({ assetId, version, props, determinism }: CacheKeyInput) {
 	const propsHash = hashString(stableStringify(props))
 	const determinismHash = determinism ? hashString(stableStringify(determinism)) : "default"
 	return `${assetId}:${version}:${propsHash}:${determinismHash}`
 }
 
+/**
+ * Read a cached snippet render entry, evicting it if it is too old.
+ */
 export function getSnippetRenderCache(
 	key: string,
 	options: SnippetRenderCacheOptions = {},
@@ -75,6 +81,9 @@ export function getSnippetRenderCache(
 	return entry
 }
 
+/**
+ * Store a snippet render in cache and evict the oldest entry if over capacity.
+ */
 export function setSnippetRenderCache(
 	key: string,
 	dataUrl: string,
@@ -91,6 +100,9 @@ export function setSnippetRenderCache(
 	cache.set(key, { dataUrl, createdAt: Date.now() })
 }
 
+/**
+ * Clear all cached snippet renders.
+ */
 export function clearSnippetRenderCache(): void {
 	cache.clear()
 }

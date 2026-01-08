@@ -1,5 +1,8 @@
 import { isColorSuffix } from "./colors"
 
+/**
+ * Format a number for use in Tailwind arbitrary values (rounded and without trailing zeros).
+ */
 export const formatNumber = (value: number) => {
 	if (!Number.isFinite(value)) return "0"
 	const rounded = Math.round(value * 100) / 100
@@ -7,6 +10,9 @@ export const formatNumber = (value: number) => {
 	return normalized.toFixed(2).replace(/\.?0+$/, "")
 }
 
+/**
+ * Format a Tailwind color utility class with support for theme tokens and arbitrary values.
+ */
 export const formatTailwindColorClass = (prefix: string, value: string) => {
 	if (value === "transparent") return `${prefix}-transparent`
 	if (value === "current") return `${prefix}-current`
@@ -17,6 +23,9 @@ export const formatTailwindColorClass = (prefix: string, value: string) => {
 	return `${prefix}-[${value}]`
 }
 
+/**
+ * Format a Tailwind `border-*` width class from a pixel width.
+ */
 export const formatBorderWidthClass = (value: number) => {
 	if (!Number.isFinite(value)) return null
 	const formatted = formatNumber(value)
@@ -27,6 +36,9 @@ export const formatBorderWidthClass = (value: number) => {
 	return `border-[${formatted}px]`
 }
 
+/**
+ * Format a Tailwind `rounded-*` class from a radius token or pixel value.
+ */
 export const formatRadiusClass = (value: number | string) => {
 	if (typeof value === "string") {
 		const trimmed = value.trim()
@@ -41,6 +53,9 @@ export const formatRadiusClass = (value: number | string) => {
 	return `rounded-[${formatted}px]`
 }
 
+/**
+ * Format a Tailwind `text-*` font-size class from a token or pixel value.
+ */
 export const formatFontSizeClass = (value: number | string) => {
 	if (typeof value === "string") {
 		const trimmed = value.trim()
@@ -54,6 +69,9 @@ export const formatFontSizeClass = (value: number | string) => {
 	return `text-[${formatted}px]`
 }
 
+/**
+ * Format a Tailwind `font-*` weight class from a token or numeric weight.
+ */
 export const formatFontWeightClass = (value: number | string) => {
 	if (typeof value === "string") {
 		const trimmed = value.trim()
@@ -93,6 +111,9 @@ export const formatFontWeightClass = (value: number | string) => {
 	return `font-[${clamp}]`
 }
 
+/**
+ * Format a Tailwind `font-*` family class from a token.
+ */
 export const formatFontFamilyClass = (value: string) => {
 	const trimmed = value.trim()
 	if (!trimmed) return null
@@ -100,6 +121,9 @@ export const formatFontFamilyClass = (value: string) => {
 	return `font-${trimmed}`
 }
 
+/**
+ * Format a Tailwind `leading-*` class from a token or numeric line-height.
+ */
 export const formatLineHeightClass = (value: number | string) => {
 	if (typeof value === "string") {
 		const trimmed = value.trim()
@@ -118,6 +142,9 @@ export const formatLineHeightClass = (value: number | string) => {
 	return `leading-[${formatted}]`
 }
 
+/**
+ * Format a Tailwind `tracking-*` class from a token or arbitrary value.
+ */
 export const formatLetterSpacingClass = (value: string) => {
 	const trimmed = value.trim()
 	if (!trimmed) return null
@@ -126,6 +153,9 @@ export const formatLetterSpacingClass = (value: string) => {
 	return `tracking-${trimmed}`
 }
 
+/**
+ * Format a Tailwind `text-*` alignment class from a token.
+ */
 export const formatTextAlignClass = (value: string) => {
 	const trimmed = value.trim()
 	if (!trimmed) return null
@@ -133,6 +163,9 @@ export const formatTextAlignClass = (value: string) => {
 	return `text-${trimmed}`
 }
 
+/**
+ * Format a Tailwind padding class for a given prefix (`p-`, `px-`, etc.).
+ */
 export const formatPaddingClass = (prefix: string, value: string) => {
 	const trimmed = value.trim()
 	if (!trimmed) return null
@@ -141,26 +174,41 @@ export const formatPaddingClass = (prefix: string, value: string) => {
 	return `${prefix}-${trimmed}`
 }
 
+/**
+ * Format a Tailwind text-transform class token.
+ */
 export const formatTextTransformClass = (value: string) => {
 	const trimmed = value.trim()
 	if (!trimmed) return null
 	return trimmed
 }
 
+/**
+ * Format a Tailwind font-style class token.
+ */
 export const formatFontStyleClass = (value: string) => {
 	const trimmed = value.trim()
 	if (!trimmed) return null
 	return trimmed
 }
 
+/**
+ * Format a Tailwind text-decoration class token.
+ */
 export const formatTextDecorationClass = (value: string) => {
 	const trimmed = value.trim()
 	if (!trimmed) return null
 	return trimmed
 }
 
+/**
+ * Format a pixel length for inline styles.
+ */
 export const formatPxStyle = (value: number) => `${formatNumber(value)}px`
 
+/**
+ * Normalize a color string for inline style values.
+ */
 export const formatColorStyle = (value: string) => {
 	if (value === "current") return "currentColor"
 	return value

@@ -7,6 +7,9 @@ let parserPromise: Promise<typeof import("@babel/parser")> | null = null
 let parserError: Error | null = null
 let parserErrorAt = 0
 
+/**
+ * Lazily import `@babel/parser` with a timeout and short retry window after failures.
+ */
 export const loadBabelParser = async (): Promise<typeof import("@babel/parser")> => {
 	if (parserPromise) return parserPromise
 

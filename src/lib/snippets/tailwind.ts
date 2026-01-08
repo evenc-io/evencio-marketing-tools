@@ -67,6 +67,9 @@ const extractStaticString = (node: unknown): string | null => {
 
 const splitCandidates = (value: string) => value.split(/\s+/).map((entry) => entry.trim())
 
+/**
+ * Extract Tailwind class candidates from a parsed AST (static `className` strings only).
+ */
 export const extractTailwindCandidatesFromAst = (ast: unknown): string[] => {
 	const candidates = new Set<string>()
 
@@ -118,6 +121,9 @@ export const extractTailwindCandidatesFromAst = (ast: unknown): string[] => {
 	return Array.from(candidates)
 }
 
+/**
+ * Parse snippet source and extract Tailwind class candidates from static `className` usages.
+ */
 export const extractTailwindCandidatesFromSource = async (source: string): Promise<string[]> => {
 	try {
 		const normalizedSource = expandSnippetSource(source)
@@ -132,6 +138,9 @@ export const extractTailwindCandidatesFromSource = async (source: string): Promi
 	}
 }
 
+/**
+ * Extract Tailwind class candidates using WASM scanning when available (returns null on failure).
+ */
 export const extractTailwindCandidatesFromSourceWasm = async (
 	source: string,
 	options?: { expanded?: boolean },
@@ -140,6 +149,9 @@ export const extractTailwindCandidatesFromSourceWasm = async (
 	return scanTailwindCandidatesWasm(normalizedSource, { expanded: true })
 }
 
+/**
+ * Compile Tailwind CSS for a list of class candidates using the app's Tailwind config/styles.
+ */
 export const buildSnippetTailwindCssFromCandidates = async (
 	candidates: string[],
 ): Promise<string> => {
@@ -174,6 +186,9 @@ export const buildSnippetTailwindCssFromCandidates = async (
 	return css
 }
 
+/**
+ * Convenience helper: extract Tailwind candidates from source and compile them to CSS.
+ */
 export const buildSnippetTailwindCss = async (source: string): Promise<string> => {
 	const candidates = await extractTailwindCandidatesFromSource(source)
 	return buildSnippetTailwindCssFromCandidates(candidates)

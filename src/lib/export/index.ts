@@ -2,6 +2,9 @@ import type { Canvas, TMat2D } from "fabric"
 import { CANVAS_PADDING, DEFAULT_BLEED_PX, DEFAULT_DPI } from "@/lib/constants/canvas"
 import type { CanvasDimensions, ExportOptions } from "@/types/editor"
 
+/**
+ * Export a canvas to a Blob in the requested format (PNG/JPEG/PDF), optionally scaled and with bleed.
+ */
 export async function exportCanvas(
 	canvas: Canvas,
 	dimensions: CanvasDimensions,
@@ -151,6 +154,9 @@ function dataUrlToBlob(dataUrl: string): Blob {
 	return new Blob([bytes], { type: mime })
 }
 
+/**
+ * Trigger a browser download for a Blob by creating a temporary object URL.
+ */
 export function downloadBlob(blob: Blob, filename: string): void {
 	const url = URL.createObjectURL(blob)
 	const link = document.createElement("a")
@@ -162,6 +168,9 @@ export function downloadBlob(blob: Blob, filename: string): void {
 	URL.revokeObjectURL(url)
 }
 
+/**
+ * Build a timestamped filename for an exported asset based on format.
+ */
 export function getFilename(baseName: string, format: ExportOptions["format"]): string {
 	const timestamp = new Date().toISOString().slice(0, 10)
 	const extension = format === "pdf" ? "pdf" : format === "jpeg" ? "jpg" : "png"

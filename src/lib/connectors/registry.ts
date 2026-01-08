@@ -6,6 +6,9 @@ export interface ConnectorRegistry {
 	get: (id: string) => ConnectorDefinition | null
 }
 
+/**
+ * Create a connector registry that validates definitions and provides lookup by id.
+ */
 export function createConnectorRegistry(definitions: ConnectorDefinition[]): ConnectorRegistry {
 	const byId = new Map<string, ConnectorDefinition>()
 	const parsed = definitions.map((definition) => connectorDefinitionSchema.parse(definition))

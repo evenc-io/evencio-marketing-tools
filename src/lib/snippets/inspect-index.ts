@@ -134,6 +134,9 @@ const collectTextRanges = (
 	}
 }
 
+/**
+ * Build an inspect index from snippet source for mapping editor selections to JSX element ranges.
+ */
 export const buildSnippetInspectIndex = (source: string): SnippetInspectIndex | null => {
 	if (!source || source.trim().length === 0) {
 		return { version: 1, elements: [] }
@@ -196,6 +199,9 @@ export const buildSnippetInspectIndex = (source: string): SnippetInspectIndex | 
 	return { version: 1, elements }
 }
 
+/**
+ * Create a lookup helper for finding the smallest JSX element that contains a line/column position.
+ */
 export const createInspectLookup = (index: SnippetInspectIndex, _source?: string) => {
 	const elements = index.elements
 

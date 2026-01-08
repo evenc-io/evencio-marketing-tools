@@ -72,6 +72,9 @@ const resolveFunctionNode = (node: unknown, program: { body: unknown[] }): unkno
 	return null
 }
 
+/**
+ * Build a map of function names to their AST node declarations within a program.
+ */
 export const buildFunctionMap = (program: { body: unknown[] }) => {
 	const map = new Map<string, unknown>()
 	for (const node of program.body) {
@@ -125,6 +128,9 @@ export const buildFunctionMap = (program: { body: unknown[] }) => {
 	return map
 }
 
+/**
+ * Compute a human-friendly label for a default export (resolving identifiers/calls when possible).
+ */
 export const getDefaultExportDisplayName = (
 	declaration: unknown,
 	program: { body: unknown[] },
@@ -208,6 +214,9 @@ const getNamedExportedFunction = (
 	return null
 }
 
+/**
+ * Resolve a function AST node for an export (default export or named export).
+ */
 export const getExportedFunction = (
 	program: { body: unknown[] },
 	entryExport: string = DEFAULT_SNIPPET_EXPORT,
@@ -225,6 +234,9 @@ export const getExportedFunction = (
 	return getNamedExportedFunction(program, entryExport, functionMap)
 }
 
+/**
+ * List snippet component exports from a parsed program, including default export when present.
+ */
 export const listSnippetComponentExportsFromProgram = (program: { body: unknown[] }) => {
 	const exportEntries: SnippetComponentExport[] = []
 	const seen = new Set<string>()
@@ -296,6 +308,9 @@ export const listSnippetComponentExportsFromProgram = (program: { body: unknown[
 	return exportEntries
 }
 
+/**
+ * Parse snippet source and list available component exports.
+ */
 export const listSnippetComponentExports = async (
 	source: string,
 ): Promise<SnippetComponentExport[]> => {
@@ -312,6 +327,9 @@ export const listSnippetComponentExports = async (
 	return listSnippetComponentExportsFromProgram(program)
 }
 
+/**
+ * Collect export names for functions/components that can be analyzed in a snippet program.
+ */
 export const collectExportNames = (
 	program: { body: unknown[] },
 	functionMap: Map<string, unknown>,
@@ -415,6 +433,9 @@ const hasValidRange = <T extends { start?: number; end?: number }>(
 ): node is T & { start: number; end: number } =>
 	Boolean(node && typeof node.start === "number" && typeof node.end === "number")
 
+/**
+ * Build a map of export name -> exported source snippet for named exports in a module.
+ */
 export const getSnippetComponentSourceMap = async (
 	source: string,
 ): Promise<SnippetComponentSourceMap> => {
@@ -466,6 +487,9 @@ export const getSnippetComponentSourceMap = async (
 	return map
 }
 
+/**
+ * Remove a named export from source and return the updated module text plus a removal result.
+ */
 export const removeSnippetComponentExport = async (
 	source: string,
 	exportName: string,

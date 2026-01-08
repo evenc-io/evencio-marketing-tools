@@ -39,6 +39,9 @@ const metaStyle: CSSProperties = {
 	color: "#4B5563",
 }
 
+/**
+ * Simple "launch event" hero snippet used for previews and demos.
+ */
 export default function LaunchHero({ headline, accent }: LaunchHeroProps) {
 	const safeAccent = accent && accent.trim().length > 0 ? accent : "#111111"
 	const safeHeadline = headline && headline.trim().length > 0 ? headline : "Evencio Launch Night"

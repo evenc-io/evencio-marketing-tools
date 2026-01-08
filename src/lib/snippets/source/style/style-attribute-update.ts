@@ -92,6 +92,9 @@ const buildUpdatedObjectExpression = (
 	return { updated: true, value, removedKeys, isEmpty: entries.length === 0 }
 }
 
+/**
+ * Build a `style` attribute update for a JSX opening element based on a set of key/value style updates.
+ */
 export const buildStyleUpdate = (
 	source: string,
 	openingElement: Record<string, unknown>,

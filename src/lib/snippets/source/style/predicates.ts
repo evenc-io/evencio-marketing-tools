@@ -1,6 +1,9 @@
 import { isColorSuffix } from "./colors"
 import { getUtility, isBaseToken } from "./tokens"
 
+/**
+ * Check whether a Tailwind token represents a background color utility.
+ */
 export const isBackgroundClass = (token: string) => {
 	if (!isBaseToken(token)) return false
 	const base = getUtility(token)
@@ -8,6 +11,9 @@ export const isBackgroundClass = (token: string) => {
 	return isColorSuffix(base.slice("bg-".length))
 }
 
+/**
+ * Check whether a Tailwind token represents a border width utility.
+ */
 export const isBorderWidthClass = (token: string) => {
 	if (!isBaseToken(token)) return false
 	const base = getUtility(token)
@@ -35,6 +41,9 @@ const BORDER_COLOR_BLOCKLIST = new Set([
 	"e",
 ])
 
+/**
+ * Check whether a Tailwind token represents a border color utility (excluding border width/style variants).
+ */
 export const isBorderColorClass = (token: string) => {
 	if (!isBaseToken(token)) return false
 	const base = getUtility(token)
@@ -48,11 +57,17 @@ export const isBorderColorClass = (token: string) => {
 	return isColorSuffix(suffix)
 }
 
+/**
+ * Check whether a Tailwind token represents a border radius utility.
+ */
 export const isRadiusClass = (token: string) => {
 	if (!isBaseToken(token)) return false
 	return getUtility(token).startsWith("rounded")
 }
 
+/**
+ * Check whether a Tailwind token represents a text color utility.
+ */
 export const isTextColorClass = (token: string) => {
 	if (!isBaseToken(token)) return false
 	const base = getUtility(token)
@@ -61,6 +76,9 @@ export const isTextColorClass = (token: string) => {
 	return isColorSuffix(suffix)
 }
 
+/**
+ * Check whether a Tailwind token represents a font size utility.
+ */
 export const isFontSizeClass = (token: string) => {
 	if (!isBaseToken(token)) return false
 	const base = getUtility(token)
@@ -71,6 +89,9 @@ export const isFontSizeClass = (token: string) => {
 	return /^(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl|6xl|7xl|8xl|9xl)$/.test(suffix)
 }
 
+/**
+ * Check whether a Tailwind token represents a font weight utility.
+ */
 export const isFontWeightClass = (token: string) => {
 	if (!isBaseToken(token)) return false
 	const base = getUtility(token)
@@ -83,6 +104,9 @@ export const isFontWeightClass = (token: string) => {
 
 const FONT_FAMILY_TOKENS = new Set(["lexend", "unbounded", "mono"])
 
+/**
+ * Check whether a Tailwind token represents an allowed font family utility.
+ */
 export const isFontFamilyClass = (token: string) => {
 	if (!isBaseToken(token)) return false
 	const base = getUtility(token)
@@ -91,6 +115,9 @@ export const isFontFamilyClass = (token: string) => {
 	return FONT_FAMILY_TOKENS.has(suffix)
 }
 
+/**
+ * Check whether a Tailwind token represents a line-height utility.
+ */
 export const isLineHeightClass = (token: string) => {
 	if (!isBaseToken(token)) return false
 	const base = getUtility(token)
@@ -101,6 +128,9 @@ export const isLineHeightClass = (token: string) => {
 	return /^(none|tight|snug|normal|relaxed|loose|\d+)$/.test(suffix)
 }
 
+/**
+ * Check whether a Tailwind token represents a letter-spacing utility.
+ */
 export const isLetterSpacingClass = (token: string) => {
 	if (!isBaseToken(token)) return false
 	const base = getUtility(token)
@@ -113,6 +143,9 @@ export const isLetterSpacingClass = (token: string) => {
 
 const TEXT_ALIGN_TOKENS = new Set(["left", "center", "right", "justify", "start", "end"])
 
+/**
+ * Check whether a Tailwind token represents a text-align utility.
+ */
 export const isTextAlignClass = (token: string) => {
 	if (!isBaseToken(token)) return false
 	const base = getUtility(token)
@@ -123,6 +156,9 @@ export const isTextAlignClass = (token: string) => {
 
 const TEXT_TRANSFORM_TOKENS = new Set(["uppercase", "lowercase", "capitalize", "normal-case"])
 
+/**
+ * Check whether a Tailwind token represents a text-transform utility.
+ */
 export const isTextTransformClass = (token: string) => {
 	if (!isBaseToken(token)) return false
 	return TEXT_TRANSFORM_TOKENS.has(getUtility(token))
@@ -130,6 +166,9 @@ export const isTextTransformClass = (token: string) => {
 
 const FONT_STYLE_TOKENS = new Set(["italic", "not-italic"])
 
+/**
+ * Check whether a Tailwind token represents a font-style utility.
+ */
 export const isFontStyleClass = (token: string) => {
 	if (!isBaseToken(token)) return false
 	return FONT_STYLE_TOKENS.has(getUtility(token))
@@ -137,11 +176,17 @@ export const isFontStyleClass = (token: string) => {
 
 const TEXT_DECORATION_TOKENS = new Set(["underline", "line-through", "overline", "no-underline"])
 
+/**
+ * Check whether a Tailwind token represents a text-decoration utility.
+ */
 export const isTextDecorationClass = (token: string) => {
 	if (!isBaseToken(token)) return false
 	return TEXT_DECORATION_TOKENS.has(getUtility(token))
 }
 
+/**
+ * Create a predicate that checks whether a token represents a padding utility for a given prefix.
+ */
 export const isPaddingClass = (prefix: string) => (token: string) => {
 	if (!isBaseToken(token)) return false
 	const base = getUtility(token)

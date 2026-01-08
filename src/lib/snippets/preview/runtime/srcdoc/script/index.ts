@@ -15,6 +15,9 @@ const COMPILED_CODE_PLACEHOLDER = "__EVENCIO_SNIPPET_PREVIEW_COMPILED_CODE__"
 const replaceAll = (value: string, search: string, replacement: string) =>
 	value.split(search).join(replacement)
 
+/**
+ * Assemble the full snippet preview runtime script by concatenating section templates and replacing placeholders.
+ */
 export function buildPreviewRuntimeScript(options: {
 	nonce: string
 	unitlessStylesJson: string

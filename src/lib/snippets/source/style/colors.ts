@@ -39,6 +39,9 @@ const isPaletteColorToken = (suffix: string) => {
 	return true
 }
 
+/**
+ * Check whether a Tailwind class suffix represents a supported color token/value.
+ */
 export const isColorSuffix = (suffix: string) => {
 	if (!suffix) return false
 	if (
@@ -55,6 +58,9 @@ export const isColorSuffix = (suffix: string) => {
 	return isPaletteColorToken(suffix)
 }
 
+/**
+ * Normalize a hex color value to `#rrggbb` or `#rrggbbaa` (returns null if invalid).
+ */
 export const normalizeHexColor = (raw: string) => {
 	const value = raw.trim()
 	if (!value.startsWith("#")) return null
@@ -70,6 +76,9 @@ export const normalizeHexColor = (raw: string) => {
 	return `#${normalized.toLowerCase()}`
 }
 
+/**
+ * Normalize a color value to a stable representation for Tailwind/inline style usage.
+ */
 export const normalizeColorValue = (raw: string) => {
 	const trimmed = raw.trim()
 	if (!trimmed) return null
@@ -82,6 +91,9 @@ export const normalizeColorValue = (raw: string) => {
 	return trimmed
 }
 
+/**
+ * Normalize a color input token, returning null for empty values.
+ */
 export const normalizeColorToken = (value: string | null | undefined): string | null => {
 	if (value === null) return null
 	const trimmed = typeof value === "string" ? value.trim() : ""

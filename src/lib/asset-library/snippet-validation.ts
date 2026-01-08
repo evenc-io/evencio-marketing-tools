@@ -30,6 +30,9 @@ const buildPropSchema = (definition: SnippetPropDefinition) => {
 	}
 }
 
+/**
+ * Convert a snippet props schema definition into a Zod object schema.
+ */
 export function buildSnippetPropsSchema(definition: SnippetPropsSchemaDefinition) {
 	const shape: Record<string, z.ZodTypeAny> = {}
 	for (const prop of definition.props) {
@@ -39,6 +42,9 @@ export function buildSnippetPropsSchema(definition: SnippetPropsSchemaDefinition
 	return z.object(shape).strict()
 }
 
+/**
+ * Merge base + incoming snippet props and apply defaults from the schema definition.
+ */
 export function resolveSnippetProps(
 	definition: SnippetPropsSchemaDefinition,
 	baseProps: SnippetProps = {},
@@ -58,6 +64,9 @@ export function resolveSnippetProps(
 	return resolved
 }
 
+/**
+ * Validate resolved snippet props against the schema definition.
+ */
 export function validateSnippetProps(
 	definition: SnippetPropsSchemaDefinition,
 	props: SnippetProps,

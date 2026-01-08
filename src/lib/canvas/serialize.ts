@@ -223,6 +223,10 @@ const normalizeSerializedObjects = (objects: Array<Record<string, unknown>>) => 
 	return dedupe(objects, true)
 }
 
+/**
+ * Serialize a Fabric canvas to JSON, ensuring layer metadata and stable group transforms.
+ * Artboard objects are excluded from the serialized payload.
+ */
 export const serializeCanvas = (canvas: Canvas): string => {
 	finalizeActiveTransform(canvas)
 

@@ -302,6 +302,9 @@ const filterEntriesForRoots = (
 	return entries.filter((entry) => includeIds.has(entry.id))
 }
 
+/**
+ * Build a component tree for a snippet source by parsing and extracting JSX roots.
+ */
 export const buildComponentTreeFromSource = (
 	source: string,
 	entryExport?: string,
@@ -312,6 +315,9 @@ export const buildComponentTreeFromSource = (
 	return buildComponentTreeFromRoots(roots)
 }
 
+/**
+ * Build a component tree from pre-scanned component tree entries.
+ */
 export const buildComponentTreeFromEntries = (
 	entries: ComponentTreeEntry[],
 ): SnippetComponentTreeNode[] => {
@@ -356,6 +362,9 @@ export const buildComponentTreeFromEntries = (
 
 const isBrowserRuntime = () => typeof window !== "undefined" || typeof self !== "undefined"
 
+/**
+ * Build a snippet component tree, using WASM scanning in the browser when available.
+ */
 export const buildSnippetComponentTree = async ({
 	source,
 	entryExport,

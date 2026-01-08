@@ -34,9 +34,15 @@ const INTRINSIC_RULES: SnippetIntrinsicTagRule[] = [
 
 const RULES_BY_TAG = new Map(INTRINSIC_RULES.map((rule) => [rule.tag, rule]))
 
+/**
+ * Get the intrinsic tag rule for a given HTML tag name (returns null if not supported).
+ */
 export const getSnippetIntrinsicTagRule = (tag: string): SnippetIntrinsicTagRule | null =>
 	RULES_BY_TAG.get(tag) ?? null
 
+/**
+ * Check whether an element name refers to a supported intrinsic HTML tag (lowercase only).
+ */
 export const isSnippetIntrinsicTag = (elementName: string | null | undefined): boolean => {
 	if (!elementName) return false
 	if (elementName.toLowerCase() !== elementName) return false

@@ -1,3 +1,6 @@
+/**
+ * Split Tailwind variants (e.g. `hover:bg-red-500`) and return the base utility portion.
+ */
 export const splitVariants = (value: string) => {
 	let bracketDepth = 0
 	let lastColon = -1
@@ -10,8 +13,14 @@ export const splitVariants = (value: string) => {
 	return lastColon >= 0 ? value.slice(lastColon + 1) : value
 }
 
+/**
+ * Return true if the token has no variants/prefixes (i.e. it is a "base" token).
+ */
 export const isBaseToken = (token: string) => splitVariants(token) === token
 
+/**
+ * Remove Tailwind `!` important prefixes from a token.
+ */
 export const stripImportantPrefix = (value: string) => {
 	let next = value
 	while (next.startsWith("!")) {
@@ -20,4 +29,7 @@ export const stripImportantPrefix = (value: string) => {
 	return next
 }
 
+/**
+ * Get the utility portion of a token (no variants and no important prefixes).
+ */
 export const getUtility = (token: string) => stripImportantPrefix(splitVariants(token))

@@ -206,6 +206,9 @@ const decodeSnippetFileScanPayload = (bytes: Uint8Array): SnippetFileScanResult 
 	}
 }
 
+/**
+ * Scan snippet source for file blocks and line map data using WASM when available.
+ */
 export const scanSnippetFilesWasm = async (
 	source: string,
 ): Promise<SnippetFileScanResult | null> => {
@@ -253,10 +256,16 @@ export const scanSnippetFilesWasm = async (
 	}
 }
 
+/**
+ * Warm up the snippet WASM module (loads and caches it if possible).
+ */
 export const warmSnippetWasm = async () => {
 	await loadSnippetWasm()
 }
 
+/**
+ * Return current WASM support/load status (and last error message, if any).
+ */
 export const getSnippetWasmStatus = async () => {
 	const supported = hasWasmSupport()
 	if (!supported) {
@@ -273,6 +282,9 @@ export const getSnippetWasmStatus = async () => {
 const unescapeMessage = (value: string) =>
 	value.replace(/\\\\/g, "\\").replace(/\\n/g, "\n").replace(/\\r/g, "\r").replace(/\\t/g, "\t")
 
+/**
+ * Strip `@snippet-file` directive lines from source using WASM when available (sync).
+ */
 export const stripSnippetFileDirectivesWasmSync = (source: string): string | undefined => {
 	const wasm = getSnippetWasmSync()
 	if (!wasm?.strip_snippet_directives) return undefined
@@ -315,6 +327,9 @@ export const stripSnippetFileDirectivesWasmSync = (source: string): string | und
 	}
 }
 
+/**
+ * Strip the auto-managed imports block from snippet source using WASM when available (sync).
+ */
 export const stripAutoImportBlockWasmSync = (source: string): string | undefined => {
 	const wasm = getSnippetWasmSync()
 	if (!wasm?.strip_auto_import_block) return undefined
@@ -357,6 +372,9 @@ export const stripAutoImportBlockWasmSync = (source: string): string | undefined
 	}
 }
 
+/**
+ * Scan for the offset of the auto-managed imports block using WASM when available (sync).
+ */
 export const scanAutoImportOffsetWasmSync = (source: string): number | undefined => {
 	const wasm = getSnippetWasmSync()
 	if (!wasm?.scan_auto_import_offset) return undefined
@@ -376,6 +394,9 @@ export const scanAutoImportOffsetWasmSync = (source: string): number | undefined
 	}
 }
 
+/**
+ * Scan snippet source for the primary export name using WASM when available (sync).
+ */
 export const scanPrimaryExportNameWasmSync = (source: string): string | null | undefined => {
 	const wasm = getSnippetWasmSync()
 	if (!wasm?.scan_primary_export) return undefined
@@ -418,6 +439,9 @@ export const scanPrimaryExportNameWasmSync = (source: string): string | null | u
 	}
 }
 
+/**
+ * Scan snippet source for exported names using WASM when available (sync).
+ */
 export const scanExportNamesWasmSync = (source: string): string[] | undefined => {
 	const wasm = getSnippetWasmSync()
 	if (!wasm?.scan_export_names) return undefined
@@ -461,6 +485,9 @@ export const scanExportNamesWasmSync = (source: string): string[] | undefined =>
 	}
 }
 
+/**
+ * Scan for Tailwind class candidates using WASM when available.
+ */
 export const scanTailwindCandidatesWasm = async (
 	source: string,
 	options?: { expanded?: boolean },
@@ -510,6 +537,9 @@ export const scanTailwindCandidatesWasm = async (
 	}
 }
 
+/**
+ * Hash a source string using WASM hashing (returns null if WASM is unavailable).
+ */
 export const hashSourceWasm = async (source: string): Promise<number | null> => {
 	const wasm = await loadSnippetWasm()
 	if (!wasm) return null
@@ -529,6 +559,9 @@ export const hashSourceWasm = async (source: string): Promise<number | null> => 
 	}
 }
 
+/**
+ * Scan snippet source for security issues using WASM when available.
+ */
 export const scanSnippetSecurityIssuesWasm = async (
 	source: string,
 	options?: { expanded?: boolean },
@@ -595,6 +628,9 @@ export const scanSnippetSecurityIssuesWasm = async (
 	}
 }
 
+/**
+ * Build a snippet inspect index using WASM scanning when available.
+ */
 export const buildSnippetInspectIndexWasm = async (
 	source: string,
 	options?: { expanded?: boolean },
@@ -718,6 +754,9 @@ export type ComponentTreeScanEntry = {
 	className: string | null
 }
 
+/**
+ * Scan snippet source for a component tree using WASM when available.
+ */
 export const scanComponentTreeWasm = async (
 	source: string,
 	options?: { expanded?: boolean },

@@ -177,6 +177,9 @@ const expandSnippetSourceWithMap = (mainSource: string, files: Record<string, st
 let lastSyncSource: string | null = null
 let lastSyncResult: SnippetFileScanResult | null = null
 
+/**
+ * Scan snippet source for `@snippet-file` blocks and expand `@import` directives (synchronous + cached).
+ */
 export const scanSnippetFilesSync = (source: string): SnippetFileScanResult => {
 	if (!source) {
 		return {
@@ -204,6 +207,9 @@ export const scanSnippetFilesSync = (source: string): SnippetFileScanResult => {
 	return result
 }
 
+/**
+ * Parse snippet source into a main source string plus named file blocks.
+ */
 export const parseSnippetFiles = (source: string): ParsedSnippetFiles => {
 	const parsed = parseSnippetFilesSync(source)
 	return {
@@ -213,6 +219,9 @@ export const parseSnippetFiles = (source: string): ParsedSnippetFiles => {
 	}
 }
 
+/**
+ * Serialize a main source string plus named file blocks back into a single source string.
+ */
 export const serializeSnippetFiles = (
 	mainSource: string,
 	files: Record<string, string>,
@@ -237,14 +246,23 @@ export const serializeSnippetFiles = (
 	return output.trimEnd()
 }
 
+/**
+ * Expand snippet source by inlining `@import` file blocks into a single source string.
+ */
 export const expandSnippetSource = (source: string): string =>
 	scanSnippetFilesSync(source).expandedSource
 
+/**
+ * Build a line map between expanded source lines and original file lines.
+ */
 export const buildSnippetLineMapSegments = (
 	mainSource: string,
 	files: Record<string, string>,
 ): SnippetLineMapSegment[] => expandSnippetSourceWithMap(mainSource, files).lineMapSegments
 
+/**
+ * Extract all `@import` file names referenced within snippet source and file blocks.
+ */
 export const extractSnippetImports = (source: string): string[] => {
 	const parsed = parseSnippetFilesSync(source)
 	const imports = new Set<string>()

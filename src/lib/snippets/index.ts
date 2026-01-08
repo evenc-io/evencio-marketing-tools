@@ -36,10 +36,16 @@ const registry: Record<string, SnippetRegistryEntry> = {
 	},
 }
 
+/**
+ * Look up a snippet registry entry by its module path string.
+ */
 export function getSnippetRegistryEntry(entry: string): SnippetRegistryEntry | null {
 	return registry[entry] ?? null
 }
 
+/**
+ * List all registered snippet entry keys.
+ */
 export function listSnippetRegistryEntries(): string[] {
 	return Object.keys(registry)
 }

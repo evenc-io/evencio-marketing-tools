@@ -134,6 +134,9 @@ const getRootObjectName = (node: unknown): string | null => {
 	return getIdentifierName(current)
 }
 
+/**
+ * Analyze snippet source for security issues (imports/globals/calls), expanding file blocks first.
+ */
 export const analyzeSnippetSource = async (source: string): Promise<SourceSecurityIssue[]> => {
 	const issues: SourceSecurityIssue[] = []
 
@@ -153,6 +156,9 @@ export const analyzeSnippetSource = async (source: string): Promise<SourceSecuri
 	return issues
 }
 
+/**
+ * Analyze a parsed AST for security issues (imports/globals/calls) and return a list of issues.
+ */
 export const analyzeSnippetAst = (ast: unknown): SourceSecurityIssue[] => {
 	const issues: SourceSecurityIssue[] = []
 
@@ -246,6 +252,9 @@ export const analyzeSnippetAst = (ast: unknown): SourceSecurityIssue[] => {
 	return issues
 }
 
+/**
+ * Convert security issues to compile errors suitable for surfacing in the editor.
+ */
 export const securityIssuesToCompileErrors = (issues: SourceSecurityIssue[]): CompileError[] =>
 	issues.map((issue) => ({
 		message: issue.message,

@@ -103,6 +103,9 @@ const resolveAndValidateProps = (asset: SnippetAsset, props?: SnippetProps) => {
 	return validation.data
 }
 
+/**
+ * Render a snippet asset to HTML markup, enforcing deterministic env/network restrictions and props validation.
+ */
 export async function renderSnippetToMarkup(
 	asset: SnippetAsset,
 	props?: SnippetProps,
@@ -149,6 +152,9 @@ export async function renderSnippetToMarkup(
 	return markup
 }
 
+/**
+ * Render a snippet asset to a full standalone HTML document.
+ */
 export async function renderSnippetToHtmlDocument(
 	asset: SnippetAsset,
 	props?: SnippetProps,
@@ -159,6 +165,9 @@ export async function renderSnippetToHtmlDocument(
 	return buildSnippetHtmlDocument(markup, determinism)
 }
 
+/**
+ * Render a snippet asset to a PNG data URL in a browser environment, with optional caching.
+ */
 export async function renderSnippetToPng(
 	asset: SnippetAsset,
 	props?: SnippetProps,

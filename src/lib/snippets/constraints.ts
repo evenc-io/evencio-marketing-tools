@@ -17,6 +17,9 @@ export const SNIPPET_DIMENSION_LIMITS = {
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
+/**
+ * Clamp and round a snippet viewport to the supported dimension limits.
+ */
 export const clampSnippetViewport = (viewport: SnippetViewport): SnippetViewport => {
 	const width = clamp(
 		Math.round(viewport.width),
@@ -31,6 +34,9 @@ export const clampSnippetViewport = (viewport: SnippetViewport): SnippetViewport
 	return { width, height }
 }
 
+/**
+ * Return a human-readable validation error for a viewport, or null if it is within limits.
+ */
 export const getSnippetViewportError = (viewport: SnippetViewport): string | null => {
 	const { min, max, maxArea } = SNIPPET_DIMENSION_LIMITS
 	if (viewport.width < min || viewport.height < min) {

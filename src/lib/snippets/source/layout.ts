@@ -556,6 +556,9 @@ const buildStyleUpdate = (
 	}
 }
 
+/**
+ * Apply a translate/align/size update to the JSX element at the given cursor position.
+ */
 export const applySnippetTranslate = async ({
 	source,
 	line,

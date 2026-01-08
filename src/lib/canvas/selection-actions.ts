@@ -26,6 +26,9 @@ const getInsertIndex = (
 	return nextAboveIndex === -1 ? remainingObjects.length : nextAboveIndex
 }
 
+/**
+ * Delete the active selection from the canvas (excluding the artboard).
+ */
 export const deleteSelection = (canvas: Canvas) => {
 	const activeObjects = getActiveUserObjects(canvas)
 	if (activeObjects.length === 0) return
@@ -37,6 +40,9 @@ export const deleteSelection = (canvas: Canvas) => {
 	canvas.renderAll()
 }
 
+/**
+ * Group the active selection, flattening nested groups when needed (excluding the artboard).
+ */
 export const groupSelection = (canvas: Canvas) => {
 	const activeObjects = getActiveUserObjects(canvas)
 	if (activeObjects.length < 2) return
@@ -120,6 +126,9 @@ export const groupSelection = (canvas: Canvas) => {
 	canvas.renderAll()
 }
 
+/**
+ * Ungroup the selected groups, inserting their children back into the canvas object stack.
+ */
 export const ungroupSelection = (canvas: Canvas) => {
 	const activeObjects = getActiveUserObjects(canvas)
 	const selectedGroups = activeObjects.filter(isGroupObject) as Group[]

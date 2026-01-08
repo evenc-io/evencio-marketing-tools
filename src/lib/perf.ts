@@ -6,6 +6,9 @@ export type PerfSample = {
 
 const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now())
 
+/**
+ * Measure how long it takes to run `fn` N times (awaiting each iteration).
+ */
 export const measure = async (
 	label: string,
 	iterations: number,
@@ -19,5 +22,8 @@ export const measure = async (
 	return { label, iterations, durationMs: end - start }
 }
 
+/**
+ * Format a perf sample as a single human-readable line.
+ */
 export const formatSample = (sample: PerfSample) =>
 	`${sample.label}: ${sample.durationMs.toFixed(2)}ms (${sample.iterations} runs)`

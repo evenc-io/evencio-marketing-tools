@@ -58,6 +58,9 @@ export type SnippetStyleUpdateResult = {
 	notice?: string
 }
 
+/**
+ * Apply style updates to the JSX element at the given cursor position (prefers Tailwind class edits, falls back to inline styles).
+ */
 export const applySnippetStyleUpdate = async ({
 	source,
 	line,

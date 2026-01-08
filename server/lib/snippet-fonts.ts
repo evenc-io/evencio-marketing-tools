@@ -262,5 +262,8 @@ export const SNIPPET_FONT_CSS = `
 }
 `
 
+/**
+ * Inject snippet font CSS into an HTML document by inlining it in the `<head>`.
+ */
 export const injectSnippetFonts = (html: string) =>
 	html.replace("</head>", `<style>${SNIPPET_FONT_CSS}</style></head>`)

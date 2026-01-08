@@ -28,6 +28,9 @@ export const SCREEN_GUARD_EMPTY: ScreenGateInfo = {
 	screen: { width: 0, height: 0 },
 }
 
+/**
+ * Compute the current screen/viewport gate status for the given config.
+ */
 export const getScreenGateInfo = (
 	config: ScreenGuardConfig = SCREEN_GUARD_DEFAULTS,
 ): ScreenGateInfo => {
@@ -54,6 +57,9 @@ export const getScreenGateInfo = (
 
 const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect
 
+/**
+ * React hook that tracks screen/viewport size and returns whether the app should be gated.
+ */
 export const useScreenGuard = (
 	config: ScreenGuardConfig = SCREEN_GUARD_DEFAULTS,
 ): ScreenGateInfo => {

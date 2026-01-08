@@ -54,6 +54,9 @@ export interface AssetRegistry {
 	metadata: AssetMetadataStore
 }
 
+/**
+ * Create an in-memory asset registry intended for tests and local development.
+ */
 export function createStubAssetRegistry(): AssetRegistry {
 	const assets = new Map<AssetId, Asset>()
 	const tags = new Map<AssetTagId, AssetTag>()
