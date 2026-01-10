@@ -197,7 +197,6 @@ export function SnippetsEditorPage({ search }: { search: SnippetsEditorSearch })
 	const templateAppliedRef = useRef(false)
 	const fileMigrationRef = useRef(false)
 	const importAssetMutationRef = useRef(false)
-	const importAssetsFileNormalizationRef = useRef<string | null>(null)
 	const [error, setError] = useState<string | null>(null)
 	const [isSubmitting, setIsSubmitting] = useState(false)
 	const [layoutMode, setLayoutMode] = useState(false)
@@ -305,8 +304,6 @@ export function SnippetsEditorPage({ search }: { search: SnippetsEditorSearch })
 		const nextMain = syncImportBlock(parsedFiles.mainSource, Object.keys(normalized.files))
 		const nextSource = serializeSnippetFiles(nextMain, normalized.files)
 		if (nextSource === watchedSource) return
-		if (importAssetsFileNormalizationRef.current === nextSource) return
-		importAssetsFileNormalizationRef.current = nextSource
 
 		form.setValue("source", nextSource, { shouldValidate: true, shouldDirty: true })
 	}, [form, parsedFiles.files, parsedFiles.mainSource, watchedSource])

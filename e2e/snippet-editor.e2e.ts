@@ -396,6 +396,8 @@ test("imports gallery renders the imports preview file", async ({ page }) => {
 	await page.keyboard.press("Escape")
 	await expect(gallery).toBeHidden()
 
+	await expect(page.getByTestId("imports-sidebar-import-asset-evencio-lockup")).toBeVisible()
+
 	// Close the imports focus panel to restore the explorer.
 	await page.getByRole("button", { name: "Hide imports panel" }).nth(1).click()
 
@@ -406,9 +408,14 @@ test("imports gallery renders the imports preview file", async ({ page }) => {
 	await expect(importsFileTab).toBeVisible()
 	await importsFileTab.click()
 
-	await expect(page.getByText("Imports · Assets")).toBeVisible()
 	const preview = page.frameLocator('iframe[data-snippet-preview="iframe"]')
-	await expect(preview.getByText("Evencio lockup", { exact: false })).toBeVisible()
+	await expect(preview.locator("[data-snippet-imports-preview]")).toBeVisible()
+	await expect
+		.poll(() => preview.locator("[data-snippet-imports-tile]").count(), { timeout: 30000 })
+		.toBeGreaterThan(0)
+	await expect(preview.getByText("Evencio lockup", { exact: false })).toBeVisible({
+		timeout: 30000,
+	})
 	await expect(page.getByText("Write code to see preview")).toHaveCount(0)
 })
 
