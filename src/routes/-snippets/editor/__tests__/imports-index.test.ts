@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test"
 import { buildSnippetImportsIndex } from "@/routes/-snippets/editor/hooks/snippet/imports-index"
-import { IMPORT_ASSET_FILE_NAME } from "@/routes/-snippets/editor/import-assets"
+import {
+	IMPORT_ASSET_FILE_LEGACY_NAME,
+	IMPORT_ASSET_FILE_NAME,
+} from "@/routes/-snippets/editor/import-assets"
 
 describe("imports-index", () => {
 	it("detects imported assets from the imports file source", () => {
@@ -99,5 +102,20 @@ const EvencioLockup = () => (
 
 		expect(index.importAssetsById.get("evencio-mark")?.used).toBe(false)
 		expect(index.importAssetsById.get("evencio-lockup")?.used).toBe(false)
+	})
+
+	it("detects imported assets from legacy Imports.assets.tsx sources", () => {
+		const index = buildSnippetImportsIndex({
+			mainSource: `export default function Demo() { return <div /> }`,
+			files: {
+				[IMPORT_ASSET_FILE_LEGACY_NAME]: `
+const EvencioMark = () => <svg viewBox="0 0 10 10" />
+const EvencioLockup = () => <EvencioMark />
+`.trim(),
+			},
+		})
+
+		expect(index.importedImportAssetIds).toContain("evencio-mark")
+		expect(index.importedImportAssetIds).toContain("evencio-lockup")
 	})
 })

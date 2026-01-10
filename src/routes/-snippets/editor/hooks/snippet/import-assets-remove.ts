@@ -6,8 +6,10 @@ import {
 	getImportAsset,
 	getImportAssetIdsInFileSource,
 	getImportAssetRemovalIds,
-	IMPORT_ASSET_FILE_NAME,
 	type ImportAssetId,
+	isImportAssetsFileName,
+	normalizeImportAssetsFileMap,
+	resolveImportAssetsFileName,
 } from "@/routes/-snippets/editor/import-assets"
 import {
 	stripAutoImportBlock,
@@ -250,15 +252,17 @@ export const useSnippetImportAssetsRemove = ({
 
 				const currentSource = (form.getValues("source") as string | undefined) ?? ""
 				const parsed = parseSnippetFiles(currentSource)
+				const normalizedFiles = normalizeImportAssetsFileMap(parsed.files).files
+				const importAssetsFileName = resolveImportAssetsFileName(normalizedFiles)
 				const componentNames = removalAssets.map((entry) => entry.componentName)
 				const label =
 					removalAssets.length === 1
 						? `Remove import asset: ${removalAssets[0].label}`
 						: `Remove import assets (${removalAssets.length})`
 
-				const nextFiles: Record<string, string> = { ...parsed.files }
-				for (const [fileName, fileSource] of Object.entries(parsed.files)) {
-					if (fileName === IMPORT_ASSET_FILE_NAME) continue
+				const nextFiles: Record<string, string> = { ...normalizedFiles }
+				for (const [fileName, fileSource] of Object.entries(normalizedFiles)) {
+					if (isImportAssetsFileName(fileName)) continue
 					const result = await removeImportAssetUsagesFromSource({
 						source: fileSource,
 						assetIds: removalIds,
@@ -276,17 +280,17 @@ export const useSnippetImportAssetsRemove = ({
 				})
 				const nextMainBase = stripSnippetFileDirectives(mainResult.source)
 
-				if (Object.hasOwn(nextFiles, IMPORT_ASSET_FILE_NAME)) {
-					const importsSource = parsed.files[IMPORT_ASSET_FILE_NAME] ?? ""
+				if (Object.hasOwn(nextFiles, importAssetsFileName)) {
+					const importsSource = normalizedFiles[importAssetsFileName] ?? ""
 					const importsResult = await removeImportAssetsFromImportsFileSource({
 						source: importsSource,
 						componentNames,
 					})
 					const nextImportsSource = importsResult.changed ? importsResult.source : importsSource
 					if (nextImportsSource.trim().length === 0) {
-						delete nextFiles[IMPORT_ASSET_FILE_NAME]
+						delete nextFiles[importAssetsFileName]
 					} else {
-						nextFiles[IMPORT_ASSET_FILE_NAME] = nextImportsSource
+						nextFiles[importAssetsFileName] = nextImportsSource
 					}
 				}
 

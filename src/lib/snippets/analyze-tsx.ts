@@ -99,19 +99,34 @@ export const analyzeSnippetTsx = async ({
 	if (includeTailwind) {
 		try {
 			let candidates: string[] = []
+			let usedWasmCandidates = false
+
 			if (isBrowser) {
 				const wasmCandidates = await extractTailwindCandidatesFromSourceWasm(normalizedSource, {
 					expanded: true,
 				})
 				if (wasmCandidates !== null) {
 					candidates = wasmCandidates
+					usedWasmCandidates = true
 				} else {
 					candidates = extractTailwindCandidatesFromAst(ast)
 				}
 			} else {
 				candidates = extractTailwindCandidatesFromAst(ast)
 			}
-			tailwindCss = await buildSnippetTailwindCssFromCandidates(candidates)
+
+			try {
+				tailwindCss = await buildSnippetTailwindCssFromCandidates(candidates)
+			} catch (err) {
+				// WASM candidate scanning is a performance optimization. If it over-collects candidates
+				// (e.g. from non-className string literals), Tailwind generation can fail. Fall back to
+				// the AST-based extractor which only considers static className/class strings.
+				if (!usedWasmCandidates) {
+					throw err
+				}
+				const fallbackCandidates = extractTailwindCandidatesFromAst(ast)
+				tailwindCss = await buildSnippetTailwindCssFromCandidates(fallbackCandidates)
+			}
 		} catch (err) {
 			tailwindCss = null
 			tailwindError = err instanceof Error ? err.message : "Failed to build Tailwind CSS"

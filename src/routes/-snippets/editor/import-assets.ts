@@ -14,6 +14,56 @@ export type ImportAssetDescriptor = {
 }
 
 export const IMPORT_ASSET_FILE_NAME = "__imports.assets.tsx"
+export const IMPORT_ASSET_FILE_LEGACY_NAME = "Imports.assets.tsx"
+
+/**
+ * Returns true when a snippet file name is the auto-managed import-assets file.
+ *
+ * This supports legacy snippets that used `Imports.assets.tsx` before the file was renamed
+ * to `__imports.assets.tsx`.
+ */
+export const isImportAssetsFileName = (fileName: string | null | undefined): boolean =>
+	fileName === IMPORT_ASSET_FILE_NAME || fileName === IMPORT_ASSET_FILE_LEGACY_NAME
+
+/**
+ * Resolve the import-assets file name to use for a given snippet's file map.
+ *
+ * Prefers `__imports.assets.tsx` when present, otherwise falls back to the legacy
+ * `Imports.assets.tsx` name. If neither exists, returns the canonical name so callers can
+ * create it.
+ */
+export const resolveImportAssetsFileName = (files: Record<string, string>): string => {
+	if (Object.hasOwn(files, IMPORT_ASSET_FILE_NAME)) return IMPORT_ASSET_FILE_NAME
+	if (Object.hasOwn(files, IMPORT_ASSET_FILE_LEGACY_NAME)) return IMPORT_ASSET_FILE_LEGACY_NAME
+	return IMPORT_ASSET_FILE_NAME
+}
+
+/**
+ * Normalize the snippet file map so the import-assets file is never duplicated.
+ *
+ * If both `__imports.assets.tsx` and `Imports.assets.tsx` are present, this merges the legacy
+ * declarations into the canonical file and drops the legacy entry. This prevents duplicate
+ * imports/definitions and keeps editor-derived maps (like "go to definition") stable.
+ */
+export const normalizeImportAssetsFileMap = (
+	files: Record<string, string>,
+): { files: Record<string, string>; changed: boolean } => {
+	const hasCanonical = Object.hasOwn(files, IMPORT_ASSET_FILE_NAME)
+	const hasLegacy = Object.hasOwn(files, IMPORT_ASSET_FILE_LEGACY_NAME)
+	if (!hasCanonical || !hasLegacy) return { files, changed: false }
+
+	const canonicalSource = files[IMPORT_ASSET_FILE_NAME] ?? ""
+	const legacySource = files[IMPORT_ASSET_FILE_LEGACY_NAME] ?? ""
+	const legacyIds = getImportAssetIdsInFileSource(legacySource)
+	const mergedCanonical = ensureImportAssetsFileSource(canonicalSource, legacyIds, {
+		resolveDependencies: false,
+	})
+
+	const nextFiles: Record<string, string> = { ...files, [IMPORT_ASSET_FILE_NAME]: mergedCanonical }
+	delete nextFiles[IMPORT_ASSET_FILE_LEGACY_NAME]
+
+	return { files: nextFiles, changed: true }
+}
 
 const getImportAssetPreviewColSpan = (asset: ImportAssetDescriptor, columns: number) => {
 	const safeColumns = Math.max(1, Math.floor(columns))

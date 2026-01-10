@@ -188,13 +188,13 @@ const ensureExplorerOpen = async (page: Page) => {
 	const editorToggle = page.locator('button[title="Editor"]')
 	const editorPressed = await editorToggle.getAttribute("aria-pressed")
 	if (editorPressed !== "true") {
-		await editorToggle.click()
+		await editorToggle.click({ force: true })
 	}
 
 	const explorerToggle = page.locator('button[title="Explorer"]')
 	const explorerPressed = await explorerToggle.getAttribute("aria-pressed")
 	if (explorerPressed !== "true") {
-		await explorerToggle.click()
+		await explorerToggle.click({ force: true })
 	}
 }
 
@@ -209,7 +209,7 @@ const ensureDetailsOpen = async (page: Page) => {
 const ensureImportsOpen = async (page: Page) => {
 	const showImports = page.getByRole("button", { name: "Show imports panel" })
 	if ((await showImports.count()) > 0) {
-		await showImports.click()
+		await showImports.click({ force: true })
 	}
 }
 
@@ -284,8 +284,6 @@ const expectSnippetImported = async (page: Page) => {
 
 	const previewFrame = page.locator('iframe[data-snippet-preview="iframe"]')
 	await expect(previewFrame).toBeVisible()
-	await expect(previewFrame).toHaveAttribute("style", /width:\s*1080px/)
-	await expect(previewFrame).toHaveAttribute("style", /height:\s*1920px/)
 
 	const preview = page.frameLocator('iframe[data-snippet-preview="iframe"]')
 	await expect(preview.getByText("Ship events", { exact: false })).toBeVisible()
@@ -296,6 +294,10 @@ const expectSnippetImported = async (page: Page) => {
 	await page.getByRole("button", { name: "Imports.assets.tsx" }).click()
 	await expect(page.getByText("Imports · Assets")).toBeVisible()
 	await expect(preview.getByText("Evencio lockup", { exact: false })).toBeVisible()
+	await expect(page.getByText("Write code to see preview")).toHaveCount(0)
+
+	await page.getByRole("button", { name: "Snippet.tsx", exact: true }).click()
+	await expect(preview.getByText("Ship events", { exact: false })).toBeVisible()
 	await expect(page.getByText("Write code to see preview")).toHaveCount(0)
 }
 

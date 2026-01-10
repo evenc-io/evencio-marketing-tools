@@ -4,7 +4,7 @@ import type { UseFormReturn } from "react-hook-form"
 import { DEFAULT_SNIPPET_EXPORT } from "@/lib/snippets"
 import type { PreviewSourceLocation } from "@/lib/snippets/preview/runtime"
 import type { SnippetTemplateId } from "@/lib/snippets/templates"
-import { IMPORT_ASSET_FILE_NAME } from "@/routes/-snippets/editor/import-assets"
+import { isImportAssetsFileName } from "@/routes/-snippets/editor/import-assets"
 import type { CustomSnippetValues } from "@/routes/-snippets/editor/schema"
 import type { SnippetEditorFileId } from "@/routes/-snippets/editor/snippet-editor-types"
 import { parseSnippetImportText } from "@/routes/-snippets/editor/snippet-import-utils"
@@ -52,7 +52,7 @@ export function useSnippetImportSnippet({
 			const nextSource = result.value.source
 			const viewport = result.value.viewport
 			const hasMultiFiles = result.value.fileNames.some(
-				(fileName) => fileName !== IMPORT_ASSET_FILE_NAME,
+				(fileName) => !isImportAssetsFileName(fileName),
 			)
 
 			fileMigrationRef.current = false

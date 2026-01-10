@@ -100,8 +100,10 @@ import {
 	getImportAsset,
 	getImportAssetRemovalIds,
 	getImportAssetsPreviewDimensions,
-	IMPORT_ASSET_FILE_NAME,
 	type ImportAssetId,
+	isImportAssetsFileName,
+	normalizeImportAssetsFileMap,
+	resolveImportAssetsFileName,
 } from "@/routes/-snippets/editor/import-assets"
 import { type CustomSnippetValues, customSnippetSchema } from "@/routes/-snippets/editor/schema"
 import { getSnippetDraftId, NEW_SNIPPET_DRAFT_ID } from "@/routes/-snippets/editor/snippet-drafts"
@@ -295,6 +297,16 @@ export function SnippetsEditorPage({ search }: { search: SnippetsEditorSearch })
 	const derivedProps = useDerivedSnippetProps({ analysis, form })
 	const parsedFiles = useMemo(() => parseSnippetFiles(watchedSource), [watchedSource])
 	const deferredParsedFiles = useDeferredValue(parsedFiles)
+	useEffect(() => {
+		const normalized = normalizeImportAssetsFileMap(parsedFiles.files)
+		if (!normalized.changed) return
+
+		const nextMain = syncImportBlock(parsedFiles.mainSource, Object.keys(normalized.files))
+		const nextSource = serializeSnippetFiles(nextMain, normalized.files)
+		if (nextSource === watchedSource) return
+
+		form.setValue("source", nextSource, { shouldValidate: true, shouldDirty: true })
+	}, [form, parsedFiles.files, parsedFiles.mainSource, watchedSource])
 	const lineMapSegments = useMemo(() => {
 		if (analysis?.lineMapSegments && analysis.lineMapSegments.length > 0) {
 			return analysis.lineMapSegments
@@ -447,7 +459,7 @@ export function SnippetsEditorPage({ search }: { search: SnippetsEditorSearch })
 		selectedTemplateId,
 	})
 	const isImportAssetsFileActive =
-		isComponentEditorActive && activeComponentFileName === IMPORT_ASSET_FILE_NAME
+		isComponentEditorActive && isImportAssetsFileName(activeComponentFileName)
 	const shouldComputeImportsIndex =
 		importsOpen ||
 		importsGalleryOpen ||
@@ -716,7 +728,13 @@ export function SnippetsEditorPage({ search }: { search: SnippetsEditorSearch })
 		debounceMs: 300,
 		key: "snippet-analyze-example",
 	})
-	const importAssetsFileSource = parsedFiles.files[IMPORT_ASSET_FILE_NAME] ?? ""
+	const importAssetsFileSource = useMemo(() => {
+		const resolved = resolveImportAssetsFileName(parsedFiles.files)
+		const fileName = isImportAssetsFileName(activeComponentFileName)
+			? (activeComponentFileName ?? resolved)
+			: resolved
+		return parsedFiles.files[fileName] ?? ""
+	}, [activeComponentFileName, parsedFiles.files])
 	const importAssetsPreviewSource = useMemo(() => {
 		if (!isImportAssetsFileActive) return ""
 		return buildImportAssetsPreviewSource(importAssetsFileSource)
