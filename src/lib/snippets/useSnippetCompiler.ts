@@ -278,7 +278,9 @@ export function useSnippetCompiler({
 							return
 						}
 						setStatus("error")
-						setCompiledCode(null)
+						// Keep the compiled code so the preview can still render (unstyled) while
+						// surfacing the Tailwind generation error to the editor.
+						setCompiledCode(result.code)
 						setErrors([...result.errors, buildLimitError(tailwindErrorMessage)])
 						setWarnings(result.warnings)
 						setTailwindCss(null)

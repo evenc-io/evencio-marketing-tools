@@ -4,8 +4,9 @@ import { parseSnippetFiles, serializeSnippetFiles } from "@/lib/snippets/source/
 import {
 	ensureImportAssetsFileSource,
 	getImportAsset,
-	IMPORT_ASSET_FILE_NAME,
 	type ImportAssetId,
+	normalizeImportAssetsFileMap,
+	resolveImportAssetsFileName,
 } from "@/routes/-snippets/editor/import-assets"
 import { stripAutoImportBlock, syncImportBlock } from "@/routes/-snippets/editor/snippet-file-utils"
 
@@ -35,19 +36,21 @@ export const useSnippetImportAssetsAdd = ({
 
 				const currentSource = (form.getValues("source") as string | undefined) ?? ""
 				const parsed = parseSnippetFiles(currentSource)
-				const currentImportsSource = parsed.files[IMPORT_ASSET_FILE_NAME] ?? ""
+				const normalizedFiles = normalizeImportAssetsFileMap(parsed.files).files
+				const importAssetsFileName = resolveImportAssetsFileName(normalizedFiles)
+				const currentImportsSource = normalizedFiles[importAssetsFileName] ?? ""
 				const nextImportsSource = ensureImportAssetsFileSource(currentImportsSource, [asset.id])
 
 				if (
 					nextImportsSource === currentImportsSource &&
-					Object.hasOwn(parsed.files, IMPORT_ASSET_FILE_NAME)
+					Object.hasOwn(normalizedFiles, importAssetsFileName)
 				) {
 					return
 				}
 
 				const nextFiles: Record<string, string> = {
-					...parsed.files,
-					[IMPORT_ASSET_FILE_NAME]: nextImportsSource,
+					...normalizedFiles,
+					[importAssetsFileName]: nextImportsSource,
 				}
 
 				const nextMainBase = stripAutoImportBlock(parsed.mainSource)

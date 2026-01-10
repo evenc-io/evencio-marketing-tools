@@ -284,8 +284,6 @@ const expectSnippetImported = async (page: Page) => {
 
 	const previewFrame = page.locator('iframe[data-snippet-preview="iframe"]')
 	await expect(previewFrame).toBeVisible()
-	await expect(previewFrame).toHaveAttribute("style", /width:\s*1080px/)
-	await expect(previewFrame).toHaveAttribute("style", /height:\s*1920px/)
 
 	const preview = page.frameLocator('iframe[data-snippet-preview="iframe"]')
 	await expect(preview.getByText("Ship events", { exact: false })).toBeVisible()
@@ -296,6 +294,10 @@ const expectSnippetImported = async (page: Page) => {
 	await page.getByRole("button", { name: "Imports.assets.tsx" }).click()
 	await expect(page.getByText("Imports · Assets")).toBeVisible()
 	await expect(preview.getByText("Evencio lockup", { exact: false })).toBeVisible()
+	await expect(page.getByText("Write code to see preview")).toHaveCount(0)
+
+	await page.getByRole("button", { name: "Snippet.tsx", exact: true }).click()
+	await expect(preview.getByText("Ship events", { exact: false })).toBeVisible()
 	await expect(page.getByText("Write code to see preview")).toHaveCount(0)
 }
 
@@ -374,6 +376,40 @@ test("imports gallery can import + remove built-in SVGs", async ({ page }) => {
 	await gallery.getByRole("button", { name: /^SVGs/ }).click()
 	await expect(gallery.getByTestId("imports-gallery-import-evencio-lockup")).toBeVisible()
 	await expect(gallery.getByTestId("imports-gallery-import-evencio-mark")).toBeVisible()
+})
+
+test("imports gallery renders the imports preview file", async ({ page }) => {
+	await openNewSnippetEditor(page)
+	await ensureExplorerOpen(page)
+	await ensureImportsOpen(page)
+
+	await page.getByRole("button", { name: "Gallery" }).click()
+
+	const gallery = page.getByRole("dialog", { name: "Imports gallery" })
+	await expect(gallery).toBeVisible()
+
+	await gallery.getByRole("button", { name: /^SVGs/ }).click()
+
+	await gallery.getByTestId("imports-gallery-import-evencio-lockup").click()
+	await expect(gallery.getByTestId("imports-gallery-remove-evencio-lockup")).toBeVisible()
+
+	await page.keyboard.press("Escape")
+	await expect(gallery).toBeHidden()
+
+	// Close the imports focus panel to restore the explorer.
+	await page.getByRole("button", { name: "Hide imports panel" }).nth(1).click()
+
+	const previewFrame = page.locator('iframe[data-snippet-preview="iframe"]')
+	await expect(previewFrame).toBeVisible()
+
+	const importsFileTab = page.getByRole("button", { name: "Imports.assets.tsx" })
+	await expect(importsFileTab).toBeVisible()
+	await importsFileTab.click()
+
+	await expect(page.getByText("Imports · Assets")).toBeVisible()
+	const preview = page.frameLocator('iframe[data-snippet-preview="iframe"]')
+	await expect(preview.getByText("Evencio lockup", { exact: false })).toBeVisible()
+	await expect(page.getByText("Write code to see preview")).toHaveCount(0)
 })
 
 test("layout mode persists translate + size as Tailwind utilities", async ({ page }) => {

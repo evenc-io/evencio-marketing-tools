@@ -1,9 +1,11 @@
 import { useMemo } from "react"
 import {
 	getImportAssetIdsInFileSource,
-	IMPORT_ASSET_FILE_NAME,
 	IMPORT_ASSETS,
 	type ImportAssetId,
+	isImportAssetsFileName,
+	normalizeImportAssetsFileMap,
+	resolveImportAssetsFileName,
 } from "@/routes/-snippets/editor/import-assets"
 
 export type ImportAssetUsage = {
@@ -54,13 +56,15 @@ export const buildSnippetImportsIndex = (parsedFiles: {
 	mainSource: string
 	files: Record<string, string>
 }): SnippetImportsIndex => {
-	const importAssetsFileSource = parsedFiles.files[IMPORT_ASSET_FILE_NAME] ?? ""
+	const normalizedFiles = normalizeImportAssetsFileMap(parsedFiles.files).files
+	const importAssetsFileName = resolveImportAssetsFileName(normalizedFiles)
+	const importAssetsFileSource = normalizedFiles[importAssetsFileName] ?? ""
 	const importedImportAssetIds = getImportAssetIdsInFileSource(importAssetsFileSource)
 	const importedSet = new Set<ImportAssetId>(importedImportAssetIds)
 
 	const sources: string[] = [parsedFiles.mainSource]
-	for (const [fileName, fileSource] of Object.entries(parsedFiles.files)) {
-		if (fileName === IMPORT_ASSET_FILE_NAME) continue
+	for (const [fileName, fileSource] of Object.entries(normalizedFiles)) {
+		if (isImportAssetsFileName(fileName)) continue
 		sources.push(fileSource)
 	}
 

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test"
 import { parseSnippetFiles } from "@/lib/snippets"
-import { IMPORT_ASSET_FILE_NAME } from "@/routes/-snippets/editor/import-assets"
+import {
+	IMPORT_ASSET_FILE_LEGACY_NAME,
+	IMPORT_ASSET_FILE_NAME,
+} from "@/routes/-snippets/editor/import-assets"
 import { parseSnippetImportText } from "@/routes/-snippets/editor/snippet-import-utils"
 
 describe("snippet-import-utils", () => {
@@ -129,6 +132,34 @@ const EvencioLockup = () => (
 
 		const parsed = parseSnippetFiles(result.value.source)
 		const assetsSource = parsed.files[IMPORT_ASSET_FILE_NAME] ?? ""
+		expect(assetsSource).toContain("const EvencioMark")
+		expect(assetsSource).toContain("const EvencioLockup")
+	})
+
+	it("supports legacy Imports.assets.tsx file names", () => {
+		const input = `
+\`\`\`tsx
+export default function Demo() {
+  return (
+    <div className="h-full w-full">
+      <EvencioLockup />
+    </div>
+  )
+}
+
+// @snippet-file Imports.assets.tsx
+const EvencioMark = () => <svg viewBox="0 0 10 10" />
+// @snippet-file-end
+\`\`\`
+`.trim()
+
+		const result = parseSnippetImportText(input)
+		expect(result.ok).toBe(true)
+		if (!result.ok) return
+
+		const parsed = parseSnippetFiles(result.value.source)
+		expect(Object.hasOwn(parsed.files, IMPORT_ASSET_FILE_LEGACY_NAME)).toBe(true)
+		const assetsSource = parsed.files[IMPORT_ASSET_FILE_LEGACY_NAME] ?? ""
 		expect(assetsSource).toContain("const EvencioMark")
 		expect(assetsSource).toContain("const EvencioLockup")
 	})

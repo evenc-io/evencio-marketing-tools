@@ -4,8 +4,12 @@ import {
 	ensureImportAssetsFileSource,
 	getImportAsset,
 	getImportAssetIdsInFileSource,
+	IMPORT_ASSET_FILE_LEGACY_NAME,
 	IMPORT_ASSET_FILE_NAME,
 	type ImportAssetId,
+	isImportAssetsFileName,
+	normalizeImportAssetsFileMap,
+	resolveImportAssetsFileName,
 } from "@/routes/-snippets/editor/import-assets"
 import { syncImportBlock } from "@/routes/-snippets/editor/snippet-file-utils"
 
@@ -168,12 +172,15 @@ const buildImportAssetsFileIfNeeded = (options: {
 }): { files: Record<string, string>; warnings: string[] } => {
 	const warnings: string[] = []
 
-	const hasAssetsFile = Object.hasOwn(options.files, IMPORT_ASSET_FILE_NAME)
-	const currentAssetsSource = options.files[IMPORT_ASSET_FILE_NAME] ?? ""
+	const importAssetsFileName = resolveImportAssetsFileName(options.files)
+	const hasAssetsFile =
+		Object.hasOwn(options.files, IMPORT_ASSET_FILE_NAME) ||
+		Object.hasOwn(options.files, IMPORT_ASSET_FILE_LEGACY_NAME)
+	const currentAssetsSource = options.files[importAssetsFileName] ?? ""
 	const nonAssetSources = [
 		options.mainSource,
 		...Object.entries(options.files)
-			.filter(([fileName]) => fileName !== IMPORT_ASSET_FILE_NAME)
+			.filter(([fileName]) => !isImportAssetsFileName(fileName))
 			.map(([, source]) => source),
 	]
 	const sources = [options.mainSource, ...Object.values(options.files)]
@@ -217,7 +224,7 @@ const buildImportAssetsFileIfNeeded = (options: {
 
 	const nextFiles = {
 		...options.files,
-		[IMPORT_ASSET_FILE_NAME]: ensureImportAssetsFileSource(currentAssetsSource, idsToEnsure, {
+		[importAssetsFileName]: ensureImportAssetsFileSource(currentAssetsSource, idsToEnsure, {
 			resolveDependencies: false,
 		}),
 	}
@@ -257,9 +264,10 @@ export const parseSnippetImportText = (rawInput: string): SnippetImportParseResu
 		files: parsed.files,
 	})
 
-	const fileNames = Object.keys(filesWithAssets).sort((a, b) => a.localeCompare(b))
+	const normalizedFiles = normalizeImportAssetsFileMap(filesWithAssets).files
+	const fileNames = Object.keys(normalizedFiles).sort((a, b) => a.localeCompare(b))
 	const nextMain = syncImportBlock(cleanedMain, fileNames)
-	const nextSource = serializeSnippetFiles(nextMain, filesWithAssets)
+	const nextSource = serializeSnippetFiles(nextMain, normalizedFiles)
 
 	return {
 		ok: true,

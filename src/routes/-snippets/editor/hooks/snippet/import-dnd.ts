@@ -14,9 +14,10 @@ import {
 	buildImportAssetWrapperJsx,
 	ensureImportAssetsFileSource,
 	getImportAsset,
-	IMPORT_ASSET_FILE_NAME,
 	type ImportAssetDescriptor,
 	type ImportAssetId,
+	normalizeImportAssetsFileMap,
+	resolveImportAssetsFileName,
 } from "@/routes/-snippets/editor/import-assets"
 import type { CustomSnippetValues } from "@/routes/-snippets/editor/schema"
 import type { SnippetEditorFileId } from "@/routes/-snippets/editor/snippet-editor-types"
@@ -269,9 +270,10 @@ export const useSnippetImportDnd = ({
 
 			const currentSource = (form.getValues("source") as string | undefined) ?? ""
 			const parsed = parseSnippetFiles(currentSource)
-			const baseFiles = { ...parsed.files }
-			baseFiles[IMPORT_ASSET_FILE_NAME] = ensureImportAssetsFileSource(
-				baseFiles[IMPORT_ASSET_FILE_NAME] ?? "",
+			const baseFiles = { ...normalizeImportAssetsFileMap(parsed.files).files }
+			const importAssetsFileName = resolveImportAssetsFileName(baseFiles)
+			baseFiles[importAssetsFileName] = ensureImportAssetsFileSource(
+				baseFiles[importAssetsFileName] ?? "",
 				[asset.id],
 			)
 			const baseMain = syncImportBlock(parsed.mainSource, Object.keys(baseFiles))
