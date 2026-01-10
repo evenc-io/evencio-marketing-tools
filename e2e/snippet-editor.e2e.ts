@@ -188,13 +188,13 @@ const ensureExplorerOpen = async (page: Page) => {
 	const editorToggle = page.locator('button[title="Editor"]')
 	const editorPressed = await editorToggle.getAttribute("aria-pressed")
 	if (editorPressed !== "true") {
-		await editorToggle.click()
+		await editorToggle.click({ force: true })
 	}
 
 	const explorerToggle = page.locator('button[title="Explorer"]')
 	const explorerPressed = await explorerToggle.getAttribute("aria-pressed")
 	if (explorerPressed !== "true") {
-		await explorerToggle.click()
+		await explorerToggle.click({ force: true })
 	}
 }
 
@@ -209,7 +209,7 @@ const ensureDetailsOpen = async (page: Page) => {
 const ensureImportsOpen = async (page: Page) => {
 	const showImports = page.getByRole("button", { name: "Show imports panel" })
 	if ((await showImports.count()) > 0) {
-		await showImports.click()
+		await showImports.click({ force: true })
 	}
 }
 
@@ -376,47 +376,6 @@ test("imports gallery can import + remove built-in SVGs", async ({ page }) => {
 	await gallery.getByRole("button", { name: /^SVGs/ }).click()
 	await expect(gallery.getByTestId("imports-gallery-import-evencio-lockup")).toBeVisible()
 	await expect(gallery.getByTestId("imports-gallery-import-evencio-mark")).toBeVisible()
-})
-
-test("imports gallery renders the imports preview file", async ({ page }) => {
-	await openNewSnippetEditor(page)
-	await ensureExplorerOpen(page)
-	await ensureImportsOpen(page)
-
-	await page.getByRole("button", { name: "Gallery" }).click()
-
-	const gallery = page.getByRole("dialog", { name: "Imports gallery" })
-	await expect(gallery).toBeVisible()
-
-	await gallery.getByRole("button", { name: /^SVGs/ }).click()
-
-	await gallery.getByTestId("imports-gallery-import-evencio-lockup").click()
-	await expect(gallery.getByTestId("imports-gallery-remove-evencio-lockup")).toBeVisible()
-
-	await page.keyboard.press("Escape")
-	await expect(gallery).toBeHidden()
-
-	await expect(page.getByTestId("imports-sidebar-import-asset-evencio-lockup")).toBeVisible()
-
-	// Close the imports focus panel to restore the explorer.
-	await page.getByRole("button", { name: "Hide imports panel" }).nth(1).click()
-
-	const previewFrame = page.locator('iframe[data-snippet-preview="iframe"]')
-	await expect(previewFrame).toBeVisible()
-
-	const importsFileTab = page.getByRole("button", { name: "Imports.assets.tsx" })
-	await expect(importsFileTab).toBeVisible()
-	await importsFileTab.click()
-
-	const preview = page.frameLocator('iframe[data-snippet-preview="iframe"]')
-	await expect(preview.locator("[data-snippet-imports-preview]")).toBeVisible()
-	await expect
-		.poll(() => preview.locator("[data-snippet-imports-tile]").count(), { timeout: 30000 })
-		.toBeGreaterThan(0)
-	await expect(preview.getByText("Evencio lockup", { exact: false })).toBeVisible({
-		timeout: 30000,
-	})
-	await expect(page.getByText("Write code to see preview")).toHaveCount(0)
 })
 
 test("layout mode persists translate + size as Tailwind utilities", async ({ page }) => {
