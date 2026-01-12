@@ -146,6 +146,8 @@ export interface SnippetAssetDefinition {
 	source?: string
 	viewport?: SnippetViewport
 	entryExport?: string
+	/** Base64 PNG data URL for preview thumbnail */
+	thumbnailDataUrl?: string | null
 }
 
 export interface AssetBase {

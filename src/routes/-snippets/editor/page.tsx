@@ -1116,6 +1116,8 @@ export function SnippetsEditorPage({ search }: { search: SnippetsEditorSearch })
 		onSuccess: () => {
 			void deleteDraft(currentDraftId)
 		},
+		compiledCode,
+		tailwindCss,
 	})
 
 	const isExamplePreviewing = Boolean(isExamplePreviewActive && activeExample)

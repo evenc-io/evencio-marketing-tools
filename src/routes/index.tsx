@@ -91,9 +91,18 @@ function DashboardPage() {
 								>
 									<Link to="/snippets/editor" search={{ edit: snippet.id }} className="block">
 										<div className="relative aspect-[4/3] w-full overflow-hidden border-b border-neutral-200 bg-neutral-50">
-											<div className="flex h-full w-full items-center justify-center">
-												<FileCode2 className="h-8 w-8 text-neutral-300 group-hover:text-neutral-400" />
-											</div>
+											{snippet.snippet.thumbnailDataUrl ? (
+												<img
+													src={snippet.snippet.thumbnailDataUrl}
+													alt={snippet.metadata.title}
+													className="h-full w-full object-cover"
+													loading="lazy"
+												/>
+											) : (
+												<div className="flex h-full w-full items-center justify-center">
+													<FileCode2 className="h-8 w-8 text-neutral-300 group-hover:text-neutral-400" />
+												</div>
+											)}
 										</div>
 									</Link>
 

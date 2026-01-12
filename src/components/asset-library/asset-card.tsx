@@ -80,11 +80,20 @@ export function AssetCard({
 
 				<div
 					className={cn(
-						"flex items-center justify-center rounded-md border border-neutral-200 bg-neutral-50 text-neutral-400",
+						"flex items-center justify-center overflow-hidden rounded-md border border-neutral-200 bg-neutral-50 text-neutral-400",
 						view === "list" ? "h-12 w-12" : "aspect-[4/3] w-full",
 					)}
 				>
-					<Icon className={cn("h-5 w-5", view === "list" ? "" : "h-6 w-6")} />
+					{asset.type === "snippet" && asset.snippet.thumbnailDataUrl ? (
+						<img
+							src={asset.snippet.thumbnailDataUrl}
+							alt={asset.metadata.title}
+							className="h-full w-full object-cover"
+							loading="lazy"
+						/>
+					) : (
+						<Icon className={cn("h-5 w-5", view === "list" ? "" : "h-6 w-6")} />
+					)}
 				</div>
 
 				<div className={cn("flex-1 space-y-1", view === "list" ? "" : "")}>

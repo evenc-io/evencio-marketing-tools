@@ -32,3 +32,4 @@ export {
 	SnippetRenderError,
 	SnippetValidationError,
 } from "./snippet-renderer"
+export { generateSnippetThumbnail } from "./snippet-thumbnail"
