@@ -286,6 +286,7 @@ interface SnippetRegistrationInput {
 
 interface CustomSnippetRegistrationInput extends SnippetRegistrationInput {
 	source: string
+	thumbnailDataUrl?: string | null
 }
 
 interface CustomSnippetUpdateInput {
@@ -298,6 +299,7 @@ interface CustomSnippetUpdateInput {
 	attribution?: AssetAttribution | null
 	viewport?: SnippetViewport
 	entryExport?: string
+	thumbnailDataUrl?: string | null
 }
 
 export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActions>((set, get) => ({
@@ -510,6 +512,7 @@ export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActio
 			source: input.source,
 			viewport: input.viewport,
 			entryExport: entryExport === DEFAULT_SNIPPET_EXPORT ? undefined : entryExport,
+			thumbnailDataUrl: input.thumbnailDataUrl ?? null,
 		}
 
 		const asset = await service.createAsset(
@@ -622,6 +625,7 @@ export const useAssetLibraryStore = create<AssetLibraryState & AssetLibraryActio
 				propsSchema: derived.propsSchema,
 				viewport: input.viewport ?? existing.snippet.viewport,
 				entryExport: entryExport === DEFAULT_SNIPPET_EXPORT ? undefined : entryExport,
+				thumbnailDataUrl: input.thumbnailDataUrl ?? existing.snippet.thumbnailDataUrl ?? null,
 			},
 			defaultProps: derived.defaultProps,
 			changelog: "Updated snippet",

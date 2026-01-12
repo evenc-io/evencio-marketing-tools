@@ -3,6 +3,7 @@ import { nanoid } from "nanoid"
 import { useCallback } from "react"
 import type { UseFormReturn } from "react-hook-form"
 import { toast } from "sonner"
+import { generateSnippetThumbnail } from "@/lib/asset-library/snippet-thumbnail"
 import { DEFAULT_SNIPPET_EXPORT, listSnippetComponentExports } from "@/lib/snippets"
 import { SNIPPET_COMPONENT_LIMITS } from "@/lib/snippets/constraints"
 import type { useDerivedSnippetProps } from "@/routes/-snippets/editor/hooks/snippet/derived-props"
@@ -40,6 +41,7 @@ interface CustomSnippetRegistrationInput {
 	license: AssetLicense
 	attribution?: AssetAttribution | null
 	source: string
+	thumbnailDataUrl?: string | null
 }
 
 interface CustomSnippetUpdateInput {
@@ -52,6 +54,7 @@ interface CustomSnippetUpdateInput {
 	attribution?: AssetAttribution | null
 	viewport?: SnippetViewport
 	entryExport?: string
+	thumbnailDataUrl?: string | null
 }
 
 type RegisterCustomSnippetAsset = (input: CustomSnippetRegistrationInput) => Promise<Asset>
@@ -70,6 +73,10 @@ interface UseSnippetSubmitOptions {
 	updateCustomSnippetAsset: UpdateCustomSnippetAsset
 	navigate: NavigateFn
 	onSuccess?: (info: { mode: "update" | "create"; assetId: string }) => void
+	/** Compiled code for thumbnail generation */
+	compiledCode: string | null
+	/** Tailwind CSS for thumbnail generation */
+	tailwindCss: string | null
 }
 
 export function useSnippetSubmit({
@@ -85,6 +92,8 @@ export function useSnippetSubmit({
 	updateCustomSnippetAsset,
 	navigate,
 	onSuccess,
+	compiledCode,
+	tailwindCss,
 }: UseSnippetSubmitOptions) {
 	const handleSubmit = useCallback(
 		async (values: CustomSnippetValues) => {
@@ -92,6 +101,24 @@ export function useSnippetSubmit({
 			setIsSubmitting(true)
 			const tagNames = isEditing ? editTagNames : []
 			try {
+				// Generate thumbnail if we have compiled code
+				let thumbnailDataUrl: string | null = null
+				if (compiledCode) {
+					try {
+						thumbnailDataUrl = await generateSnippetThumbnail({
+							compiledCode,
+							props: derivedProps.defaultProps,
+							tailwindCss,
+							viewport: {
+								width: values.viewportWidth,
+								height: values.viewportHeight,
+							},
+						})
+					} catch {
+						// Continue save - thumbnail is nice-to-have
+					}
+				}
+
 				if (isEditing) {
 					if (!editAsset) {
 						throw new Error("Snippet not found or not editable.")
@@ -109,6 +136,7 @@ export function useSnippetSubmit({
 							height: values.viewportHeight,
 						},
 						entryExport: activeComponentExport,
+						thumbnailDataUrl,
 					})
 					form.reset(values, { keepDirty: false, keepTouched: false })
 					toast.success("Changes saved")
@@ -154,6 +182,7 @@ export function useSnippetSubmit({
 					tagNames,
 					license: buildSnippetLicense(values),
 					attribution: buildSnippetAttribution(values),
+					thumbnailDataUrl,
 				})
 
 				toast.success("Snippet created")
@@ -168,6 +197,7 @@ export function useSnippetSubmit({
 		},
 		[
 			activeComponentExport,
+			compiledCode,
 			derivedProps.defaultProps,
 			derivedProps.propsSchema,
 			editAsset,
@@ -179,6 +209,7 @@ export function useSnippetSubmit({
 			registerCustomSnippetAsset,
 			setError,
 			setIsSubmitting,
+			tailwindCss,
 			updateCustomSnippetAsset,
 		],
 	)

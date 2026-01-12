@@ -161,6 +161,7 @@ export const snippetAssetDefinitionSchema = z
 		source: z.string().optional(),
 		viewport: snippetViewportSchema.optional(),
 		entryExport: z.string().min(1).optional(),
+		thumbnailDataUrl: z.string().nullable().optional(),
 	})
 	.strict() satisfies z.ZodType<SnippetAssetDefinition>
 
